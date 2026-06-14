@@ -227,13 +227,15 @@ NORMAL_MOB_DROPS = {
     "seal":         {"chance": 0.0005},
 }
 
+# Elite mob config
+ELITE_MOB_STAT_MULTIPLIER = 2.5   # elite HP/ATK vs normal
 ELITE_MOB_DROPS = {
-    "gold":         {"min": 50,  "max": 150, "chance": 1.00},
-    "champion_FE":  {"chance": 0.05},   # F or E randomly
-    "item_FE":      {"chance": 0.10},
-    "enhance_mat":  {"min": 2, "max": 5, "chance": 0.25},
-    "reroll_mat":   {"min": 1, "max": 2, "chance": 0.12},
-    "seal":         {"chance": 0.001},
+    "gold":        {"chance": 1.0, "min": 200,  "max": 600},
+    "champion":    {"chance": 0.25, "ranks": ["F", "E"]},
+    "item":        {"chance": 0.30, "ranks": ["F", "E"]},
+    "seal":        {"chance": 0.005},
+    "enhance_mat": {"chance": 0.60, "min": 3, "max": 8},
+    "reroll_mat":  {"chance": 0.40, "min": 1, "max": 3},
 }
 
 BOSS_DROPS = {
@@ -351,3 +353,31 @@ def get_aura(level: int) -> str:
 # New-account trading restrictions
 # ---------------------------------------------------------------------------
 TRADING_MIN_ACCOUNT_AGE_HOURS = 24
+
+# ---------------------------------------------------------------------------
+# Boss mechanics flags (per zone)
+# ---------------------------------------------------------------------------
+BOSS_MECHANICS = {
+    "forest":  {"mechanic": "shield",  "shield_hp_ratio": 0.20, "enrage_round": 45},
+    "dungeon": {"mechanic": "adds",    "add_count": 2,          "enrage_round": 40},
+    "castle":  {"mechanic": "reflect", "reflect_ratio": 0.15,   "enrage_round": 35},
+    "abyss":   {"mechanic": "enrage",  "enrage_atk_mult": 2.0,  "enrage_round": 30},
+}
+
+# ---------------------------------------------------------------------------
+# Formation bonuses (applied to CombatUnit before battle)
+# ---------------------------------------------------------------------------
+FORMATION_BONUSES = {
+    # position: {stat: bonus_fraction}
+    1: {"def": 0.10},   # front row tank bonus
+    2: {"def": 0.10},
+    3: {"atk": 0.05},   # back row damage bonus
+    4: {"atk": 0.05},
+    5: {"atk": 0.05},
+}
+
+# ---------------------------------------------------------------------------
+# Bulk sell prices (gold) by rank
+# ---------------------------------------------------------------------------
+SELL_PRICE_CHAMPION = {"F": 50, "E": 150, "D": 400, "C": 1000, "B": 2500, "A": 6000, "S": 15000}
+SELL_PRICE_ITEM     = {"F": 30, "E": 90,  "D": 240, "C": 600,  "B": 1500, "A": 3600, "S": 9000}

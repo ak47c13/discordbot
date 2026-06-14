@@ -53,6 +53,8 @@ async def fuse_champions(
             raise FusionError(f"Champion {cid} not found.")
         if c.owner_id != owner_id:
             raise FusionError("You don't own all these champions.")
+        if getattr(c, "favorite", False):
+            raise FusionError("Cannot fuse a favorited champion. Unfavorite first.")
         if not c.is_available:
             raise FusionError(
                 f"{c.name} is equipped, locked, in a trade, or listed on market."
@@ -108,6 +110,57 @@ async def fuse_champions(
         )
 
     return result
+
+
+async def bulk_fuse_champions(
+    owner_id: str,
+    champion_name: str,
+    rank: str,
+    count: int,
+    session: AsyncIOMotorClientSession,
+) -> list[ChampionInstance]:
+    """
+    Fuse ``count`` champions of (name, rank) in groups of 3 into the next rank.
+
+    - ``count`` must be a positive multiple of 3.
+    - Runs ``count // 3`` sequential fusions, each consuming 3 source champions.
+    - Skips locked / favorited / unavailable champions.
+    - Stops if fewer than 3 unfused candidates remain.
+    Returns the list of created champions.
+    """
+    if count <= 0 or count % 3 != 0:
+        raise FusionError("Count must be a positive multiple of 3.")
+    if rank == "S":
+        raise FusionError("S-rank champions cannot be fused further.")
+
+    fusions = count // 3
+    created: list[ChampionInstance] = []
+
+    for _ in range(fusions):
+        # Re-query each iteration so previously consumed champions are excluded.
+        candidates = await ChampionInstance.find(
+            ChampionInstance.owner_id == owner_id,
+            ChampionInstance.name == champion_name,
+            ChampionInstance.rank == rank,
+            session=usable_session(session),
+        ).to_list()
+        usable = [
+            c for c in candidates
+            if c.is_available and not getattr(c, "favorite", False)
+        ]
+        if len(usable) < 3:
+            break
+        trio = usable[:3]
+        result = await fuse_champions(owner_id, [str(c.id) for c in trio], session)
+        created.append(result)
+
+    if not created:
+        raise FusionError(
+            f"Not enough available {champion_name} ({rank}) to fuse. "
+            "Need at least 3 unlocked, non-favorite copies."
+        )
+
+    return created
 
 
 async def level_up_champion(

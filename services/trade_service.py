@@ -179,6 +179,8 @@ async def _lock_assets(
         c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         if c is None or c.owner_id != owner_id:
             raise TradeError(f"Champion {cid} not found or not owned by you.")
+        if lock and getattr(c, "favorite", False):
+            raise TradeError(f"Cannot trade favorited champion {c.name}. Unfavorite first.")
         if lock and not c.is_available:
             raise TradeError(f"{c.name} is already locked, equipped, or in another trade.")
         c.in_trade = lock
@@ -188,6 +190,8 @@ async def _lock_assets(
         itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         if itm is None or itm.owner_id != owner_id:
             raise TradeError(f"Item {iid} not found or not owned by you.")
+        if lock and getattr(itm, "favorite", False):
+            raise TradeError(f"Cannot trade favorited item {itm.name}. Unfavorite first.")
         if lock and not itm.is_available:
             raise TradeError(f"{itm.name} is already locked, equipped, or in another trade.")
         itm.in_trade = lock

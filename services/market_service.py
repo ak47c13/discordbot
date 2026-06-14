@@ -33,6 +33,8 @@ async def list_champion(
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != seller_id:
         raise MarketError("Champion not found or not owned by you.")
+    if getattr(c, "favorite", False):
+        raise MarketError("Cannot list a favorited champion. Unfavorite first.")
     if not c.is_available:
         raise MarketError("Champion is equipped, locked, or already in a trade/listing.")
 
@@ -68,6 +70,8 @@ async def list_item(
     itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != seller_id:
         raise MarketError("Item not found or not owned by you.")
+    if getattr(itm, "favorite", False):
+        raise MarketError("Cannot list a favorited item. Unfavorite first.")
     if not itm.is_available:
         raise MarketError("Item is equipped, locked, or already in a trade/listing.")
 

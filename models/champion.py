@@ -18,6 +18,16 @@ class ChampionInstance(Document):
     in_trade: bool = False
     in_market: bool = False
 
+    # Collection / metadata flags
+    favorite: bool = False
+    enabled: bool = True
+    release_group: int = 1
+    balance_status: str = "DRAFT"  # DRAFT/REVIEWED/TESTED/LIVE/DISABLED
+    manually_reviewed: bool = False
+    riot_id: str = ""
+    title: str = ""
+    source_roles: list[str] = Field(default_factory=list)
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     class Settings:

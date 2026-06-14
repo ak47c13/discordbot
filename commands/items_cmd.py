@@ -7,8 +7,9 @@ from models.item import ItemInstance
 from utils.embeds import item_embed, error_embed, success_embed, ConfirmView
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
-from services.item_service import fuse_items, ItemFusionError
-from config.game_config import ITEM_FUSION_COST, RANKS
+from services.item_service import fuse_items, bulk_fuse_items, ItemFusionError
+from services.bulk_service import bulk_sell_items, BulkSellError
+from config.game_config import ITEM_FUSION_COST, RANKS, SELL_PRICE_ITEM
 
 
 class ItemsCog(commands.Cog):
@@ -158,10 +159,95 @@ class ItemsCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return
-        itm.favorited = not itm.favorited
+        new_state = not getattr(itm, "favorite", False)
+        itm.favorited = new_state
+        itm.favorite = new_state
         await itm.save()
-        state = "⭐ favorited" if itm.favorited else "unfavorited"
+        state = "⭐ favorited" if new_state else "unfavorited"
         await interaction.followup.send(embed=success_embed(f"{itm.name} is now {state}."), ephemeral=True)
+
+    @app_commands.command(name="items-bulk-fuse", description="Fuse many identical +0 items at once (count must be a multiple of 3).")
+    @app_commands.describe(name="Item name", rank="Source rank", count="How many to consume (multiple of 3)")
+    async def bulk_fuse_items_cmd(self, interaction: discord.Interaction, name: str, rank: str, count: int):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        rank = rank.upper()
+        if count <= 0 or count % 3 != 0:
+            await interaction.followup.send(embed=error_embed("Count must be a positive multiple of 3."), ephemeral=True)
+            return
+        if rank == "S":
+            await interaction.followup.send(embed=error_embed("S-rank items cannot be fused."), ephemeral=True)
+            return
+        next_rank = RANKS[RANKS.index(rank) + 1]
+        produced = count // 3
+
+        embed = discord.Embed(
+            title="🔨 Confirm Bulk Item Fusion",
+            description=f"Fuse **{count}x {name} [{rank}] +0** → **{produced}x {name} [{next_rank}]**?",
+            color=0xFF8800,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=0x888888), ephemeral=True)
+            return
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        created = await bulk_fuse_items(uid, name, rank, count, session)
+                    except ItemFusionError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        await interaction.followup.send(embed=success_embed(f"✨ Created {len(created)}x {name} [{next_rank}]!"), ephemeral=True)
+
+    @app_commands.command(name="items-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped items of a rank.")
+    @app_commands.describe(rank="Rank to sell", name="Optional item name filter")
+    async def bulk_sell_items_cmd(self, interaction: discord.Interaction, rank: str, name: str = ""):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        rank = rank.upper()
+        filters = {"rank": rank, "name": name or None}
+
+        items = await ItemInstance.find(ItemInstance.owner_id == uid, ItemInstance.rank == rank).to_list()
+        matches = [
+            i for i in items
+            if (not name or i.name == name)
+            and not i.locked and not getattr(i, "favorite", False)
+            and not i.in_trade and not i.in_market and i.equipped_to is None
+        ]
+        if not matches:
+            await interaction.followup.send(embed=error_embed("No sellable items match."), ephemeral=True)
+            return
+        gold = len(matches) * SELL_PRICE_ITEM.get(rank, 0)
+
+        embed = discord.Embed(
+            title="💰 Confirm Bulk Sell",
+            description=f"Sell **{len(matches)}** item(s) for **{gold} gold**?",
+            color=0xFF8800,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=0x888888), ephemeral=True)
+            return
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        res = await bulk_sell_items(uid, filters, session)
+                    except BulkSellError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        await interaction.followup.send(embed=success_embed(f"Sold {res['sold']} item(s) for {res['gold']} gold."), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

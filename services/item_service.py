@@ -47,6 +47,8 @@ async def fuse_items(
             raise ItemFusionError(f"Item {iid} not found.")
         if itm.owner_id != owner_id:
             raise ItemFusionError("You don't own all these items.")
+        if getattr(itm, "favorite", False):
+            raise ItemFusionError("Cannot fuse a favorited item. Unfavorite first.")
         if not itm.is_fusible:
             raise ItemFusionError(
                 f"{itm.name} +{itm.enhancement} cannot be fused. "
@@ -106,6 +108,54 @@ async def fuse_items(
         )
 
     return result
+
+
+async def bulk_fuse_items(
+    owner_id: str,
+    item_name: str,
+    rank: str,
+    count: int,
+    session: AsyncIOMotorClientSession,
+) -> list[ItemInstance]:
+    """
+    Fuse ``count`` items of (name, rank) at +0 in groups of 3 into the next rank.
+
+    - ``count`` must be a positive multiple of 3.
+    - Skips locked / favorited / enhanced / unavailable items.
+    - Stops if fewer than 3 fusible candidates remain.
+    """
+    if count <= 0 or count % 3 != 0:
+        raise ItemFusionError("Count must be a positive multiple of 3.")
+    if rank == "S":
+        raise ItemFusionError("S-rank items cannot be fused further.")
+
+    fusions = count // 3
+    created: list[ItemInstance] = []
+
+    for _ in range(fusions):
+        candidates = await ItemInstance.find(
+            ItemInstance.owner_id == owner_id,
+            ItemInstance.name == item_name,
+            ItemInstance.rank == rank,
+            session=usable_session(session),
+        ).to_list()
+        usable = [
+            i for i in candidates
+            if i.is_fusible and not getattr(i, "favorite", False)
+        ]
+        if len(usable) < 3:
+            break
+        trio = usable[:3]
+        result = await fuse_items(owner_id, [str(i.id) for i in trio], session)
+        created.append(result)
+
+    if not created:
+        raise ItemFusionError(
+            f"Not enough fusible {item_name} ({rank}) at +0 to fuse. "
+            "Need at least 3 unlocked, non-favorite copies."
+        )
+
+    return created
 
 
 async def grant_item(

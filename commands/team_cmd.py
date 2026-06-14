@@ -119,6 +119,72 @@ class TeamCog(commands.Cog):
             ephemeral=True,
         )
 
+    formation = app_commands.Group(name="formation", description="Manage your team formation positions.")
+
+    @formation.command(name="view", description="Show your current 5-slot formation.")
+    async def formation_view(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        await User.get_or_create(uid, interaction.user.display_name)
+        team = await Team.get_or_create(uid)
+
+        embed = discord.Embed(title="🛡️ Formation", color=0x5865F2)
+        for idx, slot in enumerate(team.slots):
+            pos = idx + 1
+            row = "Front (DEF +10%)" if pos <= 2 else "Back (ATK +5%)"
+            if slot is None:
+                embed.add_field(name=f"Slot {pos} — {row}", value="*Empty*", inline=False)
+            else:
+                champ = await ChampionInstance.get(slot)
+                label = f"**{champ.name}** [{champ.rank}] Lv.{champ.level}" if champ else "*Missing*"
+                embed.add_field(name=f"Slot {pos} — {row}", value=label, inline=False)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @formation.command(name="set", description="Move a champion in your team to a specific slot (1-5).")
+    @app_commands.describe(slot="Target slot 1-5", champion_id="Champion ID to place")
+    async def formation_set(self, interaction: discord.Interaction, slot: int, champion_id: str):
+        await interaction.response.defer(ephemeral=True)
+        if not 1 <= slot <= TEAM_SIZE:
+            await interaction.followup.send(embed=error_embed("Slot must be 1–5."), ephemeral=True)
+            return
+
+        uid = str(interaction.user.id)
+        async with get_user_lock(uid):
+            champ = await ChampionInstance.get(champion_id)
+            if champ is None or champ.owner_id != uid:
+                await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
+                return
+
+            team = await Team.get_or_create(uid)
+            if champion_id not in team.slots:
+                await interaction.followup.send(
+                    embed=error_embed("That champion is not in your team. Use /team-add first."),
+                    ephemeral=True,
+                )
+                return
+
+            cur_idx = team.slots.index(champion_id)
+            target_idx = slot - 1
+
+            # Swap whatever is in the target slot with the champion's current slot.
+            occupant_id = team.slots[target_idx]
+            team.slots[target_idx] = champion_id
+            team.slots[cur_idx] = occupant_id
+
+            champ.formation_slot = slot
+            await champ.save()
+            if occupant_id:
+                occ = await ChampionInstance.get(occupant_id)
+                if occ:
+                    occ.formation_slot = cur_idx + 1
+                    await occ.save()
+            await team.save()
+
+        await interaction.followup.send(
+            embed=success_embed(f"{champ.name} moved to slot {slot}."),
+            ephemeral=True,
+        )
+
     @app_commands.command(name="equip", description="Equip an item to a champion.")
     @app_commands.describe(item_id="Item ID", champion_id="Champion ID", slot="Equipment slot 1-5")
     async def equip(self, interaction: discord.Interaction, item_id: str, champion_id: str, slot: int):

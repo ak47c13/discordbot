@@ -44,6 +44,11 @@ class CombatUnit:
 
     status_effects: list[StatusEffect] = field(default_factory=list)
 
+    # Boss mechanic state
+    is_boss: bool = False
+    mechanic: str = ""
+    mechanic_triggered: bool = False
+
     # Skill callables (set during build)
     basic_fn: Optional[callable] = field(default=None, repr=False)
     ultimate_fn: Optional[callable] = field(default=None, repr=False)
@@ -161,6 +166,15 @@ def build_unit_from_champion(
         basic_fn=skills.get("basic"),
         ultimate_fn=skills.get("ultimate"),
     )
+
+    # Apply formation bonuses based on position.
+    from config.game_config import FORMATION_BONUSES
+    bonuses = FORMATION_BONUSES.get(position, {})
+    if "def" in bonuses:
+        unit.def_stat = int(unit.def_stat * (1 + bonuses["def"]))
+    if "atk" in bonuses:
+        unit.atk = int(unit.atk * (1 + bonuses["atk"]))
+
     return unit
 
 
@@ -180,6 +194,8 @@ def build_boss_unit(boss_cfg: dict, position: int, team: int) -> CombatUnit:
         def_stat=boss_cfg["def"],
         spd=boss_cfg.get("spd", 90),
         mana=0,
+        is_boss=boss_cfg.get("is_boss", True),
+        mechanic=boss_cfg.get("mechanic", ""),
         basic_fn=skills.get("basic"),
         ultimate_fn=skills.get("ultimate"),
     )
@@ -213,6 +229,76 @@ class BattleResult:
     enemy_survived: list[str]
 
 
+def _invoke_skill(fn, unit, enemies, allies) -> list[str]:
+    """Call a skill function (which returns mana int) and recover its log lines."""
+    result = fn(unit, enemies, allies)
+    if isinstance(result, list):
+        # Legacy contract: function already returned log lines.
+        return result
+    return list(getattr(fn, "last_log", []) or [])
+
+
+def _reflect_ratio(boss) -> float:
+    from config.game_config import BOSS_MECHANICS
+    for cfg in BOSS_MECHANICS.values():
+        if cfg.get("mechanic") == "reflect":
+            return cfg.get("reflect_ratio", 0.15)
+    return 0.15
+
+
+def _apply_boss_mechanics(enemy_units, rnd, log):
+    """Apply per-round boss mechanic triggers."""
+    from config.game_config import BOSS_MECHANICS, CHAMPION_BASE_STATS
+    from engine.status_effects import Shield
+
+    spawned = []
+    for boss in [b for b in enemy_units if getattr(b, "is_boss", False)]:
+        cfg = None
+        for zcfg in BOSS_MECHANICS.values():
+            if zcfg.get("mechanic") == boss.mechanic:
+                cfg = zcfg
+                break
+        if cfg is None:
+            continue
+
+        # Shield: applied once at round 1.
+        if boss.mechanic == "shield" and rnd == 1 and not boss.mechanic_triggered:
+            amt = int(boss.hp_max * cfg.get("shield_hp_ratio", 0.20))
+            boss.status_effects.append(Shield(absorb=amt, duration=99))
+            boss.mechanic_triggered = True
+            log.append(f"  {boss.name} raises a {amt} HP barrier!")
+
+        # Adds: spawn mini-bosses at round 10.
+        if boss.mechanic == "adds" and rnd == 10 and not boss.mechanic_triggered:
+            boss.mechanic_triggered = True
+            for i in range(cfg.get("add_count", 2)):
+                add = CombatUnit(
+                    unit_id=f"{boss.unit_id}_add_{i}",
+                    name=f"{boss.name} Add {i + 1}",
+                    rank=boss.rank,
+                    level=boss.level,
+                    position=min(i + 2, 5),
+                    team=boss.team,
+                    hp=int(boss.hp_max * 0.30),
+                    hp_max=int(boss.hp_max * 0.30),
+                    atk=boss.atk * 0.30,
+                    def_stat=boss.def_stat * 0.30,
+                    spd=boss.spd,
+                    basic_fn=boss.basic_fn,
+                    ultimate_fn=boss.ultimate_fn,
+                )
+                spawned.append(add)
+                log.append(f"  {boss.name} summons {add.name}!")
+
+        # Enrage: multiply ATK at the enrage round.
+        if boss.mechanic == "enrage" and rnd == cfg.get("enrage_round", 30) and not boss.mechanic_triggered:
+            boss.atk *= cfg.get("enrage_atk_mult", 2.0)
+            boss.mechanic_triggered = True
+            log.append(f"  {boss.name} ENRAGES — attack power surges!")
+
+    return spawned
+
+
 def run_battle(
     player_units: list[CombatUnit],
     enemy_units: list[CombatUnit],
@@ -239,6 +325,14 @@ def run_battle(
             )
 
         log.append(f"\n=== Round {rnd} ===")
+
+        # Boss mechanics (may spawn additional enemies)
+        new_adds = _apply_boss_mechanics(enemy_units, rnd, log)
+        if new_adds:
+            enemy_units.extend(new_adds)
+            all_units.extend(new_adds)
+            alive_enemies = [u for u in enemy_units if u.is_alive]
+
         turn_order = _sort_turn_order(alive_players + alive_enemies)
 
         for unit in turn_order:
@@ -267,14 +361,18 @@ def run_battle(
                 unit.tick_effects_end()
                 continue
 
+            # Snapshot enemy HP for reflect mechanic.
+            reflect_bosses = [b for b in enemies_of_unit if getattr(b, "mechanic", "") == "reflect"]
+            hp_before = {id(b): b.hp for b in reflect_bosses}
+
             # Choose skill
             silenced = unit.has_effect(Silence)
             if unit.mana >= MANA_ULTIMATE_THRESHOLD and not silenced and unit.ultimate_fn:
                 log.append(f"  {unit.name} casts ULTIMATE (mana={unit.mana})")
-                skill_log = unit.ultimate_fn(unit, enemies_of_unit, allies_of_unit)
+                skill_log = _invoke_skill(unit.ultimate_fn, unit, enemies_of_unit, allies_of_unit)
                 unit.mana = 0
             elif unit.basic_fn:
-                skill_log = unit.basic_fn(unit, enemies_of_unit, allies_of_unit)
+                skill_log = _invoke_skill(unit.basic_fn, unit, enemies_of_unit, allies_of_unit)
                 log.append(f"  {unit.name} uses basic skill (mana={unit.mana})")
             else:
                 # Fallback: simple auto-attack
@@ -285,6 +383,14 @@ def run_battle(
                 unit.mana = min(MANA_MAX, unit.mana + 20)
 
             log.extend(skill_log)
+
+            # Reflect mechanic: bosses return a portion of damage taken to the attacker.
+            for boss in reflect_bosses:
+                dealt = hp_before[id(boss)] - boss.hp
+                if dealt > 0 and unit.is_alive:
+                    reflected = max(1, int(dealt * _reflect_ratio(boss)))
+                    unit.hp = max(0, unit.hp - reflected)
+                    log.append(f"  {boss.name} reflects {reflected} damage back to {unit.name}!")
 
             # End-of-turn effects
             log.extend(unit.tick_effects_end())
@@ -375,10 +481,11 @@ def generate_mob_team(zone: str, mob_count: int) -> list[CombatUnit]:
 
 
 def generate_boss_unit_for_zone(zone: str) -> CombatUnit:
-    from config.game_config import HUNT_ZONES, CHAMPION_BASE_STATS
+    from config.game_config import HUNT_ZONES, CHAMPION_BASE_STATS, BOSS_MECHANICS
     zone_cfg = HUNT_ZONES[zone]
     rank = zone_cfg["boss_rank"]
     base = CHAMPION_BASE_STATS[rank]
+    mech_cfg = BOSS_MECHANICS.get(zone, {})
     boss_cfg = {
         "name": zone_cfg["boss_name"],
         "rank": rank,
@@ -387,5 +494,7 @@ def generate_boss_unit_for_zone(zone: str) -> CombatUnit:
         "atk": int(base["atk"] * 1.5),
         "def": int(base["def"] * 1.5),
         "spd": base["spd"] - 5,
+        "is_boss": True,
+        "mechanic": mech_cfg.get("mechanic", ""),
     }
     return build_boss_unit(boss_cfg, position=1, team=1)

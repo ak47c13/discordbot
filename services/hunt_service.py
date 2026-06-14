@@ -95,6 +95,17 @@ async def run_hunt(
 
     # Determine if boss spawns this run
     boss_spawned = random.random() < zone_cfg["boss_chance"]
+
+    # Determine elite encounter (only for non-boss waves)
+    is_elite = (not boss_spawned) and random.random() < zone_cfg["elite_chance"]
+    if is_elite:
+        from config.game_config import ELITE_MOB_STAT_MULTIPLIER
+        for e in enemy_units:
+            e.hp = int(e.hp * ELITE_MOB_STAT_MULTIPLIER)
+            e.hp_max = int(e.hp_max * ELITE_MOB_STAT_MULTIPLIER)
+            e.atk = e.atk * ELITE_MOB_STAT_MULTIPLIER
+            e.name = f"Elite {e.name}"
+
     if boss_spawned:
         boss = generate_boss_unit_for_zone(zone_key)
         enemy_units = [boss]  # Boss fight replaces mob wave
@@ -104,7 +115,6 @@ async def run_hunt(
 
     # Determine drop table
     is_boss = boss_spawned
-    is_elite = (not is_boss) and random.random() < zone_cfg["elite_chance"]
 
     rewards: dict[str, Any] = {"gold": 0, "champions": [], "items": [], "seals": 0}
 
@@ -141,23 +151,33 @@ async def _roll_drops(
             user.gold += amount
             rewards["gold"] += amount
 
-        elif drop_key in ("champion_F", "champion"):
-            rank = "F"
-            name = random.choice(ALL_CHAMPION_NAMES)
-            c = await grant_champion(owner_id, name, rank, session)
-            rewards["champions"].append({"name": name, "rank": rank, "id": str(c.id)})
-
-        elif drop_key == "champion_FE":
-            rank = random.choice(["F", "E"])
+        elif drop_key in ("champion_F", "champion", "champion_FE"):
+            ranks = cfg.get("ranks")
+            if ranks:
+                rank = random.choice(ranks)
+            elif drop_key == "champion_FE":
+                rank = random.choice(["F", "E"])
+            else:
+                rank = "F"
             name = random.choice(ALL_CHAMPION_NAMES)
             c = await grant_champion(owner_id, name, rank, session)
             rewards["champions"].append({"name": name, "rank": rank, "id": str(c.id)})
 
         elif drop_key in ("item_F", "item", "item_FE"):
-            rank = "F" if drop_key == "item_F" else random.choice(["F", "E"])
+            ranks = cfg.get("ranks")
+            if ranks:
+                rank = random.choice(ranks)
+            elif drop_key == "item_F":
+                rank = "F"
+            else:
+                rank = random.choice(["F", "E"])
             name, stat, passive = random.choice(ITEM_POOL)
             itm = await grant_item(owner_id, name, rank, stat, passive, session)
             rewards["items"].append({"name": name, "rank": rank, "id": str(itm.id)})
+
+        elif drop_key in ("enhance_mat", "reroll_mat"):
+            amount = random.randint(cfg.get("min", 1), cfg.get("max", 1))
+            rewards[drop_key] = rewards.get(drop_key, 0) + amount
 
         elif drop_key == "seal":
             user.blacksmith_seals = getattr(user, "blacksmith_seals", 0) + 1

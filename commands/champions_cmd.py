@@ -7,8 +7,11 @@ from models.champion import ChampionInstance
 from utils.embeds import champion_embed, error_embed, success_embed, ConfirmView
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
-from services.champion_service import fuse_champions, level_up_champion, FusionError
-from config.game_config import CHAMPION_FUSION_COST, RANKS
+from services.champion_service import (
+    fuse_champions, bulk_fuse_champions, level_up_champion, FusionError,
+)
+from services.bulk_service import bulk_sell_champions, BulkSellError
+from config.game_config import CHAMPION_FUSION_COST, RANKS, SELL_PRICE_CHAMPION
 
 
 class ChampionsCog(commands.Cog):
@@ -132,6 +135,113 @@ class ChampionsCog(commands.Cog):
             ),
             ephemeral=True,
         )
+
+    @app_commands.command(name="champions-bulk-fuse", description="Fuse many identical champions at once (count must be a multiple of 3).")
+    @app_commands.describe(name="Champion name", rank="Source rank", count="How many to consume (multiple of 3)")
+    async def bulk_fuse_champs(self, interaction: discord.Interaction, name: str, rank: str, count: int):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        rank = rank.upper()
+        if count <= 0 or count % 3 != 0:
+            await interaction.followup.send(embed=error_embed("Count must be a positive multiple of 3."), ephemeral=True)
+            return
+        if rank == "S":
+            await interaction.followup.send(embed=error_embed("S-rank champions cannot be fused."), ephemeral=True)
+            return
+        next_rank = RANKS[RANKS.index(rank) + 1]
+        produced = count // 3
+
+        embed = discord.Embed(
+            title="🔮 Confirm Bulk Fusion",
+            description=(
+                f"Fuse **{count}x {name} [{rank}]** → **{produced}x {name} [{next_rank}]**?\n"
+                f"⚠️ Source champions will be permanently consumed."
+            ),
+            color=0xFF8800,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=0x888888), ephemeral=True)
+            return
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        created = await bulk_fuse_champions(uid, name, rank, count, session)
+                    except FusionError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        await interaction.followup.send(
+            embed=success_embed(f"✨ Created {len(created)}x {name} [{next_rank}]!"),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="champions-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped champions of a rank.")
+    @app_commands.describe(rank="Rank to sell", name="Optional champion name filter")
+    async def bulk_sell_champs(self, interaction: discord.Interaction, rank: str, name: str = ""):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        rank = rank.upper()
+        filters = {"rank": rank, "name": name or None}
+
+        # Preview: count matching
+        champs = await ChampionInstance.find(ChampionInstance.owner_id == uid, ChampionInstance.rank == rank).to_list()
+        matches = [
+            c for c in champs
+            if (not name or c.name == name)
+            and not c.locked and not getattr(c, "favorite", False)
+            and not c.in_trade and not c.in_market and c.equipped_in_team is None
+        ]
+        if not matches:
+            await interaction.followup.send(embed=error_embed("No sellable champions match."), ephemeral=True)
+            return
+        gold = len(matches) * SELL_PRICE_CHAMPION.get(rank, 0)
+
+        embed = discord.Embed(
+            title="💰 Confirm Bulk Sell",
+            description=f"Sell **{len(matches)}** champion(s) for **{gold} gold**?",
+            color=0xFF8800,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=0x888888), ephemeral=True)
+            return
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        res = await bulk_sell_champions(uid, filters, session)
+                    except BulkSellError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        await interaction.followup.send(
+            embed=success_embed(f"Sold {res['sold']} champion(s) for {res['gold']} gold."),
+            ephemeral=True,
+        )
+
+    @app_commands.command(name="champion-favorite", description="Toggle the favorite flag on a champion.")
+    @app_commands.describe(champion_id="Champion ID")
+    async def favorite_champ(self, interaction: discord.Interaction, champion_id: str):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        c = await ChampionInstance.get(champion_id)
+        if c is None or c.owner_id != uid:
+            await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
+            return
+        c.favorite = not getattr(c, "favorite", False)
+        await c.save()
+        state = "⭐ favorited" if c.favorite else "unfavorited"
+        await interaction.followup.send(embed=success_embed(f"{c.name} [{c.rank}] is now {state}."), ephemeral=True)
 
     @app_commands.command(name="levelup", description="Level up a champion (costs gold).")
     @app_commands.describe(champion_id="Champion ID")
