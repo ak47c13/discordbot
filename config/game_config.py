@@ -1,0 +1,353 @@
+"""
+Central configuration for all game rates, costs, drop tables, and multipliers.
+Nothing numeric lives in business logic — change values here only.
+"""
+
+# ---------------------------------------------------------------------------
+# Rank ordering
+# ---------------------------------------------------------------------------
+RANKS = ["F", "E", "D", "C", "B", "A", "S"]
+RANK_INDEX = {r: i for i, r in enumerate(RANKS)}  # F=0 … S=6
+
+# ---------------------------------------------------------------------------
+# Champion fusion costs (gold) indexed by resulting rank
+# F->E costs 100, E->D 200, D->C 400 …
+# ---------------------------------------------------------------------------
+CHAMPION_FUSION_COST = {
+    "E": 100,
+    "D": 200,
+    "C": 400,
+    "B": 800,
+    "A": 1600,
+    "S": 3200,
+}
+
+# ---------------------------------------------------------------------------
+# Item fusion costs (gold) indexed by resulting rank
+# ---------------------------------------------------------------------------
+ITEM_FUSION_COST = {
+    "E": 50,
+    "D": 100,
+    "C": 200,
+    "B": 400,
+    "A": 800,
+    "S": 1600,
+}
+
+# ---------------------------------------------------------------------------
+# Enhancement success rates (+current -> +current+1)
+# Key is the CURRENT level (e.g. 0 means attempting +0 -> +1)
+# ---------------------------------------------------------------------------
+ENHANCEMENT_SUCCESS_RATE = {
+    0: 1.00,
+    1: 1.00,
+    2: 0.95,
+    3: 0.90,
+    4: 0.85,
+    5: 0.80,
+    6: 0.75,
+    7: 0.60,
+    8: 0.50,
+    9: 0.40,
+    10: 0.30,
+    11: 0.25,
+    12: 0.20,
+    13: 0.15,
+    14: 0.10,
+}
+
+# Enhancement is risky (destruction on fail) above this level
+ENHANCEMENT_SAFE_MAX = 7
+
+# Enhancement stat multipliers: total bonus over base stat at each level
+ENHANCEMENT_MULTIPLIER = {
+    0: 0.00,
+    1: 0.05,
+    2: 0.10,
+    3: 0.15,
+    4: 0.21,
+    5: 0.27,
+    6: 0.34,
+    7: 0.42,
+    8: 0.51,
+    9: 0.61,
+    10: 0.72,
+    11: 0.84,
+    12: 0.97,
+    13: 1.11,
+    14: 1.26,
+    15: 1.45,
+}
+
+# Enhancement gold cost per attempt (multiplied by current enhancement level, min 10)
+ENHANCEMENT_GOLD_BASE = 10
+
+def enhancement_gold_cost(current_level: int) -> int:
+    return max(10, ENHANCEMENT_GOLD_BASE * (current_level + 1))
+
+# Enhancement material cost per attempt (basic_enhance_mat quantity)
+ENHANCEMENT_MAT_COST = {
+    0: 1, 1: 1, 2: 1, 3: 2, 4: 2, 5: 3, 6: 3,
+    7: 5, 8: 5, 9: 8, 10: 8, 11: 10, 12: 12, 13: 15, 14: 20,
+}
+
+# ---------------------------------------------------------------------------
+# Clearing costs: gold = CLEAR_GOLD_BASE * rank_index * enhancement_level
+# ---------------------------------------------------------------------------
+CLEAR_GOLD_BASE = 20
+
+def clearing_gold_cost(rank: str, enhancement: int) -> int:
+    if enhancement == 0:
+        return 0
+    return max(50, CLEAR_GOLD_BASE * (RANK_INDEX[rank] + 1) * enhancement)
+
+# ---------------------------------------------------------------------------
+# Reroll costs (gold) by item rank
+# ---------------------------------------------------------------------------
+REROLL_FULL_COST = {r: 100 * (RANK_INDEX[r] + 1) for r in RANKS}   # changes type+value
+REROLL_VALUE_COST = {r: 50 * (RANK_INDEX[r] + 1) for r in RANKS}   # keeps type, changes value
+
+# ---------------------------------------------------------------------------
+# Rank-based champion base stats
+# ---------------------------------------------------------------------------
+CHAMPION_BASE_STATS = {
+    "F": {"hp": 500,  "atk": 40,  "def": 20,  "spd": 80,  "mana": 0},
+    "E": {"hp": 800,  "atk": 65,  "def": 32,  "spd": 85,  "mana": 0},
+    "D": {"hp": 1200, "atk": 100, "def": 50,  "spd": 90,  "mana": 0},
+    "C": {"hp": 1800, "atk": 150, "def": 75,  "spd": 95,  "mana": 0},
+    "B": {"hp": 2600, "atk": 220, "def": 110, "spd": 100, "mana": 0},
+    "A": {"hp": 3800, "atk": 320, "def": 160, "spd": 105, "mana": 0},
+    "S": {"hp": 5500, "atk": 460, "def": 230, "spd": 110, "mana": 0},
+}
+
+# Per-level stat growth multipliers applied to base stats
+CHAMPION_GROWTH_STATS = {
+    "F": {"hp": 30,  "atk": 3,  "def": 1,  "spd": 0},
+    "E": {"hp": 50,  "atk": 5,  "def": 2,  "spd": 0},
+    "D": {"hp": 80,  "atk": 8,  "def": 3,  "spd": 0},
+    "C": {"hp": 120, "atk": 12, "def": 5,  "spd": 0},
+    "B": {"hp": 180, "atk": 18, "def": 8,  "spd": 0},
+    "A": {"hp": 260, "atk": 26, "def": 12, "spd": 0},
+    "S": {"hp": 380, "atk": 38, "def": 18, "spd": 0},
+}
+
+# Max level per rank
+CHAMPION_MAX_LEVEL = {
+    "F": 20, "E": 30, "D": 40, "C": 50, "B": 60, "A": 70, "S": 80,
+}
+
+# Gold cost to level up (per level)
+LEVEL_UP_GOLD_COST = 20
+
+# ---------------------------------------------------------------------------
+# Item base stats by rank
+# ---------------------------------------------------------------------------
+ITEM_BASE_MAIN_STAT = {
+    "F": 20,
+    "E": 35,
+    "D": 55,
+    "C": 80,
+    "B": 115,
+    "A": 165,
+    "S": 240,
+}
+
+# Secondary stat roll ranges [min, max] by rank (percentage values * 10 for int storage)
+SECONDARY_STAT_RANGE = {
+    "F": (10, 30),    # 1.0% - 3.0%
+    "E": (20, 50),
+    "D": (35, 75),
+    "C": (50, 100),
+    "B": (70, 140),
+    "A": (100, 200),
+    "S": (150, 300),
+}
+
+SECONDARY_STAT_TYPES = [
+    "atk_pct",
+    "hp_pct",
+    "def_pct",
+    "crit_chance",
+    "crit_dmg",
+    "accuracy",
+    "dodge",
+    "lifesteal",
+    "boss_dmg",
+    "mob_dmg",
+    "speed",
+    "gold_find",
+]
+
+# ---------------------------------------------------------------------------
+# Market economy
+# ---------------------------------------------------------------------------
+MARKET_LISTING_FEE_PCT = 0.02   # 2% of listed price, paid upfront
+MARKET_TAX_PCT = 0.05           # 5% of sale price taken on purchase
+
+# ---------------------------------------------------------------------------
+# Summon / gacha
+# ---------------------------------------------------------------------------
+SUMMON_TOKEN_COST = 100          # per single pull
+SUMMON_MULTI_COST = 950          # 10 pulls
+
+SUMMON_RATES = {
+    # (item_or_champion, rank): probability
+    "champion_F": 0.40,
+    "champion_E": 0.25,
+    "champion_D": 0.15,
+    "champion_C": 0.08,
+    "champion_B": 0.04,
+    "champion_A": 0.02,
+    "champion_S": 0.005,
+    "item_F":     0.00,   # items via summon
+    "item_E":     0.00,
+    "item_D":     0.025,
+    "item_C":     0.015,
+    "item_B":     0.005,
+    "gold_small": 0.03,   # 200-500 gold
+    "enhance_mat":0.025,
+    "reroll_mat": 0.015,
+    "seal":       0.001,
+}
+
+# Token income sources
+DAILY_SUMMON_TOKENS = 50
+BOSS_KILL_TOKENS = (10, 30)       # min, max
+RAID_COMPLETE_TOKENS = (50, 100)
+
+# ---------------------------------------------------------------------------
+# Drop tables
+# ---------------------------------------------------------------------------
+NORMAL_MOB_DROPS = {
+    "gold":         {"min": 10,  "max": 50,  "chance": 1.00},
+    "champion_F":   {"chance": 0.02},
+    "item_F":       {"chance": 0.05},
+    "enhance_mat":  {"min": 1, "max": 2, "chance": 0.15},
+    "reroll_mat":   {"min": 1, "max": 1, "chance": 0.08},
+    "seal":         {"chance": 0.0005},
+}
+
+ELITE_MOB_DROPS = {
+    "gold":         {"min": 50,  "max": 150, "chance": 1.00},
+    "champion_FE":  {"chance": 0.05},   # F or E randomly
+    "item_FE":      {"chance": 0.10},
+    "enhance_mat":  {"min": 2, "max": 5, "chance": 0.25},
+    "reroll_mat":   {"min": 1, "max": 2, "chance": 0.12},
+    "seal":         {"chance": 0.001},
+}
+
+BOSS_DROPS = {
+    "gold":         {"min": 200, "max": 500, "chance": 1.00},
+    "champion":     {"chance": 0.10},   # rank determined by boss config
+    "item":         {"chance": 0.15},
+    "enhance_mat":  {"min": 5, "max": 15, "chance": 0.40},
+    "reroll_mat":   {"min": 2, "max": 5, "chance": 0.20},
+    "seal":         {"chance": 0.01},
+    "summon_token": {"min": 10, "max": 30, "chance": 0.60},
+}
+
+RAID_DROPS = {
+    "gold":         {"min": 300, "max": 800, "chance": 1.00},
+    "champion":     {"chance": 0.15},
+    "item":         {"chance": 0.20},
+    "enhance_mat":  {"min": 8, "max": 20, "chance": 0.50},
+    "reroll_mat":   {"min": 3, "max": 8,  "chance": 0.25},
+    "seal":         {"chance": 0.02},
+    "summon_token": {"min": 50, "max": 100, "chance": 1.00},
+}
+
+# ---------------------------------------------------------------------------
+# Hunt zones
+# ---------------------------------------------------------------------------
+HUNT_ZONES = {
+    "forest": {
+        "name": "Dark Forest",
+        "min_team_power": 0,
+        "mob_count": (3, 5),
+        "elite_chance": 0.15,
+        "boss_chance": 0.05,
+        "boss_name": "Forest Warden",
+        "boss_rank": "D",
+        "stamina_cost": 5,
+        "gold_multiplier": 1.0,
+    },
+    "dungeon": {
+        "name": "Ancient Dungeon",
+        "min_team_power": 500,
+        "mob_count": (4, 6),
+        "elite_chance": 0.25,
+        "boss_chance": 0.10,
+        "boss_name": "Dungeon Lord",
+        "boss_rank": "C",
+        "stamina_cost": 10,
+        "gold_multiplier": 1.5,
+    },
+    "castle": {
+        "name": "Ruined Castle",
+        "min_team_power": 2000,
+        "mob_count": (5, 7),
+        "elite_chance": 0.35,
+        "boss_chance": 0.15,
+        "boss_name": "Undead King",
+        "boss_rank": "B",
+        "stamina_cost": 20,
+        "gold_multiplier": 2.5,
+    },
+    "abyss": {
+        "name": "The Abyss",
+        "min_team_power": 8000,
+        "mob_count": (6, 8),
+        "elite_chance": 0.50,
+        "boss_chance": 0.20,
+        "boss_name": "Abyssal Titan",
+        "boss_rank": "A",
+        "stamina_cost": 40,
+        "gold_multiplier": 5.0,
+    },
+}
+
+# ---------------------------------------------------------------------------
+# Combat constants
+# ---------------------------------------------------------------------------
+MAX_ROUNDS = 50
+MANA_MAX = 100
+MANA_ULTIMATE_THRESHOLD = 100
+TEAM_SIZE = 5
+
+# ---------------------------------------------------------------------------
+# Raid
+# ---------------------------------------------------------------------------
+RAID_MAX_PLAYERS = 5
+RAID_QUEUE_TIMEOUT_SECONDS = 300   # 5 min to fill before auto-start
+
+# ---------------------------------------------------------------------------
+# Aura visuals (for embed display)
+# ---------------------------------------------------------------------------
+AURA_BY_LEVEL = {
+    range(0, 7):   "",
+    range(7, 10):  "✨",
+    range(10, 12): "💫",
+    range(12, 15): "🌟",
+    range(15, 16): "⭐",
+}
+
+AURA_COLOR_BY_RANK = {
+    "F": 0x808080,   # Gray
+    "E": 0x00AA00,   # Green
+    "D": 0x0055FF,   # Blue
+    "C": 0x9900CC,   # Purple
+    "B": 0xCC0000,   # Red
+    "A": 0xFFAA00,   # Gold
+    "S": 0xFF00FF,   # Prismatic (magenta as fallback)
+}
+
+def get_aura(level: int) -> str:
+    for r, symbol in AURA_BY_LEVEL.items():
+        if level in r:
+            return symbol
+    return "⭐"
+
+# ---------------------------------------------------------------------------
+# New-account trading restrictions
+# ---------------------------------------------------------------------------
+TRADING_MIN_ACCOUNT_AGE_HOURS = 24
