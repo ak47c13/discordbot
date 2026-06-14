@@ -299,16 +299,52 @@ def _apply_boss_mechanics(enemy_units, rnd, log):
     return spawned
 
 
+def _team_hp(units: list[CombatUnit]) -> tuple[int, int]:
+    cur = sum(max(0, u.hp) for u in units)
+    mx = sum(u.hp_max for u in units)
+    return cur, mx
+
+
 def run_battle(
     player_units: list[CombatUnit],
     enemy_units: list[CombatUnit],
 ) -> BattleResult:
+    result, _rounds = run_battle_with_rounds(player_units, enemy_units, seed=None)
+    return result
+
+
+def run_battle_with_rounds(
+    player_units: list[CombatUnit],
+    enemy_units: list[CombatUnit],
+    seed: int | None = None,
+) -> tuple[BattleResult, list[dict]]:
+    if seed is not None:
+        random.seed(seed)
+
     log: list[str] = []
+    round_snapshots: list[dict] = []
     all_units = player_units + enemy_units
     rounds = 0
 
+    def _snapshot(rnd: int, round_log_start: int) -> None:
+        p_cur, p_max = _team_hp(player_units)
+        e_cur, e_max = _team_hp(enemy_units)
+        events = [l.strip() for l in log[round_log_start:] if l.strip()]
+        round_snapshots.append({
+            "round": rnd,
+            "events": events,
+            "player_hp": p_cur,
+            "player_hp_max": p_max,
+            "enemy_hp": e_cur,
+            "enemy_hp_max": e_max,
+            "mana_states": {u.name: u.mana for u in all_units if u.is_alive},
+            "alive_players": sum(1 for u in player_units if u.is_alive),
+            "alive_enemies": sum(1 for u in enemy_units if u.is_alive),
+        })
+
     for rnd in range(1, MAX_ROUNDS + 1):
         rounds = rnd
+        round_log_start = len(log)
         alive_players = [u for u in player_units if u.is_alive]
         alive_enemies = [u for u in enemy_units if u.is_alive]
 
@@ -318,11 +354,12 @@ def run_battle(
         # Detect teams that cannot damage each other (invincible heal loops)
         if _detect_stalemate(alive_players, alive_enemies, rnd):
             log.append(f"[Round {rnd}] Stalemate detected — battle ends in DRAW.")
+            _snapshot(rnd, round_log_start)
             return BattleResult(
                 winner=-1, rounds=rnd, log=log,
                 player_survived=[u.unit_id for u in alive_players],
                 enemy_survived=[u.unit_id for u in alive_enemies],
-            )
+            ), round_snapshots
 
         log.append(f"\n=== Round {rnd} ===")
 
@@ -406,6 +443,8 @@ def run_battle(
         for dead in [u for u in all_units if not u.is_alive]:
             log.append(f"  ✗ {dead.name} has been defeated.")
 
+        _snapshot(rnd, round_log_start)
+
     # Final outcome
     alive_players = [u for u in player_units if u.is_alive]
     alive_enemies = [u for u in enemy_units if u.is_alive]
@@ -426,7 +465,7 @@ def run_battle(
         log=log,
         player_survived=[u.unit_id for u in alive_players],
         enemy_survived=[u.unit_id for u in alive_enemies],
-    )
+    ), round_snapshots
 
 
 def _detect_stalemate(

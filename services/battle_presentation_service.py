@@ -1,0 +1,234 @@
+"""
+Battle presentation service.
+
+Sequence:
+1. simulate_and_store() — runs combat, stores all rounds, returns BattleSession
+2. start_presentation() — sends initial Discord message, updates session
+3. advance_and_display() — edits the Discord message to show next round
+4. finalize() — grants rewards, marks VICTORY/DEFEAT
+5. cancel_battle() — marks session cancelled, unlocks assets
+
+All state lives in MongoDB. Bot restarts resume from displayed_round_count.
+"""
+from __future__ import annotations
+import asyncio
+import random
+from datetime import datetime, timezone
+
+from beanie import PydanticObjectId
+
+from models.battle_session import BattleSession
+from engine.combat import run_battle_with_rounds
+from utils.db_session import usable_session
+from utils.battle_embeds import (
+    build_initial_embed,
+    build_battle_embed,
+    build_final_embed,
+    CancelBattleView,
+)
+from config.game_config import (
+    BATTLE_DISPLAY_INTERVALS,
+    BATTLE_FAST_DISPLAY_INTERVAL,
+    MAX_ROUNDS,
+)
+
+
+async def simulate_and_store(
+    owner_id: str,
+    zone: str,
+    player_units,
+    enemy_units,
+    battle_type: str,
+    entry_cost: dict,
+    session,
+) -> BattleSession:
+    seed = random.randint(0, 2 ** 31)
+    result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed)
+
+    bs = BattleSession(
+        owner_id=owner_id,
+        zone=zone,
+        battle_type=battle_type,
+        status="CREATING",
+        max_rounds=MAX_ROUNDS,
+        simulated_round_count=len(rounds),
+        displayed_round_count=0,
+        battle_seed=seed,
+        winner=result.winner,
+        simulated_rounds=rounds,
+        player_snapshot=[{"name": u.name, "hp_max": u.hp_max} for u in player_units],
+        enemy_snapshot=[{"name": u.name, "hp_max": u.hp_max} for u in enemy_units],
+        entry_cost_json=entry_cost or {},
+    )
+    await bs.insert(session=usable_session(session))
+    return bs
+
+
+async def start_presentation(
+    battle_session: BattleSession,
+    discord_channel,
+    player_team_names: list[str],
+    enemy_name: str,
+) -> "object":
+    embed = build_initial_embed(
+        battle_session.zone, player_team_names, enemy_name, battle_session.battle_type
+    )
+    view = CancelBattleView(str(battle_session.id), battle_session.owner_id)
+    message = await discord_channel.send(embed=embed, view=view)
+
+    battle_session.message_id = str(message.id)
+    battle_session.channel_id = str(getattr(discord_channel, "id", ""))
+    battle_session.status = "ACTIVE"
+    battle_session.last_updated_at = datetime.now(timezone.utc)
+    await battle_session.save()
+    return message
+
+
+def _interval_for(battle_session: BattleSession) -> float:
+    if battle_session.fast_display:
+        return BATTLE_FAST_DISPLAY_INTERVAL
+    return BATTLE_DISPLAY_INTERVALS.get(battle_session.battle_type, 1.0)
+
+
+async def advance_and_display(
+    battle_session_id: str,
+    discord_bot,
+    until_round: int | None = None,
+    reward_fn=None,
+) -> None:
+    """Edit the Discord message round-by-round, then finalize.
+
+    discord_bot may be a discord.Client (to resolve the channel/message) or a
+    direct message-like object exposing an async edit() method (used in tests).
+    """
+    bs = await BattleSession.get(PydanticObjectId(battle_session_id))
+    if bs is None or bs.status != "ACTIVE":
+        return
+
+    message = await _resolve_message(bs, discord_bot)
+    if message is None:
+        await cancel_battle(str(bs.id), "CANCELLED_MESSAGE_DELETED", session=None)
+        return
+
+    interval = _interval_for(bs)
+    target = bs.simulated_round_count if until_round is None else min(until_round, bs.simulated_round_count)
+
+    while bs.displayed_round_count < target:
+        # Re-check status for cooperative cancellation
+        fresh = await BattleSession.get(bs.id)
+        if fresh is None or fresh.status != "ACTIVE":
+            return
+        bs = fresh
+
+        rs = bs.simulated_rounds[bs.displayed_round_count]
+        player_names = [s["name"] for s in bs.player_snapshot]
+        embed = build_battle_embed(bs, rs, bs.zone, player_names)
+        try:
+            await message.edit(embed=embed)
+        except Exception:
+            await cancel_battle(str(bs.id), "CANCELLED_MESSAGE_DELETED", session=None)
+            return
+
+        bs.displayed_round_count += 1
+        bs.current_round = rs["round"]
+        bs.last_updated_at = datetime.now(timezone.utc)
+        await bs.save()
+
+        if interval > 0:
+            await asyncio.sleep(interval)
+
+    # All target rounds shown — finalize if fully displayed
+    if bs.displayed_round_count >= bs.simulated_round_count:
+        await finalize(bs, message, bs.rewards_json, session=None, reward_fn=reward_fn)
+
+
+async def _resolve_message(bs: BattleSession, discord_bot):
+    # Direct message-like object (tests / resume with message)
+    if hasattr(discord_bot, "edit"):
+        return discord_bot
+    if discord_bot is None or not bs.channel_id or not bs.message_id:
+        return None
+    try:
+        channel = discord_bot.get_channel(int(bs.channel_id))
+        if channel is None:
+            channel = await discord_bot.fetch_channel(int(bs.channel_id))
+        return await channel.fetch_message(int(bs.message_id))
+    except Exception:
+        return None
+
+
+async def finalize(
+    battle_session: BattleSession,
+    discord_channel,
+    rewards: dict,
+    session,
+    reward_fn=None,
+) -> None:
+    # Reload to ensure not cancelled in the meantime
+    bs = await BattleSession.get(battle_session.id)
+    if bs is None or bs.status != "ACTIVE":
+        return
+
+    bs.status = "VICTORY" if bs.winner == 0 else "DEFEAT"
+    bs.reward_claimed = True
+    bs.finished_at = datetime.now(timezone.utc)
+    bs.last_updated_at = bs.finished_at
+    await bs.save()
+
+    granted = rewards or {}
+    if bs.winner == 0 and reward_fn is not None:
+        try:
+            granted = await reward_fn()
+        except Exception:
+            granted = rewards or {}
+        bs.rewards_json = granted or {}
+        await bs.save()
+
+    # Update battle message with final embed
+    final_snap = bs.simulated_rounds[-1] if bs.simulated_rounds else None
+    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner)
+    edit_target = None
+    if hasattr(discord_channel, "edit"):
+        edit_target = discord_channel
+    try:
+        if edit_target is not None:
+            await edit_target.edit(embed=final_embed, view=None)
+    except Exception:
+        pass
+
+    # Send a separate reward result message
+    send_target = None
+    if hasattr(discord_channel, "channel"):
+        send_target = discord_channel.channel
+    elif hasattr(discord_channel, "send"):
+        send_target = discord_channel
+    if send_target is not None and bs.winner == 0:
+        try:
+            from utils.embeds import reward_embed
+            await send_target.send(embed=reward_embed(granted, f"🎁 Rewards — {bs.zone}"))
+        except Exception:
+            pass
+
+
+async def cancel_battle(battle_session_id: str, reason: str, session) -> bool:
+    bs = await BattleSession.get(PydanticObjectId(battle_session_id))
+    if bs is None:
+        return False
+    if bs.reward_claimed or bs.status != "ACTIVE":
+        return False
+
+    bs.status = reason if reason.startswith("CANCELLED") else f"CANCELLED_{reason}"
+    bs.cancellation_reason = reason
+    bs.cancelled_at = datetime.now(timezone.utc)
+    bs.last_updated_at = bs.cancelled_at
+    await bs.save()
+    return True
+
+
+async def resume_battle_presentation(battle_session, bot) -> None:
+    """Resume a battle that lost its worker (bot restart)."""
+    message = await _resolve_message(battle_session, bot)
+    if message is None:
+        await cancel_battle(str(battle_session.id), "CANCELLED_MESSAGE_DELETED", session=None)
+        return
+    await advance_and_display(str(battle_session.id), message)
