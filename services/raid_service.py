@@ -9,6 +9,7 @@ from typing import Any
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.raid import RaidQueue
 from models.user import User
@@ -45,7 +46,7 @@ async def create_raid_queue(
     existing = await RaidQueue.find_one(
         RaidQueue.leader_id == leader_id,
         RaidQueue.status == "waiting",
-        session=session,
+        session=usable_session(session),
     )
     if existing:
         raise RaidError("You already have an open raid queue.")
@@ -56,7 +57,7 @@ async def create_raid_queue(
         player_ids=[leader_id],
         status="waiting",
     )
-    await raid.insert(session=session)
+    await raid.insert(session=usable_session(session))
     return raid
 
 
@@ -66,7 +67,7 @@ async def join_raid(
     champion_id: str,
     session: AsyncIOMotorClientSession,
 ) -> RaidQueue:
-    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=session)
+    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
     if raid is None:
         raise RaidError("Raid not found.")
     if raid.status != "waiting":
@@ -76,13 +77,13 @@ async def join_raid(
     if len(raid.player_ids) >= RAID_MAX_PLAYERS:
         raise RaidError("Raid is full (5 players max).")
 
-    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=session)
+    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != player_id:
         raise RaidError("Champion not found or not owned by you.")
 
     raid.player_ids.append(player_id)
     raid.player_champions[player_id] = champion_id
-    await raid.save(session=session)
+    await raid.save(session=usable_session(session))
     return raid
 
 
@@ -91,7 +92,7 @@ async def start_raid(
     raid_id: str,
     session: AsyncIOMotorClientSession,
 ) -> dict[str, Any]:
-    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=session)
+    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
     if raid is None:
         raise RaidError("Raid not found.")
     if raid.leader_id != leader_id:
@@ -101,7 +102,7 @@ async def start_raid(
 
     raid.status = "in_progress"
     raid.started_at = datetime.now(timezone.utc)
-    await raid.save(session=session)
+    await raid.save(session=usable_session(session))
 
     # Build player team from each player's chosen champion
     player_units = []
@@ -144,7 +145,7 @@ async def start_raid(
 
     raid.status = "completed" if battle_result.winner == 0 else "failed"
     raid.completed_at = datetime.now(timezone.utc)
-    await raid.save(session=session)
+    await raid.save(session=usable_session(session))
 
     return {
         "battle_result": battle_result,
@@ -159,7 +160,7 @@ async def _roll_raid_drops(
     session: AsyncIOMotorClientSession,
 ) -> dict[str, Any]:
     rewards: dict[str, Any] = {"gold": 0, "champions": [], "items": [], "seals": 0, "summon_tokens": 0}
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
 
     for drop_key, cfg in RAID_DROPS.items():
         if random.random() > cfg["chance"]:
@@ -191,5 +192,5 @@ async def _roll_raid_drops(
             user.summon_tokens += amount
             rewards["summon_tokens"] += amount
 
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
     return rewards

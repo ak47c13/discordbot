@@ -6,6 +6,7 @@ import random
 from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.user import User
 from models.champion import ChampionInstance
@@ -57,7 +58,7 @@ async def run_hunt(
         raise HuntError(f"Unknown zone '{zone_key}'. Valid: {', '.join(HUNT_ZONES)}")
 
     # Stamina check
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     cost = zone_cfg["stamina_cost"]
     if user.stamina < cost:
         raise HuntError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
@@ -85,7 +86,7 @@ async def run_hunt(
 
     # Consume stamina
     user.stamina -= cost
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
 
     # Generate enemies
     min_mob, max_mob = zone_cfg["mob_count"]
@@ -129,7 +130,7 @@ async def _roll_drops(
 ) -> dict[str, Any]:
     rewards: dict[str, Any] = {"gold": 0, "champions": [], "items": [], "seals": 0, "summon_tokens": 0}
 
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
 
     for drop_key, cfg in drop_table.items():
         if random.random() > cfg["chance"]:
@@ -167,5 +168,5 @@ async def _roll_drops(
             user.summon_tokens += amount
             rewards["summon_tokens"] += amount
 
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
     return rewards

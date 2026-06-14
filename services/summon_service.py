@@ -6,6 +6,7 @@ import random
 from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.user import User
 from models.champion import ChampionInstance
@@ -41,13 +42,13 @@ async def summon_single(
     owner_id: str,
     session: AsyncIOMotorClientSession,
 ) -> dict[str, Any]:
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.summon_tokens < SUMMON_TOKEN_COST:
         raise SummonError(
             f"Need {SUMMON_TOKEN_COST} summon tokens. Have {user.summon_tokens}."
         )
     user.summon_tokens -= SUMMON_TOKEN_COST
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
     result = await _roll_summon(owner_id, session)
     return result
 
@@ -56,13 +57,13 @@ async def summon_multi(
     owner_id: str,
     session: AsyncIOMotorClientSession,
 ) -> list[dict[str, Any]]:
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.summon_tokens < SUMMON_MULTI_COST:
         raise SummonError(
             f"Need {SUMMON_MULTI_COST} summon tokens for 10x. Have {user.summon_tokens}."
         )
     user.summon_tokens -= SUMMON_MULTI_COST
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
     results = []
     for _ in range(10):
         results.append(await _roll_summon(owner_id, session))
@@ -104,9 +105,9 @@ async def _apply_summon_result(
 
     elif key == "gold_small":
         amount = random.randint(200, 500)
-        user = await User.find_one(User.discord_id == owner_id, session=session)
+        user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
         user.gold += amount
-        await user.save(session=session)
+        await user.save(session=usable_session(session))
         return {"type": "gold", "amount": amount}
 
     elif key == "enhance_mat":
@@ -119,11 +120,11 @@ async def _apply_summon_result(
         return {"type": "reroll_mat", "amount": amount}
 
     elif key == "seal":
-        user = await User.find_one(User.discord_id == owner_id, session=session)
+        user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
         if not hasattr(user, "blacksmith_seals"):
             user.blacksmith_seals = 0
         user.blacksmith_seals = getattr(user, "blacksmith_seals", 0) + 1
-        await user.save(session=session)
+        await user.save(session=usable_session(session))
         return {"type": "seal", "amount": 1}
 
     return {"type": "nothing", "amount": 0}

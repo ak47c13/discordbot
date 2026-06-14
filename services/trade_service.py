@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.trade import TradeOffer
 from models.champion import ChampionInstance
@@ -31,7 +32,7 @@ async def create_trade(
     session: AsyncIOMotorClientSession,
 ) -> TradeOffer:
     # Account age check
-    initiator_user = await User.find_one(User.discord_id == initiator_id, session=session)
+    initiator_user = await User.find_one(User.discord_id == initiator_id, session=usable_session(session))
     age = (datetime.now(timezone.utc) - initiator_user.created_at).total_seconds() / 3600
     if age < TRADING_MIN_ACCOUNT_AGE_HOURS:
         raise TradeError(f"Account must be at least {TRADING_MIN_ACCOUNT_AGE_HOURS}h old to trade.")
@@ -48,7 +49,7 @@ async def create_trade(
     )
 
     # Verify target owns their side
-    target_user = await User.find_one(User.discord_id == target_id, session=session)
+    target_user = await User.find_one(User.discord_id == target_id, session=usable_session(session))
     if target_user.gold < target_gold:
         raise TradeError("Target doesn't have enough gold.")
 
@@ -63,7 +64,7 @@ async def create_trade(
         target_gold=target_gold,
         status="pending",
     )
-    await trade.insert(session=session)
+    await trade.insert(session=usable_session(session))
     return trade
 
 
@@ -72,7 +73,7 @@ async def accept_trade(
     target_id: str,
     session: AsyncIOMotorClientSession,
 ) -> TradeOffer:
-    trade = await TradeOffer.get(PydanticObjectId(trade_id), session=session)
+    trade = await TradeOffer.get(PydanticObjectId(trade_id), session=usable_session(session))
     if trade is None:
         raise TradeError("Trade not found.")
     if trade.target_id != target_id:
@@ -86,8 +87,8 @@ async def accept_trade(
     )
 
     # Verify gold on both sides
-    initiator = await User.find_one(User.discord_id == trade.initiator_id, session=session)
-    target = await User.find_one(User.discord_id == target_id, session=session)
+    initiator = await User.find_one(User.discord_id == trade.initiator_id, session=usable_session(session))
+    target = await User.find_one(User.discord_id == target_id, session=usable_session(session))
 
     if initiator.gold < trade.initiator_gold:
         raise TradeError("Initiator no longer has enough gold.")
@@ -103,34 +104,34 @@ async def accept_trade(
     # Transfer champions
     all_champ_ids = trade.initiator_champion_ids + trade.target_champion_ids
     for cid in trade.initiator_champion_ids:
-        c = await ChampionInstance.get(PydanticObjectId(cid), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         c.owner_id = target_id
         c.in_trade = False
-        await c.save(session=session)
+        await c.save(session=usable_session(session))
     for cid in trade.target_champion_ids:
-        c = await ChampionInstance.get(PydanticObjectId(cid), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         c.owner_id = trade.initiator_id
         c.in_trade = False
-        await c.save(session=session)
+        await c.save(session=usable_session(session))
 
     # Transfer items
     for iid in trade.initiator_item_ids:
-        itm = await ItemInstance.get(PydanticObjectId(iid), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         itm.owner_id = target_id
         itm.in_trade = False
-        await itm.save(session=session)
+        await itm.save(session=usable_session(session))
     for iid in trade.target_item_ids:
-        itm = await ItemInstance.get(PydanticObjectId(iid), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         itm.owner_id = trade.initiator_id
         itm.in_trade = False
-        await itm.save(session=session)
+        await itm.save(session=usable_session(session))
 
-    await initiator.save(session=session)
-    await target.save(session=session)
+    await initiator.save(session=usable_session(session))
+    await target.save(session=usable_session(session))
 
     trade.status = "completed"
     trade.completed_at = datetime.now(timezone.utc)
-    await trade.save(session=session)
+    await trade.save(session=usable_session(session))
 
     total_gold = trade.initiator_gold + trade.target_gold
     if total_gold >= 10000:
@@ -150,7 +151,7 @@ async def cancel_trade(
     user_id: str,
     session: AsyncIOMotorClientSession,
 ) -> TradeOffer:
-    trade = await TradeOffer.get(PydanticObjectId(trade_id), session=session)
+    trade = await TradeOffer.get(PydanticObjectId(trade_id), session=usable_session(session))
     if trade is None:
         raise TradeError("Trade not found.")
     if trade.status != "pending":
@@ -163,7 +164,7 @@ async def cancel_trade(
     )
 
     trade.status = "cancelled"
-    await trade.save(session=session)
+    await trade.save(session=usable_session(session))
     return trade
 
 
@@ -175,19 +176,19 @@ async def _lock_assets(
     session: AsyncIOMotorClientSession,
 ) -> None:
     for cid in champion_ids:
-        c = await ChampionInstance.get(PydanticObjectId(cid), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         if c is None or c.owner_id != owner_id:
             raise TradeError(f"Champion {cid} not found or not owned by you.")
         if lock and not c.is_available:
             raise TradeError(f"{c.name} is already locked, equipped, or in another trade.")
         c.in_trade = lock
-        await c.save(session=session)
+        await c.save(session=usable_session(session))
 
     for iid in item_ids:
-        itm = await ItemInstance.get(PydanticObjectId(iid), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         if itm is None or itm.owner_id != owner_id:
             raise TradeError(f"Item {iid} not found or not owned by you.")
         if lock and not itm.is_available:
             raise TradeError(f"{itm.name} is already locked, equipped, or in another trade.")
         itm.in_trade = lock
-        await itm.save(session=session)
+        await itm.save(session=usable_session(session))

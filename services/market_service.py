@@ -8,6 +8,7 @@ from typing import Optional
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.market import MarketListing
 from models.champion import ChampionInstance
@@ -29,21 +30,21 @@ async def list_champion(
     if price <= 0:
         raise MarketError("Price must be positive.")
 
-    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=session)
+    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != seller_id:
         raise MarketError("Champion not found or not owned by you.")
     if not c.is_available:
         raise MarketError("Champion is equipped, locked, or already in a trade/listing.")
 
     fee = max(1, math.ceil(price * MARKET_LISTING_FEE_PCT))
-    user = await User.find_one(User.discord_id == seller_id, session=session)
+    user = await User.find_one(User.discord_id == seller_id, session=usable_session(session))
     if user.gold < fee:
         raise MarketError(f"Need {fee} gold for listing fee.")
 
     user.gold -= fee
     c.in_market = True
-    await user.save(session=session)
-    await c.save(session=session)
+    await user.save(session=usable_session(session))
+    await c.save(session=usable_session(session))
 
     listing = MarketListing(
         seller_id=seller_id,
@@ -51,7 +52,7 @@ async def list_champion(
         price=price,
         listing_fee_paid=fee,
     )
-    await listing.insert(session=session)
+    await listing.insert(session=usable_session(session))
     return listing
 
 
@@ -64,21 +65,21 @@ async def list_item(
     if price <= 0:
         raise MarketError("Price must be positive.")
 
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != seller_id:
         raise MarketError("Item not found or not owned by you.")
     if not itm.is_available:
         raise MarketError("Item is equipped, locked, or already in a trade/listing.")
 
     fee = max(1, math.ceil(price * MARKET_LISTING_FEE_PCT))
-    user = await User.find_one(User.discord_id == seller_id, session=session)
+    user = await User.find_one(User.discord_id == seller_id, session=usable_session(session))
     if user.gold < fee:
         raise MarketError(f"Need {fee} gold for listing fee.")
 
     user.gold -= fee
     itm.in_market = True
-    await user.save(session=session)
-    await itm.save(session=session)
+    await user.save(session=usable_session(session))
+    await itm.save(session=usable_session(session))
 
     listing = MarketListing(
         seller_id=seller_id,
@@ -86,7 +87,7 @@ async def list_item(
         price=price,
         listing_fee_paid=fee,
     )
-    await listing.insert(session=session)
+    await listing.insert(session=usable_session(session))
     return listing
 
 
@@ -95,7 +96,7 @@ async def buy_listing(
     listing_id: str,
     session: AsyncIOMotorClientSession,
 ) -> MarketListing:
-    listing = await MarketListing.get(PydanticObjectId(listing_id), session=session)
+    listing = await MarketListing.get(PydanticObjectId(listing_id), session=usable_session(session))
     if listing is None:
         raise MarketError("Listing not found.")
     if listing.status != "active":
@@ -103,7 +104,7 @@ async def buy_listing(
     if listing.seller_id == buyer_id:
         raise MarketError("Cannot buy your own listing.")
 
-    buyer = await User.find_one(User.discord_id == buyer_id, session=session)
+    buyer = await User.find_one(User.discord_id == buyer_id, session=usable_session(session))
     if buyer.gold < listing.price:
         raise MarketError(f"Need {listing.price} gold. Have {buyer.gold}.")
 
@@ -111,28 +112,28 @@ async def buy_listing(
     seller_receives = listing.price - tax
 
     buyer.gold -= listing.price
-    seller = await User.find_one(User.discord_id == listing.seller_id, session=session)
+    seller = await User.find_one(User.discord_id == listing.seller_id, session=usable_session(session))
     seller.gold += seller_receives
 
     # Transfer ownership
     if listing.champion_id:
-        c = await ChampionInstance.get(PydanticObjectId(listing.champion_id), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(listing.champion_id), session=usable_session(session))
         c.owner_id = buyer_id
         c.in_market = False
-        await c.save(session=session)
+        await c.save(session=usable_session(session))
     elif listing.item_id:
-        itm = await ItemInstance.get(PydanticObjectId(listing.item_id), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(listing.item_id), session=usable_session(session))
         itm.owner_id = buyer_id
         itm.in_market = False
-        await itm.save(session=session)
+        await itm.save(session=usable_session(session))
 
-    await buyer.save(session=session)
-    await seller.save(session=session)
+    await buyer.save(session=usable_session(session))
+    await seller.save(session=usable_session(session))
 
     listing.status = "sold"
     listing.buyer_id = buyer_id
     listing.completed_at = datetime.now(timezone.utc)
-    await listing.save(session=session)
+    await listing.save(session=usable_session(session))
     return listing
 
 
@@ -141,7 +142,7 @@ async def cancel_listing(
     listing_id: str,
     session: AsyncIOMotorClientSession,
 ) -> MarketListing:
-    listing = await MarketListing.get(PydanticObjectId(listing_id), session=session)
+    listing = await MarketListing.get(PydanticObjectId(listing_id), session=usable_session(session))
     if listing is None:
         raise MarketError("Listing not found.")
     if listing.seller_id != seller_id:
@@ -150,17 +151,17 @@ async def cancel_listing(
         raise MarketError(f"Listing is already {listing.status}.")
 
     if listing.champion_id:
-        c = await ChampionInstance.get(PydanticObjectId(listing.champion_id), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(listing.champion_id), session=usable_session(session))
         if c:
             c.in_market = False
-            await c.save(session=session)
+            await c.save(session=usable_session(session))
     elif listing.item_id:
-        itm = await ItemInstance.get(PydanticObjectId(listing.item_id), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(listing.item_id), session=usable_session(session))
         if itm:
             itm.in_market = False
-            await itm.save(session=session)
+            await itm.save(session=usable_session(session))
 
     listing.status = "cancelled"
-    await listing.save(session=session)
+    await listing.save(session=usable_session(session))
     # Note: listing fee is NOT refunded per rules
     return listing

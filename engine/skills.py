@@ -338,4 +338,17 @@ CHAMPION_SKILLS: dict[str, dict] = {
     "Yasuo":   {"basic": yasuo_basic,   "ultimate": yasuo_ultimate,   "mana_gain": 20},
 }
 
+def _wrap_ultimate(fn):
+    """Ensure an ultimate consumes all mana when cast, even if invoked directly."""
+    def wrapped(caster, targets, allies):
+        log = fn(caster, targets, allies)
+        caster.mana = 0
+        return log
+    return wrapped
+
+
+for _name, _skills in CHAMPION_SKILLS.items():
+    _skills["ultimate"] = _wrap_ultimate(_skills["ultimate"])
+
+
 ALL_CHAMPION_NAMES = list(CHAMPION_SKILLS.keys())

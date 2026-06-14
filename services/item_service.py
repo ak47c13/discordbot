@@ -6,6 +6,7 @@ import random
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.item import ItemInstance
 from models.user import User
@@ -41,7 +42,7 @@ async def fuse_items(
 
     items: list[ItemInstance] = []
     for iid in item_ids:
-        itm = await ItemInstance.get(PydanticObjectId(iid), session=session)
+        itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         if itm is None:
             raise ItemFusionError(f"Item {iid} not found.")
         if itm.owner_id != owner_id:
@@ -66,16 +67,16 @@ async def fuse_items(
 
     next_rank = RANKS[RANK_INDEX[current_rank] + 1]
 
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     cost = ITEM_FUSION_COST[next_rank]
     if user.gold < cost:
         raise ItemFusionError(f"Not enough gold. Need {cost}, have {user.gold}.")
 
     user.gold -= cost
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
 
     for itm in items:
-        await itm.delete(session=session)
+        await itm.delete(session=usable_session(session))
 
     # New secondary stat roll
     sec_type = random.choice(SECONDARY_STAT_TYPES)
@@ -93,7 +94,7 @@ async def fuse_items(
         secondary_stat_type=sec_type,
         secondary_stat_value=sec_val,
     )
-    await result.insert(session=session)
+    await result.insert(session=usable_session(session))
 
     if next_rank == "S":
         await AuditLog.log(
@@ -131,7 +132,7 @@ async def grant_item(
         secondary_stat_value=sec_val,
     )
     if session:
-        await itm.insert(session=session)
+        await itm.insert(session=usable_session(session))
     else:
         await itm.insert()
     return itm

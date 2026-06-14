@@ -7,6 +7,7 @@ import random
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.item import ItemInstance
 from models.user import User
@@ -43,7 +44,7 @@ async def enhance_item(
     Returns dict with keys: success, destroyed, seal_used, new_level, item.
     Must be called inside an active transaction.
     """
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found or not owned by you.")
     if itm.in_trade or itm.in_market:
@@ -54,7 +55,7 @@ async def enhance_item(
     current_lvl = itm.enhancement
     is_risky = current_lvl >= ENHANCEMENT_SAFE_MAX
 
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
 
     # Gold cost
     gold_cost = enhancement_gold_cost(current_lvl)
@@ -136,13 +137,13 @@ async def enhance_item(
                     item_rank=itm.rank,
                     enhancement=current_lvl,
                 )
-                await user.save(session=session)
-                await itm.delete(session=session)
+                await user.save(session=usable_session(session))
+                await itm.delete(session=usable_session(session))
                 return result
         # Non-risky failure: item survives, gold already spent
 
-    await user.save(session=session)
-    await itm.save(session=session)
+    await user.save(session=usable_session(session))
+    await itm.save(session=usable_session(session))
     return result
 
 
@@ -158,7 +159,7 @@ async def clear_item(
     Reset an item to +0. Preserves identity, rank, secondary stat.
     Costs gold. No refund of materials or previous attempts.
     """
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found or not owned by you.")
     if itm.in_trade or itm.in_market:
@@ -167,14 +168,14 @@ async def clear_item(
         raise BlacksmithError("Item is already at +0.")
 
     gold_cost = clearing_gold_cost(itm.rank, itm.enhancement)
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold to clear. Have {user.gold}.")
 
     user.gold -= gold_cost
     itm.enhancement = 0
-    await user.save(session=session)
-    await itm.save(session=session)
+    await user.save(session=usable_session(session))
+    await itm.save(session=usable_session(session))
     return itm
 
 
@@ -191,14 +192,14 @@ async def reroll_secondary_full(
     Player must CONFIRM before calling accept_reroll.
     This call only generates the pending result — does NOT apply it yet.
     """
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found or not owned by you.")
     if itm.in_trade or itm.in_market:
         raise BlacksmithError("Cannot reroll an item that is listed or in a trade.")
 
     gold_cost = REROLL_FULL_COST[itm.rank]
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
@@ -224,22 +225,22 @@ async def accept_reroll_full(
     session: AsyncIOMotorClientSession,
 ) -> ItemInstance:
     """Apply a pending full reroll result. Deducts gold."""
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found.")
     if itm.in_trade or itm.in_market:
         raise BlacksmithError("Item state changed — reroll cancelled.")
 
     gold_cost = REROLL_FULL_COST[itm.rank]
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold.")
 
     user.gold -= gold_cost
     itm.secondary_stat_type = new_type
     itm.secondary_stat_value = new_value
-    await user.save(session=session)
-    await itm.save(session=session)
+    await user.save(session=usable_session(session))
+    await itm.save(session=usable_session(session))
     return itm
 
 
@@ -251,14 +252,14 @@ async def reroll_secondary_value(
     item_id: str,
     session: AsyncIOMotorClientSession,
 ) -> dict:
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found or not owned by you.")
     if itm.in_trade or itm.in_market:
         raise BlacksmithError("Cannot reroll an item that is listed or in a trade.")
 
     gold_cost = REROLL_VALUE_COST[itm.rank]
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
@@ -280,19 +281,19 @@ async def accept_reroll_value(
     new_value: int,
     session: AsyncIOMotorClientSession,
 ) -> ItemInstance:
-    itm = await ItemInstance.get(PydanticObjectId(item_id), session=session)
+    itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
     if itm is None or itm.owner_id != owner_id:
         raise BlacksmithError("Item not found.")
     if itm.in_trade or itm.in_market:
         raise BlacksmithError("Item state changed — reroll cancelled.")
 
     gold_cost = REROLL_VALUE_COST[itm.rank]
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold.")
 
     user.gold -= gold_cost
     itm.secondary_stat_value = new_value
-    await user.save(session=session)
-    await itm.save(session=session)
+    await user.save(session=usable_session(session))
+    await itm.save(session=usable_session(session))
     return itm

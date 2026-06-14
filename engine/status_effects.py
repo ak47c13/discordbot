@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 
 @dataclass
 class StatusEffect:
-    name: str
-    duration: int       # remaining turns
+    name: str = ""
+    duration: int = 0       # remaining turns
 
     def tick(self) -> bool:
         """Decrement duration. Returns True if effect should be removed."""

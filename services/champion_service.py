@@ -8,6 +8,7 @@ from typing import Optional
 
 from beanie import PydanticObjectId
 from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
 
 from models.champion import ChampionInstance
 from models.user import User
@@ -47,7 +48,7 @@ async def fuse_champions(
     # Fetch all three with lock check — fetch inside session for transaction isolation
     champs: list[ChampionInstance] = []
     for cid in champion_ids:
-        c = await ChampionInstance.get(PydanticObjectId(cid), session=session)
+        c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         if c is None:
             raise FusionError(f"Champion {cid} not found.")
         if c.owner_id != owner_id:
@@ -73,18 +74,18 @@ async def fuse_champions(
     next_rank = RANKS[RANK_INDEX[current_rank] + 1]
 
     # Check gold cost
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     cost = CHAMPION_FUSION_COST[next_rank]
     if user.gold < cost:
         raise FusionError(f"Not enough gold. Need {cost}, have {user.gold}.")
 
     # Deduct gold
     user.gold -= cost
-    await user.save(session=session)
+    await user.save(session=usable_session(session))
 
     # Delete the 3 source champions
     for c in champs:
-        await c.delete(session=session)
+        await c.delete(session=usable_session(session))
 
     # Create the result champion
     result = ChampionInstance(
@@ -94,7 +95,7 @@ async def fuse_champions(
         level=1,
         exp=0,
     )
-    await result.insert(session=session)
+    await result.insert(session=usable_session(session))
 
     # Audit log S-rank creation
     if next_rank == "S":
@@ -114,7 +115,7 @@ async def level_up_champion(
     champion_id: str,
     session: AsyncIOMotorClientSession,
 ) -> ChampionInstance:
-    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=session)
+    c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != owner_id:
         raise ValueError("Champion not found or not owned by you.")
 
@@ -122,14 +123,14 @@ async def level_up_champion(
     if c.level >= max_lvl:
         raise ValueError(f"Champion is already at max level ({max_lvl}) for rank {c.rank}.")
 
-    user = await User.find_one(User.discord_id == owner_id, session=session)
+    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user.gold < LEVEL_UP_GOLD_COST:
         raise ValueError(f"Need {LEVEL_UP_GOLD_COST} gold to level up.")
 
     user.gold -= LEVEL_UP_GOLD_COST
     c.level += 1
-    await user.save(session=session)
-    await c.save(session=session)
+    await user.save(session=usable_session(session))
+    await c.save(session=usable_session(session))
     return c
 
 
@@ -142,7 +143,7 @@ async def grant_champion(
     """Create and give a champion to a player (from drops, events, etc.)."""
     c = ChampionInstance(owner_id=owner_id, name=name, rank=rank)
     if session:
-        await c.insert(session=session)
+        await c.insert(session=usable_session(session))
     else:
         await c.insert()
     return c

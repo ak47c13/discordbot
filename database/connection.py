@@ -6,16 +6,25 @@ from models.user import User
 from models.champion import ChampionInstance
 from models.item import ItemInstance
 from models.team import Team
-from models.trade import Trade
+from models.trade import TradeOffer
 from models.market import MarketListing
 from models.audit_log import AuditLog
 from models.processed_interaction import ProcessedInteraction
 from models.raid import RaidQueue
 
 
+_client: AsyncIOMotorClient | None = None
+
+
+def get_client() -> AsyncIOMotorClient | None:
+    return _client
+
+
 async def init_db() -> None:
+    global _client
     uri = os.environ["MONGODB_URI"]
     client = AsyncIOMotorClient(uri)
+    _client = client
     db = client.get_default_database()
 
     await init_beanie(
@@ -25,7 +34,7 @@ async def init_db() -> None:
             ChampionInstance,
             ItemInstance,
             Team,
-            Trade,
+            TradeOffer,
             MarketListing,
             AuditLog,
             ProcessedInteraction,
