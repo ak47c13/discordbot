@@ -3,11 +3,11 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from utils.embeds import reward_embed, error_embed
+from utils.embeds import reward_embed, error_embed, success_embed
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
-from services.hunt_service import run_hunt, HuntError
+from services.hunt_service import run_hunt, start_hunt, HuntError
 from config.game_config import HUNT_ZONES
 
 
@@ -33,48 +33,29 @@ class HuntCog(commands.Cog):
 
         await User.get_or_create(uid, interaction.user.display_name)
 
+        # Run setup (validation, stamina, simulation) under the user lock and a
+        # transaction. The round-by-round reveal (which sleeps) runs afterward;
+        # rewards are granted atomically inside the presentation service.
         async with get_user_lock(uid):
             client = get_motor_client()
             async with await client.start_session() as session:
                 async with session.start_transaction():
                     try:
-                        outcome = await run_hunt(uid, zone, session)
+                        await start_hunt(uid, zone, session, discord_channel=interaction.channel)
                     except HuntError as e:
                         await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         await mark_processed(iid, f"hunt:{zone}")
-
-        result = outcome["battle_result"]
-        zone_name = outcome["zone"]
-        is_boss = outcome["is_boss"]
-        is_elite = outcome["is_elite"]
-
-        # Battle summary embed
-        enemy_type = "🐉 Boss" if is_boss else ("⚡ Elite" if is_elite else "👹 Mob")
-        winner_text = "🏆 Victory!" if result.winner == 0 else ("💀 Defeat" if result.winner == 1 else "⏳ Draw")
-
-        embed = discord.Embed(
-            title=f"{zone_name} — {enemy_type}",
-            description=f"**{winner_text}** in {result.rounds} rounds.",
-            color=0x00CC44 if result.winner == 0 else 0xFF0000,
-        )
-
-        # Truncated battle log (last 10 lines)
-        log_lines = [l for l in outcome["battle_log"] if l.strip()][-10:]
-        if log_lines:
-            embed.add_field(
-                name="⚔️ Battle Log (last 10 lines)",
-                value="\n".join(log_lines)[:1000],
-                inline=False,
-            )
-
-        await interaction.followup.send(embed=embed)
-
-        if result.winner == 0 and outcome["rewards"]["gold"] > 0:
+        # The battle message and reward message are sent by the presentation
+        # service. Acknowledge the deferred interaction.
+        try:
             await interaction.followup.send(
-                embed=reward_embed(outcome["rewards"], f"🎁 Hunt Rewards — {zone_name}")
+                embed=success_embed("Battle started — watch the message above!"),
+                ephemeral=True,
             )
+        except Exception:
+            pass
 
 
 async def setup(bot: commands.Bot):

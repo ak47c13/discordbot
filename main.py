@@ -7,6 +7,11 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from database.connection import init_db
+from models.battle_session import BattleSession
+from services.battle_presentation_service import (
+    cancel_battle,
+    resume_battle_presentation,
+)
 
 load_dotenv()
 
@@ -31,6 +36,7 @@ class AutoBattlerBot(commands.Bot):
         intents = discord.Intents.default()
         intents.guilds = True
         intents.members = True
+        intents.messages = True
         super().__init__(command_prefix="!", intents=intents)
 
     async def setup_hook(self):
@@ -59,6 +65,31 @@ class AutoBattlerBot(commands.Bot):
         await self.change_presence(
             activity=discord.Game(name="Auto-Battler RPG | /hunt")
         )
+
+        # Resume any ACTIVE battle sessions that lost their worker on restart.
+        try:
+            active_sessions = await BattleSession.find(
+                BattleSession.status == "ACTIVE"
+            ).to_list()
+            for bs in active_sessions:
+                if bs.displayed_round_count < bs.simulated_round_count:
+                    asyncio.create_task(resume_battle_presentation(bs, self))
+        except Exception as e:
+            print(f"   ⚠️ Battle recovery failed: {e}")
+
+    async def on_message_delete(self, message):
+        # Cancel a battle if its presentation message is deleted.
+        try:
+            session = await BattleSession.find_one(
+                BattleSession.message_id == str(message.id),
+                BattleSession.status == "ACTIVE",
+            )
+            if session:
+                await cancel_battle(
+                    str(session.id), "CANCELLED_MESSAGE_DELETED", session=None
+                )
+        except Exception:
+            pass
 
     async def on_app_command_error(
         self,

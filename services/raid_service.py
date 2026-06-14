@@ -91,6 +91,7 @@ async def start_raid(
     leader_id: str,
     raid_id: str,
     session: AsyncIOMotorClientSession,
+    discord_channel=None,
 ) -> dict[str, Any]:
     raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
     if raid is None:
@@ -128,7 +129,38 @@ async def start_raid(
     boss.hp = boss.hp * len(player_units)
     boss.hp_max = boss.hp
 
-    battle_result = run_battle(player_units, [boss])
+    if discord_channel is not None:
+        from services.battle_presentation_service import (
+            simulate_and_store, start_presentation, advance_and_display,
+        )
+        from engine.combat import BattleResult
+
+        zone_cfg = HUNT_ZONES[raid.zone]
+        player_team_names = [u.name for u in player_units]
+        bs = await simulate_and_store(
+            owner_id=leader_id,
+            zone=zone_cfg["name"],
+            player_units=player_units,
+            enemy_units=[boss],
+            battle_type="raid",
+            entry_cost={},
+            session=session,
+        )
+        message = await start_presentation(bs, discord_channel, player_team_names, boss.name)
+
+        async def _raid_reward_fn():
+            return {}  # rewards handled below by caller-visible dict
+
+        await advance_and_display(str(bs.id), message)
+        battle_result = BattleResult(
+            winner=bs.winner,
+            rounds=bs.simulated_round_count,
+            log=[ev for r in bs.simulated_rounds for ev in r.get("events", [])],
+            player_survived=[],
+            enemy_survived=[],
+        )
+    else:
+        battle_result = run_battle(player_units, [boss])
 
     # Distribute personal loot
     player_rewards = {}

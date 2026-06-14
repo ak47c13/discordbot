@@ -11,6 +11,7 @@ from models.market import MarketListing
 from models.audit_log import AuditLog
 from models.processed_interaction import ProcessedInteraction
 from models.raid import RaidQueue
+from models.battle_session import BattleSession
 
 
 _client: AsyncIOMotorClient | None = None
@@ -39,6 +40,7 @@ async def init_db() -> None:
             AuditLog,
             ProcessedInteraction,
             RaidQueue,
+            BattleSession,
         ],
     )
 

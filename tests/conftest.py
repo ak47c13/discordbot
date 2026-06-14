@@ -12,11 +12,13 @@ from models.market import MarketListing
 from models.audit_log import AuditLog
 from models.processed_interaction import ProcessedInteraction
 from models.raid import RaidQueue
+from models.battle_session import BattleSession
 
 
 ALL_MODELS = [
     User, ChampionInstance, ItemInstance, Team,
     TradeOffer, MarketListing, AuditLog, ProcessedInteraction, RaidQueue,
+    BattleSession,
 ]
 
 
