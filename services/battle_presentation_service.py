@@ -31,6 +31,16 @@ from config.game_config import (
     BATTLE_FAST_DISPLAY_INTERVAL,
     MAX_ROUNDS,
 )
+from utils.image_gen import generate_team_banner, _riot_id_from_name
+from data.champion_roster import CHAMPION_ROSTER
+
+BATTLE_BANNER_FILENAME = "team.png"
+BATTLE_BANNER_URL = f"attachment://{BATTLE_BANNER_FILENAME}"
+
+
+def _roster_riot_id(name: str) -> str:
+    entry = CHAMPION_ROSTER.get(name, {})
+    return entry.get("riot_id") or _riot_id_from_name(name)
 
 
 async def simulate_and_store(
@@ -56,7 +66,16 @@ async def simulate_and_store(
         battle_seed=seed,
         winner=result.winner,
         simulated_rounds=rounds,
-        player_snapshot=[{"name": u.name, "hp_max": u.hp_max} for u in player_units],
+        player_snapshot=[
+            {
+                "name": u.name,
+                "hp_max": u.hp_max,
+                "rank": getattr(u, "rank", "F"),
+                "level": getattr(u, "level", 1),
+                "riot_id": _roster_riot_id(u.name),
+            }
+            for u in player_units
+        ],
         enemy_snapshot=[{"name": u.name, "hp_max": u.hp_max} for u in enemy_units],
         entry_cost_json=entry_cost or {},
     )
@@ -70,14 +89,41 @@ async def start_presentation(
     player_team_names: list[str],
     enemy_name: str,
 ) -> "object":
+    # Generate the loading-screen banner for the player's team and attach it.
+    banner_file = None
+    banner_url = ""
+    try:
+        champions = [
+            {
+                "name": s.get("name", ""),
+                "rank": s.get("rank", "F"),
+                "level": s.get("level", 1),
+                "riot_id": s.get("riot_id", ""),
+            }
+            for s in battle_session.player_snapshot
+        ]
+        if champions:
+            import discord
+            buf = await generate_team_banner(champions)
+            banner_file = discord.File(buf, filename=BATTLE_BANNER_FILENAME)
+            banner_url = BATTLE_BANNER_URL
+    except Exception:
+        banner_file = None
+        banner_url = ""
+
     embed = build_initial_embed(
-        battle_session.zone, player_team_names, enemy_name, battle_session.battle_type
+        battle_session.zone, player_team_names, enemy_name, battle_session.battle_type,
+        banner_url=banner_url,
     )
     view = CancelBattleView(str(battle_session.id), battle_session.owner_id)
-    message = await discord_channel.send(embed=embed, view=view)
+    if banner_file is not None:
+        message = await discord_channel.send(embed=embed, view=view, file=banner_file)
+    else:
+        message = await discord_channel.send(embed=embed, view=view)
 
     battle_session.message_id = str(message.id)
     battle_session.channel_id = str(getattr(discord_channel, "id", ""))
+    battle_session.static_image_url = banner_url
     battle_session.status = "ACTIVE"
     battle_session.last_updated_at = datetime.now(timezone.utc)
     await battle_session.save()
@@ -122,7 +168,7 @@ async def advance_and_display(
 
         rs = bs.simulated_rounds[bs.displayed_round_count]
         player_names = [s["name"] for s in bs.player_snapshot]
-        embed = build_battle_embed(bs, rs, bs.zone, player_names)
+        embed = build_battle_embed(bs, rs, bs.zone, player_names, banner_url=bs.static_image_url)
         try:
             await message.edit(embed=embed)
         except Exception:
@@ -186,7 +232,7 @@ async def finalize(
 
     # Update battle message with final embed
     final_snap = bs.simulated_rounds[-1] if bs.simulated_rounds else None
-    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner)
+    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner, banner_url=bs.static_image_url)
     edit_target = None
     if hasattr(discord_channel, "edit"):
         edit_target = discord_channel

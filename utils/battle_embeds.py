@@ -112,6 +112,8 @@ def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_
     )
     embed = discord.Embed(title=title, description=desc[:4000], color=color)
     embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
+    if banner_url:
+        embed.set_image(url=banner_url)
     return embed
 
 

@@ -13,6 +13,17 @@ from utils.db_session import usable_session
 from models.champion import ChampionInstance
 from models.user import User
 from models.audit_log import AuditLog
+from data.champion_roster import CHAMPION_ROSTER
+
+
+def _roster_fields(name: str) -> dict:
+    """Return riot_id/title/source_roles from the roster for a champion name."""
+    entry = CHAMPION_ROSTER.get(name, {})
+    return {
+        "riot_id": entry.get("riot_id", ""),
+        "title": entry.get("title", ""),
+        "source_roles": list(entry.get("source_roles", [])),
+    }
 from config.game_config import (
     RANKS,
     RANK_INDEX,
@@ -96,6 +107,7 @@ async def fuse_champions(
         rank=next_rank,
         level=1,
         exp=0,
+        **_roster_fields(champs[0].name),
     )
     await result.insert(session=usable_session(session))
 
@@ -194,7 +206,7 @@ async def grant_champion(
     session: Optional[AsyncIOMotorClientSession] = None,
 ) -> ChampionInstance:
     """Create and give a champion to a player (from drops, events, etc.)."""
-    c = ChampionInstance(owner_id=owner_id, name=name, rank=rank)
+    c = ChampionInstance(owner_id=owner_id, name=name, rank=rank, **_roster_fields(name))
     if session:
         await c.insert(session=usable_session(session))
     else:

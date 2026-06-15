@@ -12,6 +12,7 @@ from services.champion_service import (
 )
 from services.bulk_service import bulk_sell_champions, BulkSellError
 from config.game_config import CHAMPION_FUSION_COST, RANKS, SELL_PRICE_CHAMPION
+from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
 
 
 class ChampionsCog(commands.Cog):
@@ -63,7 +64,10 @@ class ChampionsCog(commands.Cog):
         if c is None or c.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
             return
-        await interaction.followup.send(embed=champion_embed(c, "Champion Details"), ephemeral=True)
+        embed = champion_embed(c, "Champion Details")
+        riot_id = c.riot_id or _riot_id_from_name(c.name)
+        embed.set_image(url=DDRAGON_LOADING.format(riot_id=riot_id))
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="fuse-champions", description="Fuse 3 identical same-rank champions into 1 of next rank.")
     @app_commands.describe(id1="Champion 1 ID", id2="Champion 2 ID", id3="Champion 3 ID")
