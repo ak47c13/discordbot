@@ -42,15 +42,17 @@ class RaidCog(commands.Cog):
                         return
 
         embed = discord.Embed(
-            title=f"⚔️ Raid Queue Created — {HUNT_ZONES[zone]['name']}",
+            title="✅ Raid created!",
             description=(
-                f"Players can join with `/raid-join {raid.id} <champion_number>`\n"
+                f"**Zone:** {HUNT_ZONES[zone]['name']}\n"
+                f"**ID:** `{raid.id}`  ← copy this\n\n"
+                f"Share this ID so others can join with:\n"
+                f"`/raid-join <raid_id> <your_champion_number>`\n\n"
                 f"Leader starts with `/raid-start {raid.id}`\n"
                 f"Max 5 players."
             ),
             color=COLOR_INFO,
         )
-        embed.add_field(name="Raid ID", value=f"`{raid.id}`", inline=False)
         await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="raid-list", description="List open raids you can join.")

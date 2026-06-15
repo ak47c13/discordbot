@@ -436,12 +436,12 @@ SELL_PRICE_ITEM     = {"F": 30, "E": 90,  "D": 240, "C": 600,  "B": 1500, "A": 3
 # Battle presentation display timing (seconds per round)
 # ---------------------------------------------------------------------------
 BATTLE_DISPLAY_INTERVALS = {
-    "hunt":   1.0,
-    "elite":  1.5,
-    "boss":   2.0,
-    "raid":   2.5,
+    "hunt":   0.7,
+    "elite":  1.0,
+    "boss":   1.0,
+    "raid":   1.5,
 }
-BATTLE_FAST_DISPLAY_INTERVAL = 0.4
+BATTLE_FAST_DISPLAY_INTERVAL = 0.3
 
 # Batched display tuning (avoid Discord per-message edit rate limits)
 DISPLAY_BATCH_SIZE = 2        # combine N rounds per embed edit

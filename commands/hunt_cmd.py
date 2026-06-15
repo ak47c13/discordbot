@@ -33,27 +33,26 @@ class HuntCog(commands.Cog):
 
         await User.get_or_create(uid, interaction.user.display_name)
 
-        # Run setup (validation, stamina, simulation) under the user lock and a
-        # transaction. The round-by-round reveal (which sleeps) runs afterward;
-        # rewards are granted atomically inside the presentation service.
+        # start_hunt manages its own short-lived transactions internally:
+        #   1. atomic setup (validate + deduct stamina)
+        #   2. CPU-only simulation + round-by-round reveal (NO transaction, sleeps)
+        #   3. reward granting in its own transaction
+        # This keeps any single transaction short so MongoDB Atlas does not abort
+        # it as a long-running transaction (TransientTransactionError).
         try:
             async with get_user_lock(uid):
-                client = get_motor_client()
-                async with await client.start_session() as session:
-                    async with session.start_transaction():
-                        try:
-                            # The initial battle message is sent via
-                            # interaction.followup, which resolves the deferred
-                            # "Bot is thinking..." state immediately while keeping
-                            # the message editable for the round-by-round reveal.
-                            await start_hunt(
-                                uid, zone, session,
-                                discord_channel=interaction.channel,
-                                followup=interaction.followup,
-                            )
-                        except HuntError as e:
-                            await interaction.followup.send(embed=error_embed(str(e)))
-                            return
+                try:
+                    # The initial battle message is sent via interaction.followup,
+                    # which resolves the deferred "Bot is thinking..." state
+                    # immediately while keeping the message editable for the reveal.
+                    await start_hunt(
+                        uid, zone, None,
+                        discord_channel=interaction.channel,
+                        followup=interaction.followup,
+                    )
+                except HuntError as e:
+                    await interaction.followup.send(embed=error_embed(str(e)))
+                    return
         except Exception as e:
             # Always resolve the interaction so it never hangs on "thinking".
             try:

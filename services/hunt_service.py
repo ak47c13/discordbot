@@ -2,11 +2,24 @@
 Hunt service: resolve auto-combat against mobs/bosses and distribute loot.
 """
 from __future__ import annotations
+import asyncio
 import random
 from typing import Any
 
 from motor.motor_asyncio import AsyncIOMotorClientSession
 from utils.db_session import usable_session, get_motor_client
+
+
+async def _run_with_retry(coro_fn, max_retries=3):
+    """Retry a transaction coroutine on TransientTransactionError."""
+    for attempt in range(max_retries):
+        try:
+            return await coro_fn()
+        except Exception as e:
+            if 'TransientTransactionError' in str(e) and attempt < max_retries - 1:
+                await asyncio.sleep(0.1 * (attempt + 1))
+                continue
+            raise
 
 from models.user import User
 from models.champion import ChampionInstance
@@ -153,33 +166,51 @@ async def start_hunt(
     if zone_cfg is None:
         raise HuntError(f"Unknown zone '{zone_key}'. Valid: {', '.join(HUNT_ZONES)}")
 
-    user = await User.find_one(User.discord_id == player_id, session=usable_session(session))
     cost = zone_cfg["stamina_cost"]
-    if user.stamina < cost:
-        raise HuntError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
 
-    team = await Team.get_or_create(player_id)
-    active_slots = [s for s in team.slots if s is not None]
-    if not active_slots:
-        raise HuntError("Your team has no champions. Use /team add to set up your team.")
+    # --- Phase 1: atomic setup (validate, build units, deduct stamina) ---
+    # This runs inside a short transaction with NO simulation and NO sleeps so
+    # MongoDB Atlas never aborts it as a long-running transaction.
+    async def _setup():
+        client = get_motor_client()
+        if client is None:
+            return await _setup_inner(None)
+        async with await client.start_session() as s:
+            async with s.start_transaction():
+                return await _setup_inner(s)
 
-    player_units = []
-    for idx, champ_id in enumerate(active_slots):
-        champ_doc = await ChampionInstance.get(champ_id)
-        if champ_doc is None:
-            continue
-        item_docs = await ItemInstance.find(
-            ItemInstance.equipped_to == str(champ_doc.id)
-        ).to_list()
-        unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
-        player_units.append(unit)
+    async def _setup_inner(s):
+        user = await User.find_one(User.discord_id == player_id, session=usable_session(s))
+        if user.stamina < cost:
+            raise HuntError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
 
-    if not player_units:
-        raise HuntError("No valid champions in team.")
+        team = await Team.get_or_create(player_id)
+        active_slots = [slot for slot in team.slots if slot is not None]
+        if not active_slots:
+            raise HuntError("Your team has no champions. Use /team add to set up your team.")
 
-    user.stamina -= cost
-    await user.save(session=usable_session(session))
+        units = []
+        for idx, champ_id in enumerate(active_slots):
+            champ_doc = await ChampionInstance.get(champ_id)
+            if champ_doc is None:
+                continue
+            item_docs = await ItemInstance.find(
+                ItemInstance.equipped_to == str(champ_doc.id)
+            ).to_list()
+            unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
+            units.append(unit)
 
+        if not units:
+            raise HuntError("No valid champions in team.")
+
+        user.stamina -= cost
+        await user.save(session=usable_session(s))
+        return units
+
+    player_units = await _run_with_retry(_setup)
+
+    # --- Phase 2: CPU-only work, OUTSIDE any transaction (no DB writes here
+    # except BattleSession.insert, which is its own document). ---
     min_mob, max_mob = zone_cfg["mob_count"]
     mob_count = random.randint(min_mob, max_mob)
     enemy_units = generate_mob_team(zone_key, min(mob_count, 5))
@@ -206,6 +237,7 @@ async def start_hunt(
         simulate_and_store, start_presentation, advance_and_display,
     )
 
+    # BattleSession is its own document; insert it without the setup transaction.
     bs = await simulate_and_store(
         owner_id=player_id,
         zone=zone_cfg["name"],
@@ -213,20 +245,24 @@ async def start_hunt(
         enemy_units=enemy_units,
         battle_type=battle_type,
         entry_cost={"stamina": cost},
-        session=session,
+        session=None,
     )
 
     is_boss = boss_spawned
     drop_table = BOSS_DROPS if is_boss else (ELITE_MOB_DROPS if is_elite else NORMAL_MOB_DROPS)
     gold_multiplier = zone_cfg["gold_multiplier"]
 
+    # --- Phase 3: rewards in their own short transaction, granted only after
+    # the round-by-round reveal completes (via reward_fn). ---
     async def _reward_fn():
-        client = get_motor_client()
-        if client is None:
-            return await _roll_drops(player_id, drop_table, gold_multiplier, None)
-        async with await client.start_session() as s:
-            async with s.start_transaction():
-                return await _roll_drops(player_id, drop_table, gold_multiplier, s)
+        async def _do():
+            client = get_motor_client()
+            if client is None:
+                return await _roll_drops(player_id, drop_table, gold_multiplier, None)
+            async with await client.start_session() as s:
+                async with s.start_transaction():
+                    return await _roll_drops(player_id, drop_table, gold_multiplier, s)
+        return await _run_with_retry(_do)
 
     message = await start_presentation(
         bs, discord_channel, player_team_names, enemy_name, followup=followup,

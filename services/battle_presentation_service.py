@@ -152,55 +152,6 @@ async def start_presentation(
     return message
 
 
-_INTERESTING_MARKERS = ("💫", "💀", "☠️", "⚡", "🔥", "💚", "🛡️", "ULTIMATE", "crit", "Crit", "defeated", "fallen")
-
-
-def _round_is_interesting(rs: dict) -> bool:
-    for ev in rs.get("events", []):
-        if any(m in ev for m in _INTERESTING_MARKERS):
-            return True
-    return False
-
-
-def _select_display_indices(battle_session: BattleSession, target: int) -> list[int]:
-    """Pick round indices (0-based, < target) to edit the message on.
-
-    - Always include the final round.
-    - Prefer "interesting" rounds (crits/kills/status/ultimates).
-    - Cap the total number of edits at DISPLAY_MAX_UPDATES to avoid rate limits.
-    - Resume-safe: never re-show already-displayed rounds.
-    """
-    start = battle_session.displayed_round_count
-    if target <= start:
-        return []
-
-    candidates = list(range(start, target))
-    if len(candidates) <= DISPLAY_MAX_UPDATES:
-        return candidates
-
-    last = candidates[-1]
-    interesting = [i for i in candidates if _round_is_interesting(battle_session.simulated_rounds[i])]
-
-    selected = set()
-    # Always keep the last round.
-    selected.add(last)
-    # Keep interesting rounds, up to the budget (minus the reserved last slot).
-    for i in interesting:
-        if len(selected) >= DISPLAY_MAX_UPDATES:
-            break
-        selected.add(i)
-    # Fill remaining budget with evenly-spaced rounds.
-    if len(selected) < DISPLAY_MAX_UPDATES:
-        remaining = DISPLAY_MAX_UPDATES - len(selected)
-        step = max(1, len(candidates) // (remaining + 1))
-        for i in candidates[::step]:
-            if len(selected) >= DISPLAY_MAX_UPDATES:
-                break
-            selected.add(i)
-
-    return sorted(selected)
-
-
 def _interval_for(battle_session: BattleSession) -> float:
     if battle_session.fast_display:
         return BATTLE_FAST_DISPLAY_INTERVAL
@@ -230,12 +181,9 @@ async def advance_and_display(
     interval = _interval_for(bs)
     target = bs.simulated_round_count if until_round is None else min(until_round, bs.simulated_round_count)
 
-    # Determine which round indices to actually edit the message on. To avoid
-    # Discord per-message edit rate limits we cap the number of edits and skip
-    # "boring" rounds (no crit/kill/status), always showing the final round.
-    display_indices = _select_display_indices(bs, target)
-
-    for idx in display_indices:
+    # Display EVERY round, editing the message once per round with a sleep
+    # between each so the battle reveals at a steady, snappy pace.
+    for idx in range(bs.displayed_round_count, target):
         # Re-check status for cooperative cancellation
         fresh = await BattleSession.get(bs.id)
         if fresh is None or fresh.status != "ACTIVE":
