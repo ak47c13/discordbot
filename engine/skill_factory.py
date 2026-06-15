@@ -117,7 +117,9 @@ def make_skill(
                     dmg = max(1, int(caster.atk * coeff))
                 if dmg > 0:
                     _apply_damage(t, dmg)
-                    log.append(f"  {caster.name} hits {t.name} for {dmg} damage.")
+                    log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.")
+                    if t.hp <= 0:
+                        log.append(f"  💀 {t.name} is defeated!")
 
             # Status
             if status and random.random() < status_chance and t.hp > 0:
@@ -140,7 +142,11 @@ def make_skill(
                     t.status_effects.append(Silence(duration=eff_dur))
                 elif status == "defense_down":
                     t.status_effects.append(DefenseDown(duration=eff_dur, reduction_pct=0.25))
-                log.append(f"  {t.name} is afflicted with {status}.")
+                _status_emoji = {
+                    "stun": "⚡", "poison": "☠️", "burn": "🔥",
+                    "silence": "🔇", "defense_down": "🛡️",
+                }.get(status, "⚡")
+                log.append(f"  {_status_emoji} {t.name} is afflicted with {status}.")
 
         # Heal
         if heal_coeff > 0:
@@ -148,7 +154,7 @@ def make_skill(
             for t in h_targets:
                 amount = int(caster.hp_max * heal_coeff)
                 t.hp = min(t.hp_max, t.hp + amount)
-                log.append(f"  {caster.name} heals {t.name} for {amount} HP.")
+                log.append(f"  💚 {caster.name} heals {t.name} for {amount:,} HP.")
 
         # Shield
         if shield_coeff > 0:
@@ -156,7 +162,7 @@ def make_skill(
             shield_amount = int(caster.hp_max * shield_coeff)
             for t in s_targets:
                 t.status_effects.append(Shield(absorb=shield_amount, duration=3))
-                log.append(f"  {t.name} gains a {shield_amount} HP shield.")
+                log.append(f"  🛡️ {t.name} gains a {shield_amount:,} HP shield.")
 
         # Mana: mutate caster directly for the combat engine, and report via return value.
         if mana_gain:

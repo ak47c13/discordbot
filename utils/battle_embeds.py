@@ -24,6 +24,13 @@ def _zone_key(battle_session) -> str:
     return _ZONE_NAME_TO_KEY.get(zone, "")
 
 
+def _zone_key_for_name(zone: str) -> str:
+    """Resolve a zone key from either a zone key or its display name."""
+    if zone in HUNT_ZONES:
+        return zone
+    return _ZONE_NAME_TO_KEY.get(zone, "")
+
+
 def _boss_portrait_url(battle_session) -> str:
     """Riot Data Dragon loading-screen art for this battle's boss."""
     if getattr(battle_session, "battle_type", "") == "raid":
@@ -101,31 +108,67 @@ def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner
     return embed
 
 
+def _enemy_label(battle_session) -> str:
+    """Enemy name with rank/level if available from the snapshot."""
+    snaps = getattr(battle_session, "enemy_snapshot", None) or []
+    if not snaps:
+        return "Enemy"
+    first = snaps[0]
+    name = first.get("name", "Enemy")
+    rank = first.get("rank")
+    level = first.get("level")
+    suffix = ""
+    if rank:
+        suffix += f" [{rank}]"
+    if level:
+        suffix += f" Lv.{level}"
+    return f"{name}{suffix}"
+
+
+def _mana_ready_line(rs: dict) -> str:
+    ready = [name for name, mana in rs.get("mana_states", {}).items() if mana >= 100]
+    if not ready:
+        return ""
+    return "✨ **Mana Ready:** " + ", ".join(ready[:6])
+
+
 def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, banner_url="") -> discord.Embed:
     rs = round_snapshot
-    # Recent events from last 2 rounds
     rounds = battle_session.simulated_rounds
     idx = rs["round"] - 1
-    recent = []
-    for r in rounds[max(0, idx - 1): idx + 1]:
-        recent.extend(r.get("events", []))
-    recent_text = "\n".join(recent[-8:]) or "—"
 
-    desc = (
-        f"{DIVIDER}\n"
-        f"**Enemy**\n{hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}\n\n"
-        f"**Your Team**\n{hp_display(rs['player_hp'], rs['player_hp_max'])}\n"
-        f"{DIVIDER}\n"
-        f"Round {rs['round']} / {battle_session.max_rounds}\n\n"
-        f"**Recent Events:**\n{recent_text}\n"
-        f"{DIVIDER}\n"
-        f"**Mana:**\n{mana_compact(rs.get('mana_states', {}))}"
-    )
+    # Group recent events by round (last 2 rounds), with round headers.
+    blocks = []
+    for r in rounds[max(0, idx - 1): idx + 1]:
+        evs = r.get("events", [])
+        if not evs:
+            continue
+        blocks.append(f"**[Round {r['round']}]**\n" + "\n".join(evs[:6]))
+    recent_text = "\n\n".join(reversed(blocks)) or "—"
+
+    enemy_label = _enemy_label(battle_session)
+    mana_line = _mana_ready_line(rs)
+
+    desc_parts = [
+        f"🐲 **{enemy_label}**\n❤️ {hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
+        f"⚔️ **Your Team**\n❤️ {hp_display(rs['player_hp'], rs['player_hp_max'])}",
+        DIVIDER,
+        f"📜 **Recent Events**\n{recent_text}",
+    ]
+    if mana_line:
+        desc_parts.append(DIVIDER)
+        desc_parts.append(mana_line)
+    desc = "\n\n".join(desc_parts)
+
     embed = discord.Embed(
-        title=_title_for(battle_session.battle_type, zone_name),
+        title=f"⚔️ {zone_name} — Round {rs['round']}/{battle_session.max_rounds}",
         description=desc[:4000],
         color=0xE67E22,
     )
+    # Boss portrait thumbnail.
+    portrait = _boss_portrait_url(battle_session)
+    if portrait:
+        embed.set_thumbnail(url=portrait)
     embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
     if banner_url:
         embed.set_image(url=banner_url)
@@ -147,6 +190,9 @@ def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_
         f"{DIVIDER}"
     )
     embed = discord.Embed(title=title, description=desc[:4000], color=color)
+    portrait = _boss_portrait_url(battle_session)
+    if portrait:
+        embed.set_thumbnail(url=portrait)
     embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
     if banner_url:
         embed.set_image(url=banner_url)

@@ -30,6 +30,8 @@ from config.game_config import (
     BATTLE_DISPLAY_INTERVALS,
     BATTLE_FAST_DISPLAY_INTERVAL,
     MAX_ROUNDS,
+    DISPLAY_INTERVAL,
+    DISPLAY_MAX_UPDATES,
 )
 from utils.image_gen import generate_team_banner, _riot_id_from_name
 from data.champion_roster import CHAMPION_ROSTER
@@ -76,7 +78,16 @@ async def simulate_and_store(
             }
             for u in player_units
         ],
-        enemy_snapshot=[{"name": u.name, "hp_max": u.hp_max} for u in enemy_units],
+        enemy_snapshot=[
+            {
+                "name": u.name,
+                "hp_max": u.hp_max,
+                "rank": getattr(u, "rank", ""),
+                "level": getattr(u, "level", 0),
+                "is_boss": getattr(u, "is_boss", False),
+            }
+            for u in enemy_units
+        ],
         entry_cost_json=entry_cost or {},
     )
     await bs.insert(session=usable_session(session))
@@ -88,6 +99,7 @@ async def start_presentation(
     discord_channel,
     player_team_names: list[str],
     enemy_name: str,
+    followup=None,
 ) -> "object":
     # Generate the loading-screen banner for the player's team and attach it.
     banner_file = None
@@ -111,12 +123,22 @@ async def start_presentation(
         banner_file = None
         banner_url = ""
 
+    from utils.battle_embeds import _zone_key_for_name
     embed = build_initial_embed(
         battle_session.zone, player_team_names, enemy_name, battle_session.battle_type,
-        banner_url=banner_url,
+        banner_url=banner_url, zone_key=_zone_key_for_name(battle_session.zone),
     )
     view = CancelBattleView(str(battle_session.id), battle_session.owner_id)
-    if banner_file is not None:
+
+    # Sending the initial battle message as the interaction followup resolves the
+    # deferred "Bot is thinking..." state immediately while keeping the message
+    # editable for the round-by-round reveal.
+    if followup is not None:
+        if banner_file is not None:
+            message = await followup.send(embed=embed, view=view, file=banner_file)
+        else:
+            message = await followup.send(embed=embed, view=view)
+    elif banner_file is not None:
         message = await discord_channel.send(embed=embed, view=view, file=banner_file)
     else:
         message = await discord_channel.send(embed=embed, view=view)
@@ -128,6 +150,55 @@ async def start_presentation(
     battle_session.last_updated_at = datetime.now(timezone.utc)
     await battle_session.save()
     return message
+
+
+_INTERESTING_MARKERS = ("💫", "💀", "☠️", "⚡", "🔥", "💚", "🛡️", "ULTIMATE", "crit", "Crit", "defeated", "fallen")
+
+
+def _round_is_interesting(rs: dict) -> bool:
+    for ev in rs.get("events", []):
+        if any(m in ev for m in _INTERESTING_MARKERS):
+            return True
+    return False
+
+
+def _select_display_indices(battle_session: BattleSession, target: int) -> list[int]:
+    """Pick round indices (0-based, < target) to edit the message on.
+
+    - Always include the final round.
+    - Prefer "interesting" rounds (crits/kills/status/ultimates).
+    - Cap the total number of edits at DISPLAY_MAX_UPDATES to avoid rate limits.
+    - Resume-safe: never re-show already-displayed rounds.
+    """
+    start = battle_session.displayed_round_count
+    if target <= start:
+        return []
+
+    candidates = list(range(start, target))
+    if len(candidates) <= DISPLAY_MAX_UPDATES:
+        return candidates
+
+    last = candidates[-1]
+    interesting = [i for i in candidates if _round_is_interesting(battle_session.simulated_rounds[i])]
+
+    selected = set()
+    # Always keep the last round.
+    selected.add(last)
+    # Keep interesting rounds, up to the budget (minus the reserved last slot).
+    for i in interesting:
+        if len(selected) >= DISPLAY_MAX_UPDATES:
+            break
+        selected.add(i)
+    # Fill remaining budget with evenly-spaced rounds.
+    if len(selected) < DISPLAY_MAX_UPDATES:
+        remaining = DISPLAY_MAX_UPDATES - len(selected)
+        step = max(1, len(candidates) // (remaining + 1))
+        for i in candidates[::step]:
+            if len(selected) >= DISPLAY_MAX_UPDATES:
+                break
+            selected.add(i)
+
+    return sorted(selected)
 
 
 def _interval_for(battle_session: BattleSession) -> float:
@@ -159,14 +230,19 @@ async def advance_and_display(
     interval = _interval_for(bs)
     target = bs.simulated_round_count if until_round is None else min(until_round, bs.simulated_round_count)
 
-    while bs.displayed_round_count < target:
+    # Determine which round indices to actually edit the message on. To avoid
+    # Discord per-message edit rate limits we cap the number of edits and skip
+    # "boring" rounds (no crit/kill/status), always showing the final round.
+    display_indices = _select_display_indices(bs, target)
+
+    for idx in display_indices:
         # Re-check status for cooperative cancellation
         fresh = await BattleSession.get(bs.id)
         if fresh is None or fresh.status != "ACTIVE":
             return
         bs = fresh
 
-        rs = bs.simulated_rounds[bs.displayed_round_count]
+        rs = bs.simulated_rounds[idx]
         player_names = [s["name"] for s in bs.player_snapshot]
         embed = build_battle_embed(bs, rs, bs.zone, player_names, banner_url=bs.static_image_url)
         try:
@@ -175,7 +251,7 @@ async def advance_and_display(
             await cancel_battle(str(bs.id), "CANCELLED_MESSAGE_DELETED", session=None)
             return
 
-        bs.displayed_round_count += 1
+        bs.displayed_round_count = idx + 1
         bs.current_round = rs["round"]
         bs.last_updated_at = datetime.now(timezone.utc)
         await bs.save()

@@ -137,6 +137,7 @@ async def start_hunt(
     zone_key: str,
     session: AsyncIOMotorClientSession,
     discord_channel=None,
+    followup=None,
 ) -> Any:
     """Hunt entrypoint with AniGame-style visual presentation.
 
@@ -227,7 +228,9 @@ async def start_hunt(
             async with s.start_transaction():
                 return await _roll_drops(player_id, drop_table, gold_multiplier, s)
 
-    message = await start_presentation(bs, discord_channel, player_team_names, enemy_name)
+    message = await start_presentation(
+        bs, discord_channel, player_team_names, enemy_name, followup=followup,
+    )
     await advance_and_display(str(bs.id), message, reward_fn=_reward_fn)
     return bs
 

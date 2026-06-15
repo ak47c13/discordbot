@@ -36,30 +36,35 @@ class HuntCog(commands.Cog):
         # Run setup (validation, stamina, simulation) under the user lock and a
         # transaction. The round-by-round reveal (which sleeps) runs afterward;
         # rewards are granted atomically inside the presentation service.
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        await start_hunt(uid, zone, session, discord_channel=interaction.channel)
-                    except HuntError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)))
-                        return
+        try:
+            async with get_user_lock(uid):
+                client = get_motor_client()
+                async with await client.start_session() as session:
+                    async with session.start_transaction():
+                        try:
+                            # The initial battle message is sent via
+                            # interaction.followup, which resolves the deferred
+                            # "Bot is thinking..." state immediately while keeping
+                            # the message editable for the round-by-round reveal.
+                            await start_hunt(
+                                uid, zone, session,
+                                discord_channel=interaction.channel,
+                                followup=interaction.followup,
+                            )
+                        except HuntError as e:
+                            await interaction.followup.send(embed=error_embed(str(e)))
+                            return
+        except Exception as e:
+            # Always resolve the interaction so it never hangs on "thinking".
+            try:
+                await interaction.followup.send(
+                    embed=error_embed("Something went wrong starting your hunt.", str(e)[:200])
+                )
+            except Exception:
+                pass
+            return
 
         await mark_processed(iid, f"hunt:{zone}")
-        # The battle message and reward message are sent by the presentation
-        # service. Acknowledge the deferred interaction and show remaining stamina.
-        try:
-            fresh = await User.find_one(User.discord_id == uid)
-            stamina_line = ""
-            if fresh is not None:
-                stamina_line = f"\n⚡ Stamina remaining: {fresh.stamina}/{fresh.max_stamina}"
-            await interaction.followup.send(
-                embed=success_embed("Battle started — watch the message above!" + stamina_line),
-                ephemeral=True,
-            )
-        except Exception:
-            pass
 
 
 async def setup(bot: commands.Bot):

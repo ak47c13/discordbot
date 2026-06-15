@@ -119,15 +119,24 @@ class RaidCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Raid already started."))
             return
 
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        outcome = await start_raid(uid, raid_id, session)
-                    except RaidError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)))
-                        return
+        try:
+            async with get_user_lock(uid):
+                client = get_motor_client()
+                async with await client.start_session() as session:
+                    async with session.start_transaction():
+                        try:
+                            outcome = await start_raid(uid, raid_id, session)
+                        except RaidError as e:
+                            await interaction.followup.send(embed=error_embed(str(e)))
+                            return
+        except Exception as e:
+            try:
+                await interaction.followup.send(
+                    embed=error_embed("Something went wrong starting the raid.", str(e)[:200])
+                )
+            except Exception:
+                pass
+            return
 
         await mark_processed(iid, f"raid_start:{raid_id}")
 
