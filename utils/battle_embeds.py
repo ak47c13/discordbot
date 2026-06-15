@@ -4,8 +4,35 @@ Battle presentation embed builders and interactive views.
 from __future__ import annotations
 import discord
 
+from config.game_config import (
+    BOSS_PORTRAIT_RIOT_IDS,
+    RAID_BOSS_PORTRAIT_RIOT_ID,
+    HUNT_ZONES,
+)
+
 
 DIVIDER = "─────────────────────────────"
+
+# Zone display-name -> zone key (HUNT_ZONES stores display names in "name")
+_ZONE_NAME_TO_KEY = {cfg["name"]: key for key, cfg in HUNT_ZONES.items()}
+
+
+def _zone_key(battle_session) -> str:
+    zone = getattr(battle_session, "zone", "") or ""
+    if zone in HUNT_ZONES:
+        return zone
+    return _ZONE_NAME_TO_KEY.get(zone, "")
+
+
+def _boss_portrait_url(battle_session) -> str:
+    """Riot Data Dragon loading-screen art for this battle's boss."""
+    if getattr(battle_session, "battle_type", "") == "raid":
+        riot_id = RAID_BOSS_PORTRAIT_RIOT_ID
+    else:
+        riot_id = BOSS_PORTRAIT_RIOT_IDS.get(_zone_key(battle_session), "")
+    if not riot_id:
+        return ""
+    return f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg"
 
 
 def progress_bar(current, maximum, length: int = 16) -> str:
@@ -51,17 +78,26 @@ def _title_for(battle_type: str, zone_name: str) -> str:
     return f"⚔️ {zone_name} Battle"
 
 
-def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner_url="") -> discord.Embed:
+def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner_url="", zone_key="") -> discord.Embed:
     embed = discord.Embed(
         title=_title_for(battle_type, zone_name),
-        description="⚙️ Simulating battle...",
+        description="⚙️ Preparing for battle...",
         color=0x5865F2,
     )
     roster = "\n".join(f"• {n}" for n in player_names) or "—"
-    embed.add_field(name="Your Team", value=roster, inline=True)
-    embed.add_field(name="Enemy", value=enemy_name or "—", inline=True)
+    embed.add_field(name="⚔️ Your Team", value=roster, inline=True)
+    embed.add_field(name="🐲 Enemy", value=enemy_name or "—", inline=True)
     if banner_url:
         embed.set_image(url=banner_url)
+    # Boss portrait thumbnail from the start
+    if battle_type == "raid":
+        riot_id = RAID_BOSS_PORTRAIT_RIOT_ID
+    else:
+        riot_id = BOSS_PORTRAIT_RIOT_IDS.get(zone_key, "")
+    if riot_id:
+        embed.set_thumbnail(
+            url=f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg"
+        )
     return embed
 
 

@@ -267,50 +267,91 @@ RAID_DROPS = {
 # ---------------------------------------------------------------------------
 HUNT_ZONES = {
     "forest": {
-        "name": "Dark Forest",
+        "name": "Whispering Forest",
         "min_team_power": 0,
+        "power_requirement": 0,
+        "recommended_rank": "F",
         "mob_count": (3, 5),
-        "elite_chance": 0.15,
+        "elite_chance": 0.10,
         "boss_chance": 0.05,
-        "boss_name": "Forest Warden",
-        "boss_rank": "D",
+        "boss_name": "Forest Troll",
+        "boss_rank": "E",
+        "boss_level": 5,
+        "boss_level_mult": 1.0,
         "stamina_cost": 5,
         "gold_multiplier": 1.0,
+        "description": "Peaceful woods. Good for beginners.",
     },
     "dungeon": {
-        "name": "Ancient Dungeon",
+        "name": "Dark Dungeon",
         "min_team_power": 500,
+        "power_requirement": 0,
+        "recommended_rank": "D",
         "mob_count": (4, 6),
-        "elite_chance": 0.25,
+        "elite_chance": 0.15,
         "boss_chance": 0.10,
         "boss_name": "Dungeon Lord",
         "boss_rank": "C",
+        "boss_level": 15,
+        "boss_level_mult": 1.5,
         "stamina_cost": 10,
         "gold_multiplier": 1.5,
+        "description": "Treacherous corridors. Bring strong champions.",
     },
     "castle": {
         "name": "Ruined Castle",
         "min_team_power": 2000,
+        "power_requirement": 0,
+        "recommended_rank": "B",
         "mob_count": (5, 7),
-        "elite_chance": 0.35,
+        "elite_chance": 0.20,
         "boss_chance": 0.15,
-        "boss_name": "Undead King",
+        "boss_name": "Dark Knight",
         "boss_rank": "B",
+        "boss_level": 30,
+        "boss_level_mult": 2.0,
         "stamina_cost": 20,
         "gold_multiplier": 2.5,
+        "description": "Ancient fortress. Only seasoned warriors survive.",
     },
     "abyss": {
         "name": "The Abyss",
         "min_team_power": 8000,
+        "power_requirement": 0,
+        "recommended_rank": "S",
         "mob_count": (6, 8),
-        "elite_chance": 0.50,
+        "elite_chance": 0.25,
         "boss_chance": 0.20,
-        "boss_name": "Abyssal Titan",
+        "boss_name": "Void Colossus",
         "boss_rank": "A",
+        "boss_level": 60,
+        "boss_level_mult": 3.0,
         "stamina_cost": 40,
         "gold_multiplier": 5.0,
+        "description": "Absolute darkness. Legendary warriors only.",
     },
 }
+
+# Normal mobs: rank used to scale stats per zone
+MOB_RANK_BY_ZONE = {
+    "forest": "F",
+    "dungeon": "E",
+    "castle": "C",
+    "abyss": "B",
+}
+
+# ---------------------------------------------------------------------------
+# Boss portrait champions (Riot Data Dragon stand-ins) per zone
+# ---------------------------------------------------------------------------
+BOSS_PORTRAIT_RIOT_IDS = {
+    "forest":  "Maokai",
+    "dungeon": "Nocturne",
+    "castle":  "Mordekaiser",
+    "abyss":   "Chogath",
+}
+
+# Riot ID used for raid boss portrait art
+RAID_BOSS_PORTRAIT_RIOT_ID = "Aatrox"
 
 # ---------------------------------------------------------------------------
 # Combat constants
@@ -401,3 +442,8 @@ BATTLE_DISPLAY_INTERVALS = {
     "raid":   2.5,
 }
 BATTLE_FAST_DISPLAY_INTERVAL = 0.4
+
+# Batched display tuning (avoid Discord per-message edit rate limits)
+DISPLAY_BATCH_SIZE = 2        # combine N rounds per embed edit
+DISPLAY_INTERVAL = 0.8        # seconds between edits
+DISPLAY_MAX_UPDATES = 15      # cap total message edits per battle

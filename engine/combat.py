@@ -389,12 +389,12 @@ def run_battle_with_rounds(
             # Start-of-turn effects (poison)
             log.extend(unit.tick_effects_start())
             if not unit.is_alive:
-                log.append(f"  {unit.name} has fallen to poison.")
+                log.append(f"  ☠️ {unit.name} has fallen to poison.")
                 continue
 
             # Stun check
             if unit.has_effect(Stun):
-                log.append(f"  {unit.name} is stunned — skipping turn.")
+                log.append(f"  ⚡ {unit.name} is stunned — skipping turn.")
                 unit.tick_effects_end()
                 continue
 
@@ -405,18 +405,17 @@ def run_battle_with_rounds(
             # Choose skill
             silenced = unit.has_effect(Silence)
             if unit.mana >= MANA_ULTIMATE_THRESHOLD and not silenced and unit.ultimate_fn:
-                log.append(f"  {unit.name} casts ULTIMATE (mana={unit.mana})")
+                log.append(f"  💫 {unit.name} casts ULTIMATE!")
                 skill_log = _invoke_skill(unit.ultimate_fn, unit, enemies_of_unit, allies_of_unit)
                 unit.mana = 0
             elif unit.basic_fn:
                 skill_log = _invoke_skill(unit.basic_fn, unit, enemies_of_unit, allies_of_unit)
-                log.append(f"  {unit.name} uses basic skill (mana={unit.mana})")
             else:
                 # Fallback: simple auto-attack
                 t = random.choice(enemies_of_unit)
                 dmg = max(1, int(unit.atk * 0.8))
                 t.hp = max(0, t.hp - dmg)
-                skill_log = [f"  {unit.name} attacks {t.name} for {dmg}."]
+                skill_log = [f"  🗡️ {unit.name} struck {t.name} for {dmg:,} damage."]
                 unit.mana = min(MANA_MAX, unit.mana + 20)
 
             log.extend(skill_log)
@@ -441,7 +440,7 @@ def run_battle_with_rounds(
         alive_players = [u for u in player_units if u.is_alive]
         alive_enemies = [u for u in enemy_units if u.is_alive]
         for dead in [u for u in all_units if not u.is_alive]:
-            log.append(f"  ✗ {dead.name} has been defeated.")
+            log.append(f"  💀 {dead.name} has been defeated.")
 
         _snapshot(rnd, round_log_start)
 
@@ -491,26 +490,32 @@ def generate_mob_team(zone: str, mob_count: int) -> list[CombatUnit]:
     from config.game_config import HUNT_ZONES, CHAMPION_BASE_STATS
     from engine.skills import ALL_CHAMPION_NAMES
 
+    from config.game_config import MOB_RANK_BY_ZONE, CHAMPION_GROWTH_STATS
+
     zone_cfg = HUNT_ZONES[zone]
-    boss_rank = zone_cfg["boss_rank"]
+    rank = MOB_RANK_BY_ZONE.get(zone, "F")
+    base = CHAMPION_BASE_STATS[rank]
+    growth = CHAMPION_GROWTH_STATS[rank]
 
     enemies = []
     for i in range(mob_count):
         champ_name = random.choice(ALL_CHAMPION_NAMES)
         skills = CHAMPION_SKILLS.get(champ_name, {})
-        rank = "F"
-        base = CHAMPION_BASE_STATS[rank]
+        level = random.randint(1, 10)
+        hp = int(base["hp"] + growth["hp"] * (level - 1))
+        atk = (base["atk"] + growth["atk"] * (level - 1)) * 0.8
+        dfn = (base["def"] + growth["def"] * (level - 1)) * 0.8
         unit = CombatUnit(
             unit_id=f"mob_{i}",
             name=f"Mob {champ_name}",
             rank=rank,
-            level=random.randint(1, 10),
+            level=level,
             position=min(i + 1, 5),
             team=1,
-            hp=base["hp"],
-            hp_max=base["hp"],
-            atk=base["atk"] * 0.8,
-            def_stat=base["def"] * 0.8,
+            hp=hp,
+            hp_max=hp,
+            atk=atk,
+            def_stat=dfn,
             spd=base["spd"],
             basic_fn=skills.get("basic"),
             ultimate_fn=skills.get("ultimate"),
@@ -520,19 +525,31 @@ def generate_mob_team(zone: str, mob_count: int) -> list[CombatUnit]:
 
 
 def generate_boss_unit_for_zone(zone: str) -> CombatUnit:
-    from config.game_config import HUNT_ZONES, CHAMPION_BASE_STATS, BOSS_MECHANICS
+    from config.game_config import (
+        HUNT_ZONES, CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS, BOSS_MECHANICS,
+    )
     zone_cfg = HUNT_ZONES[zone]
-    rank = zone_cfg["boss_rank"]
+    rank = zone_cfg.get("boss_rank", "D")
+    level = zone_cfg.get("boss_level", 10)
+    mult = zone_cfg.get("boss_level_mult", 1.0)
+
     base = CHAMPION_BASE_STATS[rank]
+    growth = CHAMPION_GROWTH_STATS[rank]
+
+    hp = int((base["hp"] + growth["hp"] * (level - 1)) * mult)
+    atk = int((base["atk"] + growth["atk"] * (level - 1)) * mult)
+    defense = int((base["def"] + growth["def"] * (level - 1)) * mult)
+    spd = base["spd"]
+
     mech_cfg = BOSS_MECHANICS.get(zone, {})
     boss_cfg = {
         "name": zone_cfg["boss_name"],
         "rank": rank,
-        "level": 30,
-        "hp": int(base["hp"] * 3),
-        "atk": int(base["atk"] * 1.5),
-        "def": int(base["def"] * 1.5),
-        "spd": base["spd"] - 5,
+        "level": level,
+        "hp": hp,
+        "atk": atk,
+        "def": defense,
+        "spd": spd,
         "is_boss": True,
         "mechanic": mech_cfg.get("mechanic", ""),
     }
