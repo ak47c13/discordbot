@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from utils.embeds import error_embed, TutorialView
+from utils.embeds import error_embed, TutorialView, COLOR_INFO
 from utils.locks import get_user_lock
 from config.game_config import STARTER_SUMMON_TOKENS, STARTER_GOLD
 
@@ -59,10 +59,12 @@ def build_tutorial_pages() -> list[discord.Embed]:
         ),
         (
             "🛡️ Teams & Combat",
-            "• Use /team set to build a team of up to 5 champions\n"
+            "• Use /team-add to build a team of up to 5 champions\n"
             "• Use /formation set to arrange front row (positions 1-2) and back row (3-5)\n"
             "• Front row gets +10% Defense, back row gets +5% Attack\n"
             "• Use /hunt to send your team to fight and earn rewards\n\n"
+            "Each hunt costs stamina (5-40 depending on zone). Stamina refills over time "
+            "(1 every 6 minutes). Check it with /stamina.\n\n"
             "Combat is fully automatic — no input needed during battle!\n\n"
             "[3/5]",
         ),
@@ -89,7 +91,7 @@ def build_tutorial_pages() -> list[discord.Embed]:
         ),
     ]
     return [
-        discord.Embed(title=title, description=desc, color=0x5865F2)
+        discord.Embed(title=title, description=desc, color=COLOR_INFO)
         for title, desc in pages_text
     ]
 

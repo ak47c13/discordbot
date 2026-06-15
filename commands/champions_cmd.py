@@ -7,6 +7,7 @@ from models.champion import ChampionInstance
 from utils.embeds import (
     champion_embed, error_embed, success_embed, ConfirmView,
     PaginatedChampionView, get_champion_by_number,
+    COLOR_WARNING, COLOR_INFO, COLOR_SUCCESS,
 )
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
@@ -59,49 +60,57 @@ class ChampionsCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="fuse-champions", description="Fuse 3 identical same-rank champions into 1 of next rank.")
-    @app_commands.describe(id1="Champion 1 ID", id2="Champion 2 ID", id3="Champion 3 ID")
-    async def fuse_champs(self, interaction: discord.Interaction, id1: str, id2: str, id3: str):
+    @app_commands.describe(name="Champion name", rank="Champion rank (F/E/D/C/B/A)")
+    async def fuse_champs(self, interaction: discord.Interaction, name: str, rank: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
+        rank = rank.upper()
 
-        # Preview before confirm
-        ids = [id1, id2, id3]
-        if len(set(ids)) != 3:
-            await interaction.followup.send(embed=error_embed("Cannot use the same champion twice."), ephemeral=True)
+        if rank == "S":
+            await interaction.followup.send(embed=error_embed("S-rank champions cannot be fused."), ephemeral=True)
+            return
+        if rank not in RANKS:
+            await interaction.followup.send(
+                embed=error_embed("Invalid rank.", "Use one of F/E/D/C/B/A."), ephemeral=True
+            )
             return
 
-        champs = []
-        for cid in ids:
-            c = await ChampionInstance.get(cid)
-            if c is None or c.owner_id != uid:
-                await interaction.followup.send(embed=error_embed(f"Champion {cid} not found."), ephemeral=True)
-                return
-            champs.append(c)
-
-        if len({c.name for c in champs}) != 1 or len({c.rank for c in champs}) != 1:
+        # Auto-select the 3 lowest-level matching unlocked, non-favorite, available champions.
+        candidates = await ChampionInstance.find(
+            ChampionInstance.owner_id == uid,
+            ChampionInstance.name == name,
+            ChampionInstance.rank == rank,
+        ).to_list()
+        usable = [c for c in candidates if c.is_available and not getattr(c, "favorite", False)]
+        usable.sort(key=lambda c: c.level)
+        if len(usable) < 3:
             await interaction.followup.send(
-                embed=error_embed("All 3 champions must have the same name and rank."),
+                embed=error_embed(
+                    f"Not enough fusible {name} [{rank}] champions. Have {len(usable)}, need 3.",
+                    "Champions must be unlocked, non-favorite, and not equipped/traded/listed.",
+                ),
                 ephemeral=True,
             )
             return
 
-        current_rank = champs[0].rank
-        if current_rank == "S":
-            await interaction.followup.send(embed=error_embed("S-rank champions cannot be fused."), ephemeral=True)
-            return
+        champs = usable[:3]
+        ids = [str(c.id) for c in champs]
 
+        current_rank = rank
         next_rank = RANKS[RANKS.index(current_rank) + 1]
         cost = CHAMPION_FUSION_COST[next_rank]
 
+        preview_lines = "\n".join(f"• {c.name} [{c.rank}] Lv.{c.level}" for c in champs)
         embed = discord.Embed(
             title="🔮 Confirm Fusion",
             description=(
+                f"These 3 (lowest level) will be used:\n{preview_lines}\n\n"
                 f"Fuse **3x {champs[0].name} [{current_rank}]** → **{champs[0].name} [{next_rank}]**\n"
                 f"Cost: **{cost} gold**\n"
                 f"⚠️ The 3 source champions will be **permanently consumed**.\n"
                 f"⚠️ Result starts at **Level 1**."
             ),
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
 
         view = ConfirmView()
@@ -109,7 +118,7 @@ class ChampionsCog(commands.Cog):
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -150,13 +159,13 @@ class ChampionsCog(commands.Cog):
                 f"Fuse **{count}x {name} [{rank}]** → **{produced}x {name} [{next_rank}]**?\n"
                 f"⚠️ Source champions will be permanently consumed."
             ),
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -198,13 +207,13 @@ class ChampionsCog(commands.Cog):
         embed = discord.Embed(
             title="💰 Confirm Bulk Sell",
             description=f"Sell **{len(matches)}** champion(s) for **{gold} gold**?",
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -237,11 +246,39 @@ class ChampionsCog(commands.Cog):
         await interaction.followup.send(embed=success_embed(f"{c.name} [{c.rank}] is now {state}."), ephemeral=True)
 
     @app_commands.command(name="levelup", description="Level up a champion (costs gold).")
-    @app_commands.describe(champion_id="Champion ID")
-    async def levelup(self, interaction: discord.Interaction, champion_id: str):
+    @app_commands.describe(number="Champion list number (see /champions)")
+    async def levelup(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         from config.game_config import LEVEL_UP_GOLD_COST
+
+        champ = await get_champion_by_number(uid, number)
+        if champ is None or champ.owner_id != uid:
+            await interaction.followup.send(
+                embed=error_embed(
+                    "Champion not found.",
+                    "Use `/champions` to see your list and find the right number.",
+                ),
+                ephemeral=True,
+            )
+            return
+        champion_id = str(champ.id)
+
+        embed = discord.Embed(
+            title="⬆️ Confirm Level Up",
+            description=(
+                f"Level up **{champ.name} [{champ.rank}]** "
+                f"Lv.{champ.level} → Lv.{champ.level + 1}?\n"
+                f"Cost: **{LEVEL_UP_GOLD_COST} gold**"
+            ),
+            color=COLOR_WARNING,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Level up cancelled.", color=COLOR_INFO), ephemeral=True)
+            return
 
         async with get_user_lock(uid):
             client = get_motor_client()
@@ -257,6 +294,47 @@ class ChampionsCog(commands.Cog):
             embed=success_embed(f"{c.name} [{c.rank}] is now Level {c.level}! (-{LEVEL_UP_GOLD_COST} gold)"),
             ephemeral=True,
         )
+
+    @app_commands.command(name="champions-duplicates", description="Find champions you have multiple copies of.")
+    @app_commands.describe(rank="Optional rank filter (F/E/D/C/B/A/S)")
+    async def champions_duplicates(self, interaction: discord.Interaction, rank: str = ""):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        await User.get_or_create(uid, interaction.user.display_name)
+
+        champs = await ChampionInstance.find(ChampionInstance.owner_id == uid).to_list()
+        if rank:
+            champs = [c for c in champs if c.rank == rank.upper()]
+
+        groups: dict[tuple, int] = {}
+        for c in champs:
+            groups[(c.name, c.rank)] = groups.get((c.name, c.rank), 0) + 1
+
+        fusion_ready = sorted(
+            [(n, r, cnt) for (n, r), cnt in groups.items() if cnt >= 3],
+            key=lambda x: -x[2],
+        )
+        collecting = sorted(
+            [(n, r, cnt) for (n, r), cnt in groups.items() if cnt == 2],
+            key=lambda x: -x[2],
+        )
+
+        if not fusion_ready and not collecting:
+            await interaction.followup.send(
+                embed=error_embed("No duplicate champions found (need 2+ copies)."),
+                ephemeral=True,
+            )
+            return
+
+        embed = discord.Embed(title="🔁 Duplicate Champions", color=COLOR_SUCCESS if fusion_ready else COLOR_INFO)
+        if fusion_ready:
+            lines = [f"• **{n}** [{r}] ×{cnt}  ✅ fusion-ready" for n, r, cnt in fusion_ready]
+            embed.add_field(name="Fusion-ready (3+ copies)", value="\n".join(lines)[:1024], inline=False)
+        if collecting:
+            lines = [f"• {n} [{r}] ×{cnt}" for n, r, cnt in collecting]
+            embed.add_field(name="Collecting (2 copies)", value="\n".join(lines)[:1024], inline=False)
+        embed.set_footer(text="Champions with 3+ copies can be fused with /fuse-champions")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="lock-champion", description="Lock or unlock a champion to protect it.")
     @app_commands.describe(number="Champion list number (see /champions)")

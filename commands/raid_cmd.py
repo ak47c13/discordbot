@@ -4,7 +4,11 @@ from discord.ext import commands
 
 from models.user import User
 from models.raid import RaidQueue
-from utils.embeds import reward_embed, error_embed, success_embed
+from models.champion import ChampionInstance
+from utils.embeds import (
+    reward_embed, error_embed, success_embed, get_champion_by_number,
+    COLOR_INFO, COLOR_SUCCESS, COLOR_DANGER,
+)
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
@@ -40,21 +44,53 @@ class RaidCog(commands.Cog):
         embed = discord.Embed(
             title=f"⚔️ Raid Queue Created — {HUNT_ZONES[zone]['name']}",
             description=(
-                f"Players can join with `/raid-join {raid.id}`\n"
+                f"Players can join with `/raid-join {raid.id} <champion_number>`\n"
                 f"Leader starts with `/raid-start {raid.id}`\n"
                 f"Max 5 players."
             ),
-            color=0x5865F2,
+            color=COLOR_INFO,
         )
         embed.add_field(name="Raid ID", value=f"`{raid.id}`", inline=False)
         await interaction.followup.send(embed=embed)
 
+    @app_commands.command(name="raid-list", description="List open raids you can join.")
+    async def raid_list(self, interaction: discord.Interaction):
+        await interaction.response.defer()
+        raids = await RaidQueue.find(RaidQueue.status == "waiting").to_list()
+        if not raids:
+            await interaction.followup.send(embed=error_embed("No open raids right now. Create one with /raid-create."))
+            return
+
+        embed = discord.Embed(title="⚔️ Open Raids", color=COLOR_INFO)
+        for raid in raids[:20]:
+            zone_name = HUNT_ZONES.get(raid.zone, {}).get("name", raid.zone)
+            try:
+                member = interaction.guild.get_member(int(raid.leader_id)) if interaction.guild else None
+                leader = member.mention if member else f"<@{raid.leader_id}>"
+            except Exception:
+                leader = f"<@{raid.leader_id}>"
+            embed.add_field(
+                name=f"{zone_name} | {len(raid.player_ids)}/5 players | Leader: {leader}",
+                value=f"```{raid.id}```",
+                inline=False,
+            )
+        embed.set_footer(text="Use /raid-join <id> <champion_number> to join")
+        await interaction.followup.send(embed=embed)
+
     @app_commands.command(name="raid-join", description="Join an existing raid queue.")
-    @app_commands.describe(raid_id="Raid ID", champion_id="Your champion ID for this raid")
-    async def raid_join(self, interaction: discord.Interaction, raid_id: str, champion_id: str):
+    @app_commands.describe(raid_id="Raid ID", champion_number="Your champion list number (see /champions)")
+    async def raid_join(self, interaction: discord.Interaction, raid_id: str, champion_number: int):
         await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
+
+        champ = await get_champion_by_number(uid, champion_number)
+        if champ is None or champ.owner_id != uid:
+            await interaction.followup.send(
+                embed=error_embed("Champion not found.", "Use `/champions` to find the right number.")
+            )
+            return
+        champion_id = str(champ.id)
 
         async with get_user_lock(uid):
             client = get_motor_client()
@@ -68,7 +104,7 @@ class RaidCog(commands.Cog):
 
         await interaction.followup.send(
             embed=success_embed(
-                f"You joined the raid! ({len(raid.player_ids)}/5 players)"
+                f"You joined the raid with {champ.name} [{champ.rank}]! ({len(raid.player_ids)}/5 players)"
             )
         )
 
@@ -101,7 +137,7 @@ class RaidCog(commands.Cog):
         embed = discord.Embed(
             title=f"Raid Complete — {winner_text}",
             description=f"Battle lasted {result.rounds} rounds.",
-            color=0x00CC44 if result.winner == 0 else 0xFF0000,
+            color=COLOR_SUCCESS if result.winner == 0 else COLOR_DANGER,
         )
 
         log_lines = [l for l in outcome["battle_log"] if l.strip()][-10:]

@@ -30,6 +30,7 @@ COGS = [
     "commands.market_cmd",
     "commands.trade_cmd",
     "commands.summon_cmd",
+    "commands.help_cmd",
 ]
 
 
@@ -42,8 +43,8 @@ class AutoBattlerBot(commands.Bot):
         super().__init__(command_prefix="!", intents=intents)
 
     async def require_registration(self, interaction: discord.Interaction) -> bool:
-        # Allow /start through always
-        if interaction.command and interaction.command.name == "start":
+        # Allow /start and /help through always
+        if interaction.command and interaction.command.name in ("start", "help"):
             return True
         # Check registration
         user = await User.find_one(User.discord_id == str(interaction.user.id))
@@ -119,12 +120,12 @@ class AutoBattlerBot(commands.Bot):
         try:
             if interaction.response.is_done():
                 await interaction.followup.send(
-                    embed=discord.Embed(title="❌ Error", description=msg, color=0xFF0000),
+                    embed=discord.Embed(title="❌ Error", description=msg, color=0xFF3333),
                     ephemeral=True,
                 )
             else:
                 await interaction.response.send_message(
-                    embed=discord.Embed(title="❌ Error", description=msg, color=0xFF0000),
+                    embed=discord.Embed(title="❌ Error", description=msg, color=0xFF3333),
                     ephemeral=True,
                 )
         except Exception:

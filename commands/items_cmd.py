@@ -7,6 +7,7 @@ from models.item import ItemInstance
 from utils.embeds import (
     item_embed, error_embed, success_embed, ConfirmView,
     PaginatedItemView, get_item_by_number,
+    COLOR_WARNING, COLOR_INFO,
 )
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
@@ -53,54 +54,54 @@ class ItemsCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(itm, "Item Details"), ephemeral=True)
 
     @app_commands.command(name="fuse-items", description="Fuse 3 identical same-rank +0 items into 1 of next rank.")
-    @app_commands.describe(id1="Item 1 ID", id2="Item 2 ID", id3="Item 3 ID")
-    async def fuse_items_cmd(self, interaction: discord.Interaction, id1: str, id2: str, id3: str):
+    @app_commands.describe(name="Item name", rank="Item rank (F/E/D/C/B/A)")
+    async def fuse_items_cmd(self, interaction: discord.Interaction, name: str, rank: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        ids = [id1, id2, id3]
+        rank = rank.upper()
 
-        if len(set(ids)) != 3:
-            await interaction.followup.send(embed=error_embed("Cannot use the same item twice."), ephemeral=True)
+        if rank == "S":
+            await interaction.followup.send(
+                embed=error_embed("S-rank items cannot be fused."), ephemeral=True
+            )
+            return
+        if rank not in RANKS:
+            await interaction.followup.send(
+                embed=error_embed("Invalid rank.", "Use one of F/E/D/C/B/A."), ephemeral=True
+            )
             return
 
-        items = []
-        for iid in ids:
-            itm = await ItemInstance.get(iid)
-            if itm is None or itm.owner_id != uid:
-                await interaction.followup.send(embed=error_embed(f"Item {iid} not found."), ephemeral=True)
-                return
-            items.append(itm)
-
-        if not all(i.enhancement == 0 for i in items):
+        # Auto-select 3 matching +0 available, non-favorite items.
+        candidates = await ItemInstance.find(
+            ItemInstance.owner_id == uid,
+            ItemInstance.name == name,
+            ItemInstance.rank == rank,
+        ).to_list()
+        usable = [i for i in candidates if i.is_fusible and not getattr(i, "favorite", False)]
+        if len(usable) < 3:
             await interaction.followup.send(
                 embed=error_embed(
-                    "All items must be +0. Enhanced items must be cleared at the blacksmith first."
+                    f"Not enough fusible {name} [{rank}] (+0) items. Have {len(usable)}, need 3.",
+                    "Items must be +0, unlocked, non-favorite, and not equipped/traded/listed.",
                 ),
                 ephemeral=True,
             )
             return
 
-        if len({i.name for i in items}) != 1 or len({i.rank for i in items}) != 1:
-            await interaction.followup.send(embed=error_embed("All 3 items must have the same name and rank."), ephemeral=True)
-            return
-
-        current_rank = items[0].rank
-        if current_rank == "S":
-            await interaction.followup.send(embed=error_embed("S-rank items cannot be fused."), ephemeral=True)
-            return
-
-        next_rank = RANKS[RANKS.index(current_rank) + 1]
+        trio = usable[:3]
+        ids = [str(i.id) for i in trio]
+        next_rank = RANKS[RANKS.index(rank) + 1]
         cost = ITEM_FUSION_COST[next_rank]
 
         embed = discord.Embed(
             title="🔨 Confirm Item Fusion",
             description=(
-                f"Fuse **3x {items[0].name} [{current_rank}] +0** → **{items[0].name} [{next_rank}] +0**\n"
+                f"Fuse **3x {name} [{rank}] +0** → **{name} [{next_rank}] +0**\n"
                 f"Cost: **{cost} gold**\n"
                 f"⚠️ The 3 source items will be **permanently consumed**.\n"
                 f"⚠️ Result gets a **new secondary stat roll**."
             ),
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
 
         view = ConfirmView()
@@ -108,7 +109,7 @@ class ItemsCog(commands.Cog):
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -147,7 +148,6 @@ class ItemsCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return
         new_state = not getattr(itm, "favorite", False)
-        itm.favorited = new_state
         itm.favorite = new_state
         await itm.save()
         state = "⭐ favorited" if new_state else "unfavorited"
@@ -171,13 +171,13 @@ class ItemsCog(commands.Cog):
         embed = discord.Embed(
             title="🔨 Confirm Bulk Item Fusion",
             description=f"Fuse **{count}x {name} [{rank}] +0** → **{produced}x {name} [{next_rank}]**?",
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -215,13 +215,13 @@ class ItemsCog(commands.Cog):
         embed = discord.Embed(
             title="💰 Confirm Bulk Sell",
             description=f"Sell **{len(matches)}** item(s) for **{gold} gold**?",
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Sell cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):

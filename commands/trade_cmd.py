@@ -3,7 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from utils.embeds import error_embed, success_embed, ConfirmView
+from models.trade import TradeOffer
+from utils.embeds import error_embed, success_embed, ConfirmView, COLOR_INFO, COLOR_WARNING
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from services.trade_service import create_trade, accept_trade, cancel_trade, TradeError
@@ -50,7 +51,7 @@ class TradeCog(commands.Cog):
         my_item_ids = parse_ids(my_items)
         their_item_ids = parse_ids(their_items)
 
-        embed = discord.Embed(title="🤝 Confirm Trade Offer", color=0xFF8800)
+        embed = discord.Embed(title="🤝 Confirm Trade Offer", color=COLOR_WARNING)
         embed.add_field(name="You Offer", value=f"Gold: {my_gold}\nChampions: {my_champ_ids or 'none'}\nItems: {my_item_ids or 'none'}", inline=True)
         embed.add_field(name="You Want",  value=f"Gold: {their_gold}\nChampions: {their_champ_ids or 'none'}\nItems: {their_item_ids or 'none'}", inline=True)
         embed.add_field(name="Target", value=target.mention, inline=False)
@@ -59,7 +60,7 @@ class TradeCog(commands.Cog):
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Trade cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Trade cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -94,7 +95,7 @@ class TradeCog(commands.Cog):
                         f"{interaction.user.display_name} wants to trade!\n"
                         f"Use `/trade-accept {trade.id}` to accept or `/trade-cancel {trade.id}` to decline."
                     ),
-                    color=0x5865F2,
+                    color=COLOR_INFO,
                 )
             )
         except discord.Forbidden:
@@ -105,6 +106,49 @@ class TradeCog(commands.Cog):
     async def trade_accept(self, interaction: discord.Interaction, trade_id: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
+
+        # Load trade to show a confirmation preview.
+        try:
+            trade_doc = await TradeOffer.get(trade_id)
+        except Exception:
+            trade_doc = None
+        if trade_doc is None or trade_doc.target_id != uid or trade_doc.status != "pending":
+            await interaction.followup.send(
+                embed=error_embed("Trade not found or not addressed to you.",
+                                  "Use `/trade-list` to see your pending trades."),
+                ephemeral=True,
+            )
+            return
+
+        def _summ(gold, champs, items):
+            parts = []
+            if gold:
+                parts.append(f"{gold} gold")
+            if champs:
+                parts.append(f"{len(champs)} champion(s)")
+            if items:
+                parts.append(f"{len(items)} item(s)")
+            return ", ".join(parts) or "nothing"
+
+        # From the accepter's (target's) point of view:
+        you_give = _summ(trade_doc.target_gold, trade_doc.target_champion_ids, trade_doc.target_item_ids)
+        you_get = _summ(trade_doc.initiator_gold, trade_doc.initiator_champion_ids, trade_doc.initiator_item_ids)
+        embed = discord.Embed(
+            title="🤝 Confirm Trade",
+            description=(
+                f"Accept trade from <@{trade_doc.initiator_id}>?\n"
+                f"**You give:** {you_give}\n"
+                f"**You receive:** {you_get}\n"
+                f"⚠️ This cannot be undone."
+            ),
+            color=COLOR_WARNING,
+        )
+        view = ConfirmView()
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await view.wait()
+        if not view.confirmed:
+            await interaction.followup.send(embed=discord.Embed(title="Trade declined.", color=COLOR_INFO), ephemeral=True)
+            return
 
         async with get_user_lock(uid):
             client = get_motor_client()
@@ -135,6 +179,46 @@ class TradeCog(commands.Cog):
                         return
 
         await interaction.followup.send(embed=success_embed("Trade cancelled."), ephemeral=True)
+
+    @app_commands.command(name="trade-list", description="View your pending trades.")
+    async def trade_list(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        trades = await TradeOffer.find(TradeOffer.status == "pending").to_list()
+        mine = [t for t in trades if uid in (t.initiator_id, t.target_id)]
+        if not mine:
+            await interaction.followup.send(embed=error_embed("You have no pending trades."), ephemeral=True)
+            return
+
+        def _summ(gold, champs, items):
+            parts = []
+            if gold:
+                parts.append(f"{gold} gold")
+            if champs:
+                parts.append(f"{len(champs)} champ")
+            if items:
+                parts.append(f"{len(items)} item")
+            return ", ".join(parts) or "nothing"
+
+        embed = discord.Embed(title="🤝 Pending Trades", color=COLOR_INFO)
+        for t in mine:
+            if t.initiator_id == uid:
+                role = "outgoing"
+                other = t.target_id
+                you_give = _summ(t.initiator_gold, t.initiator_champion_ids, t.initiator_item_ids)
+                you_get = _summ(t.target_gold, t.target_champion_ids, t.target_item_ids)
+            else:
+                role = "incoming"
+                other = t.initiator_id
+                you_give = _summ(t.target_gold, t.target_champion_ids, t.target_item_ids)
+                you_get = _summ(t.initiator_gold, t.initiator_champion_ids, t.initiator_item_ids)
+            embed.add_field(
+                name=f"[{role}] with <@{other}> — `{t.id}`",
+                value=f"You give: {you_give}\nYou receive: {you_get}",
+                inline=False,
+            )
+        embed.set_footer(text="Use /trade-accept <id> or /trade-cancel <id>")
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

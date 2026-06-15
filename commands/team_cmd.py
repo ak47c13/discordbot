@@ -8,7 +8,7 @@ from models.item import ItemInstance
 from models.team import Team
 from utils.embeds import (
     champion_embed, item_embed, error_embed, success_embed,
-    get_champion_by_number, get_item_by_number,
+    get_champion_by_number, get_item_by_number, COLOR_INFO,
 )
 from utils.locks import get_user_lock
 from config.game_config import TEAM_SIZE
@@ -25,7 +25,7 @@ class TeamCog(commands.Cog):
         await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
         team = await Team.get_or_create(str(interaction.user.id))
 
-        embed = discord.Embed(title="⚔️ Your Team", color=0x5865F2)
+        embed = discord.Embed(title="⚔️ Your Team", color=COLOR_INFO)
         team_champs = []
         for idx, slot in enumerate(team.slots):
             pos = idx + 1
@@ -150,7 +150,7 @@ class TeamCog(commands.Cog):
         await User.get_or_create(uid, interaction.user.display_name)
         team = await Team.get_or_create(uid)
 
-        embed = discord.Embed(title="🛡️ Formation", color=0x5865F2)
+        embed = discord.Embed(title="🛡️ Formation", color=COLOR_INFO)
         for idx, slot in enumerate(team.slots):
             pos = idx + 1
             row = "Front (DEF +10%)" if pos <= 2 else "Back (ATK +5%)"

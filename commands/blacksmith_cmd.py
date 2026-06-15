@@ -4,7 +4,10 @@ from discord.ext import commands
 
 from models.user import User
 from models.item import ItemInstance
-from utils.embeds import item_embed, error_embed, success_embed, ConfirmView, RerollPreviewView
+from utils.embeds import (
+    item_embed, error_embed, success_embed, ConfirmView, RerollPreviewView,
+    get_item_by_number, COLOR_WARNING, COLOR_INFO, COLOR_SUCCESS, COLOR_DANGER,
+)
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from services.blacksmith_service import (
@@ -30,15 +33,19 @@ class BlacksmithCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="enhance", description="Enhance an item (+1 level). Above +7 risks destruction.")
-    @app_commands.describe(item_id="Item ID", use_seal="Use a Blacksmith's Seal to protect against destruction")
-    async def enhance(self, interaction: discord.Interaction, item_id: str, use_seal: bool = False):
+    @app_commands.describe(number="Item list number (see /items)", use_seal="Use a Blacksmith's Seal to protect against destruction")
+    async def enhance(self, interaction: discord.Interaction, number: int, use_seal: bool = False):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
+            await interaction.followup.send(
+                embed=error_embed("Item not found.", "Use `/items` to find the right number."),
+                ephemeral=True,
+            )
             return
+        item_id = str(itm.id)
 
         current = itm.enhancement
         gold_cost = enhancement_gold_cost(current)
@@ -61,13 +68,13 @@ class BlacksmithCog(commands.Cog):
         else:
             desc += "✅ Safe enhancement range — item cannot be destroyed."
 
-        embed = discord.Embed(title="⚒️ Confirm Enhancement", description=desc, color=0xFF8800 if is_risky else 0x00AAFF)
+        embed = discord.Embed(title="⚒️ Confirm Enhancement", description=desc, color=COLOR_WARNING if is_risky else COLOR_INFO)
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Enhancement cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Enhancement cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -84,13 +91,13 @@ class BlacksmithCog(commands.Cog):
             embed = discord.Embed(
                 title="💥 Item Destroyed!",
                 description=f"**{itm.name} [{itm.rank}] +{current}** was destroyed in the enhancement attempt.",
-                color=0xFF0000,
+                color=COLOR_DANGER,
             )
         elif result["success"]:
             embed = discord.Embed(
                 title="✅ Enhancement Success!",
                 description=f"**{itm.name} [{itm.rank}]** is now **+{result['new_level']}**!",
-                color=0x00CC44,
+                color=COLOR_SUCCESS,
             )
             if result["seal_used"]:
                 embed.add_field(name="🔏 Seal Used", value="Blacksmith's Seal was consumed.", inline=False)
@@ -98,7 +105,7 @@ class BlacksmithCog(commands.Cog):
             embed = discord.Embed(
                 title="❌ Enhancement Failed",
                 description=f"The enhancement failed. **{itm.name}** remains at **+{current}**.",
-                color=0xFF4400,
+                color=COLOR_DANGER,
             )
             if result["seal_used"]:
                 embed.add_field(name="🔏 Seal Used", value="Seal protected the item from destruction.", inline=False)
@@ -106,15 +113,19 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="clear", description="Reset an item to +0 (costs gold, no refund).")
-    @app_commands.describe(item_id="Item ID")
-    async def clear(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def clear(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
+            await interaction.followup.send(
+                embed=error_embed("Item not found.", "Use `/items` to find the right number."),
+                ephemeral=True,
+            )
             return
+        item_id = str(itm.id)
         if itm.enhancement == 0:
             await interaction.followup.send(embed=error_embed("Item is already +0."), ephemeral=True)
             return
@@ -128,14 +139,14 @@ class BlacksmithCog(commands.Cog):
                 f"⚠️ All enhancement progress is **permanently lost**.\n"
                 f"✅ Secondary stat is preserved. Item becomes fusible again."
             ),
-            color=0xFF8800,
+            color=COLOR_WARNING,
         )
         view = ConfirmView()
         await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Clear cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Clear cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -154,15 +165,19 @@ class BlacksmithCog(commands.Cog):
         )
 
     @app_commands.command(name="reroll", description="Reroll secondary stat (full: changes type+value).")
-    @app_commands.describe(item_id="Item ID")
-    async def reroll(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def reroll(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
+            await interaction.followup.send(
+                embed=error_embed("Item not found.", "Use `/items` to find the right number."),
+                ephemeral=True,
+            )
             return
+        item_id = str(itm.id)
 
         cost = REROLL_FULL_COST[itm.rank]
         # Generate preview (no gold deducted yet)
@@ -174,7 +189,7 @@ class BlacksmithCog(commands.Cog):
                 await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                 return
 
-        embed = discord.Embed(title="🎲 Reroll Preview", color=0xAA00FF)
+        embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
         embed.add_field(
             name="Current",
             value=f"{preview['old_type']}: {preview['old_value']/10:.1f}",
@@ -193,7 +208,7 @@ class BlacksmithCog(commands.Cog):
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -212,15 +227,19 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✅ Reroll Applied"), ephemeral=True)
 
     @app_commands.command(name="refine", description="Reroll secondary stat value only (keeps stat type).")
-    @app_commands.describe(item_id="Item ID")
-    async def refine(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def refine(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
+            await interaction.followup.send(
+                embed=error_embed("Item not found.", "Use `/items` to find the right number."),
+                ephemeral=True,
+            )
             return
+        item_id = str(itm.id)
 
         cost = REROLL_VALUE_COST[itm.rank]
         client = get_motor_client()
@@ -231,7 +250,7 @@ class BlacksmithCog(commands.Cog):
                 await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                 return
 
-        embed = discord.Embed(title="🎲 Refine Preview", color=0x00AAFF)
+        embed = discord.Embed(title="🎲 Refine Preview", color=COLOR_INFO)
         embed.add_field(name="Stat Type", value=preview["stat_type"], inline=False)
         embed.add_field(name="Current Value", value=f"{preview['old_value']/10:.1f}", inline=True)
         embed.add_field(name="New Value",     value=f"{preview['new_value']/10:.1f}", inline=True)
@@ -242,7 +261,7 @@ class BlacksmithCog(commands.Cog):
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Refine cancelled.", color=0x888888), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Refine cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):

@@ -48,10 +48,14 @@ class HuntCog(commands.Cog):
 
         await mark_processed(iid, f"hunt:{zone}")
         # The battle message and reward message are sent by the presentation
-        # service. Acknowledge the deferred interaction.
+        # service. Acknowledge the deferred interaction and show remaining stamina.
         try:
+            fresh = await User.find_one(User.discord_id == uid)
+            stamina_line = ""
+            if fresh is not None:
+                stamina_line = f"\n⚡ Stamina remaining: {fresh.stamina}/{fresh.max_stamina}"
             await interaction.followup.send(
-                embed=success_embed("Battle started — watch the message above!"),
+                embed=success_embed("Battle started — watch the message above!" + stamina_line),
                 ephemeral=True,
             )
         except Exception:
