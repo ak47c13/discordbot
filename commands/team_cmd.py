@@ -6,7 +6,10 @@ from models.user import User
 from models.champion import ChampionInstance
 from models.item import ItemInstance
 from models.team import Team
-from utils.embeds import champion_embed, item_embed, error_embed, success_embed
+from utils.embeds import (
+    champion_embed, item_embed, error_embed, success_embed,
+    get_champion_by_number, get_item_by_number,
+)
 from utils.locks import get_user_lock
 from config.game_config import TEAM_SIZE
 from utils.image_gen import generate_team_banner

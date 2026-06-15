@@ -4,7 +4,10 @@ from discord.ext import commands
 
 from models.user import User
 from models.item import ItemInstance
-from utils.embeds import item_embed, error_embed, success_embed, ConfirmView
+from utils.embeds import (
+    item_embed, error_embed, success_embed, ConfirmView,
+    PaginatedItemView, get_item_by_number,
+)
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from services.item_service import fuse_items, bulk_fuse_items, ItemFusionError
@@ -35,31 +38,15 @@ class ItemsCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("No items found."), ephemeral=True)
             return
 
-        embed = discord.Embed(title=f"⚔️ Your Items ({len(items)} total)", color=0x5865F2)
-        for itm in items[:10]:
-            from config.game_config import get_aura
-            aura = get_aura(itm.enhancement)
-            status = []
-            if itm.equipped_to: status.append("⚔️")
-            if itm.locked:      status.append("🔒")
-            if itm.favorited:   status.append("⭐")
-            if itm.in_market:   status.append("🏪")
-            if itm.in_trade:    status.append("🤝")
-            embed.add_field(
-                name=f"{' '.join(status)}{aura} {itm.name} [{itm.rank}] +{itm.enhancement}",
-                value=f"ID: `{itm.id}`",
-                inline=False,
-            )
-        if len(items) > 10:
-            embed.set_footer(text=f"Showing 10 of {len(items)}.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        view = PaginatedItemView(items, interaction.user.id)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="item-info", description="View details of a specific item.")
-    @app_commands.describe(item_id="Item ID")
-    async def item_info(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def item_info(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return
@@ -137,11 +124,11 @@ class ItemsCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✨ Item Fusion Result"), ephemeral=True)
 
     @app_commands.command(name="lock-item", description="Lock or unlock an item to protect it.")
-    @app_commands.describe(item_id="Item ID")
-    async def lock_item(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def lock_item(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return
@@ -151,11 +138,11 @@ class ItemsCog(commands.Cog):
         await interaction.followup.send(embed=success_embed(f"{itm.name} +{itm.enhancement} is now {state}."), ephemeral=True)
 
     @app_commands.command(name="favorite-item", description="Toggle favorite on an item.")
-    @app_commands.describe(item_id="Item ID")
-    async def favorite_item(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(number="Item list number (see /items)")
+    async def favorite_item(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        itm = await ItemInstance.get(item_id)
+        itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return

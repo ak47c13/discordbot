@@ -4,7 +4,10 @@ from discord.ext import commands
 
 from models.user import User
 from models.champion import ChampionInstance
-from utils.embeds import champion_embed, error_embed, success_embed, ConfirmView
+from utils.embeds import (
+    champion_embed, error_embed, success_embed, ConfirmView,
+    PaginatedChampionView, get_champion_by_number,
+)
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from services.champion_service import (
@@ -38,29 +41,15 @@ class ChampionsCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("No champions found."), ephemeral=True)
             return
 
-        # Paginate: show first 10
-        embed = discord.Embed(title=f"🏆 Your Champions ({len(champs)} total)", color=0x5865F2)
-        for c in champs[:10]:
-            status = []
-            if c.equipped_in_team: status.append("⚔️")
-            if c.locked:           status.append("🔒")
-            if c.in_market:        status.append("🏪")
-            if c.in_trade:         status.append("🤝")
-            embed.add_field(
-                name=f"{' '.join(status)} {c.name} [{c.rank}] Lv.{c.level}",
-                value=f"ID: `{c.id}`",
-                inline=False,
-            )
-        if len(champs) > 10:
-            embed.set_footer(text=f"Showing 10 of {len(champs)}. Use /champions with filters.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        view = PaginatedChampionView(champs, interaction.user.id)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="champion-info", description="View details of a specific champion.")
-    @app_commands.describe(champion_id="Champion ID")
-    async def champion_info(self, interaction: discord.Interaction, champion_id: str):
+    @app_commands.describe(number="Champion list number (see /champions)")
+    async def champion_info(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        c = await ChampionInstance.get(champion_id)
+        c = await get_champion_by_number(uid, number)
         if c is None or c.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
             return
@@ -234,11 +223,11 @@ class ChampionsCog(commands.Cog):
         )
 
     @app_commands.command(name="champion-favorite", description="Toggle the favorite flag on a champion.")
-    @app_commands.describe(champion_id="Champion ID")
-    async def favorite_champ(self, interaction: discord.Interaction, champion_id: str):
+    @app_commands.describe(number="Champion list number (see /champions)")
+    async def favorite_champ(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        c = await ChampionInstance.get(champion_id)
+        c = await get_champion_by_number(uid, number)
         if c is None or c.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
             return
@@ -270,11 +259,11 @@ class ChampionsCog(commands.Cog):
         )
 
     @app_commands.command(name="lock-champion", description="Lock or unlock a champion to protect it.")
-    @app_commands.describe(champion_id="Champion ID")
-    async def lock_champion(self, interaction: discord.Interaction, champion_id: str):
+    @app_commands.describe(number="Champion list number (see /champions)")
+    async def lock_champion(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        c = await ChampionInstance.get(champion_id)
+        c = await get_champion_by_number(uid, number)
         if c is None or c.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
             return

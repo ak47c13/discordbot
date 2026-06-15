@@ -34,7 +34,6 @@ def champion_embed(champ, title: str = "Champion") -> discord.Embed:
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
 
-    embed.set_footer(text=f"ID: {champ.id}")
     return embed
 
 
@@ -71,7 +70,6 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
 
-    embed.set_footer(text=f"ID: {itm.id}")
     return embed
 
 
@@ -90,6 +88,148 @@ def reward_embed(rewards: dict, title: str = "Rewards") -> discord.Embed:
         lines = [f"• {i['name']} [{i['rank']}]" for i in rewards["items"]]
         embed.add_field(name="⚔️ Items", value="\n".join(lines), inline=False)
     return embed
+
+
+RANK_ORDER = {"S": 6, "A": 5, "B": 4, "C": 3, "D": 2, "E": 1, "F": 0}
+
+
+def sort_champions(champions):
+    return sorted(champions, key=lambda c: (-RANK_ORDER.get(c.rank, 0), -c.level, c.name))
+
+
+def sort_items(items):
+    return sorted(items, key=lambda i: (-RANK_ORDER.get(i.rank, 0), -i.enhancement, i.name))
+
+
+async def get_champion_by_number(owner_id: str, number: int):
+    """Get a champion by its 1-based position in the sorted list."""
+    from models.champion import ChampionInstance
+    all_champs = await ChampionInstance.find(ChampionInstance.owner_id == owner_id).to_list()
+    sorted_champs = sort_champions(all_champs)
+    if 1 <= number <= len(sorted_champs):
+        return sorted_champs[number - 1]
+    return None
+
+
+async def get_item_by_number(owner_id: str, number: int):
+    """Get an item by its 1-based position in the sorted list."""
+    from models.item import ItemInstance
+    all_items = await ItemInstance.find(ItemInstance.owner_id == owner_id).to_list()
+    sorted_items = sort_items(all_items)
+    if 1 <= number <= len(sorted_items):
+        return sorted_items[number - 1]
+    return None
+
+
+PAGE_SIZE = 10
+
+
+def _champion_page_embed(champs, page: int) -> discord.Embed:
+    total = len(champs)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    chunk = champs[start:start + PAGE_SIZE]
+
+    lines = []
+    for i, c in enumerate(chunk, start=start + 1):
+        flags = []
+        if c.locked:                flags.append("🔒")
+        if getattr(c, "favorite", False): flags.append("⭐")
+        if c.equipped_in_team:      flags.append("⚔️")
+        if c.in_market:             flags.append("🏪")
+        if c.in_trade:              flags.append("🤝")
+        suffix = ("  " + " ".join(flags)) if flags else ""
+        lines.append(f"#{i:<3} {c.name}  [{c.rank}] Lv.{c.level}{suffix}")
+
+    desc = "\n".join(lines) if lines else "*No champions.*"
+    desc += (
+        "\n\nUse `/champion-info <number>` to view details."
+        "\nUse `/team-add <number> <slot>` to add to team."
+    )
+    embed = discord.Embed(
+        title=f"🏆 Your Champions ({total} total) — Page {page + 1}/{total_pages}",
+        description=desc,
+        color=0x5865F2,
+    )
+    return embed
+
+
+def _item_page_embed(items, page: int) -> discord.Embed:
+    total = len(items)
+    total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+    page = max(0, min(page, total_pages - 1))
+    start = page * PAGE_SIZE
+    chunk = items[start:start + PAGE_SIZE]
+
+    lines = []
+    for i, itm in enumerate(chunk, start=start + 1):
+        flags = []
+        if itm.locked:       flags.append("🔒")
+        if itm.favorited:    flags.append("⭐")
+        if itm.in_market:    flags.append("🏪")
+        if itm.in_trade:     flags.append("🤝")
+        if itm.equipped_to:
+            flags.append(f"⚔️{itm.main_stat_type}")
+        suffix = ("  " + " ".join(flags)) if flags else ""
+        lines.append(f"#{i:<3} {itm.name}  [{itm.rank}] +{itm.enhancement}{suffix}")
+
+    desc = "\n".join(lines) if lines else "*No items.*"
+    desc += "\n\nUse `/item-info <number>` to view details."
+    embed = discord.Embed(
+        title=f"🎒 Your Items ({total} total) — Page {page + 1}/{total_pages}",
+        description=desc,
+        color=0x5865F2,
+    )
+    return embed
+
+
+class _PaginatedView(discord.ui.View):
+    def __init__(self, entries, user_id: int, embed_builder, timeout: float = 120.0):
+        super().__init__(timeout=timeout)
+        self.entries = entries
+        self.user_id = user_id
+        self._embed_builder = embed_builder
+        self.index = 0
+        self.total_pages = max(1, (len(entries) + PAGE_SIZE - 1) // PAGE_SIZE)
+        self._refresh_buttons()
+
+    def current_embed(self) -> discord.Embed:
+        return self._embed_builder(self.entries, self.index)
+
+    def _refresh_buttons(self):
+        self.prev_button.disabled = self.index <= 0
+        self.next_button.disabled = self.index >= self.total_pages - 1
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This list isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index > 0:
+            self.index -= 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.primary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index < self.total_pages - 1:
+            self.index += 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
+
+
+class PaginatedChampionView(_PaginatedView):
+    def __init__(self, champions, user_id: int, timeout: float = 120.0):
+        super().__init__(sort_champions(champions), user_id, _champion_page_embed, timeout)
+
+
+class PaginatedItemView(_PaginatedView):
+    def __init__(self, items, user_id: int, timeout: float = 120.0):
+        super().__init__(sort_items(items), user_id, _item_page_embed, timeout)
 
 
 def error_embed(message: str) -> discord.Embed:
