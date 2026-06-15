@@ -21,7 +21,6 @@ class ItemInstance(Document):
     equipped_to: Optional[str] = None   # ChampionInstance id if equipped
     equipment_slot: Optional[int] = None  # 1-5
     locked: bool = False
-    favorited: bool = False
     favorite: bool = False
     in_trade: bool = False
     in_market: bool = False

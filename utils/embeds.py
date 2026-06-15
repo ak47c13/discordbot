@@ -6,6 +6,20 @@ import discord
 from config.game_config import AURA_COLOR_BY_RANK, get_aura, ENHANCEMENT_MULTIPLIER
 
 
+# ---------------------------------------------------------------------------
+# Standard embed colors
+# ---------------------------------------------------------------------------
+COLOR_INFO      = 0x5865F2   # Discord blurple — general info
+COLOR_SUCCESS   = 0x00CC44   # Green — success, rewards
+COLOR_WARNING   = 0xFF8800   # Orange — needs confirmation
+COLOR_DANGER    = 0xFF3333   # Red — errors, destruction
+COLOR_GOLD      = 0xFFD700   # Gold — currency, rewards
+COLOR_RANK = {
+    "F": 0x888888, "E": 0x44BB44, "D": 0x4488FF,
+    "C": 0xAA44FF, "B": 0xFF4444, "A": 0xFFAA00, "S": 0xCC44FF,
+}
+
+
 def champion_embed(champ, title: str = "Champion") -> discord.Embed:
     from config.game_config import CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS, RANK_INDEX
     rank = champ.rank
@@ -63,7 +77,7 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
 
     flags = []
     if itm.locked:       flags.append("🔒 Locked")
-    if itm.favorited:    flags.append("⭐ Fav")
+    if getattr(itm, "favorite", False): flags.append("⭐ Fav")
     if itm.in_trade:     flags.append("🤝 In Trade")
     if itm.in_market:    flags.append("🏪 Listed")
     if itm.equipped_to:  flags.append("⚔️ Equipped")
@@ -166,7 +180,7 @@ def _item_page_embed(items, page: int) -> discord.Embed:
     for i, itm in enumerate(chunk, start=start + 1):
         flags = []
         if itm.locked:       flags.append("🔒")
-        if itm.favorited:    flags.append("⭐")
+        if getattr(itm, "favorite", False): flags.append("⭐")
         if itm.in_market:    flags.append("🏪")
         if itm.in_trade:     flags.append("🤝")
         if itm.equipped_to:
@@ -232,12 +246,78 @@ class PaginatedItemView(_PaginatedView):
         super().__init__(sort_items(items), user_id, _item_page_embed, timeout)
 
 
-def error_embed(message: str) -> discord.Embed:
-    return discord.Embed(title="❌ Error", description=message, color=0xFF0000)
+def error_embed(message: str, hint: str = "") -> discord.Embed:
+    """Standard error embed. Format: '❌ **Error:** {message}' with optional hint."""
+    desc = f"**{message}**" if message.startswith("❌") else f"**Error:** {message}"
+    if not message.startswith("❌"):
+        desc = f"❌ {desc}"
+    if hint:
+        desc += f"\n\n💡 {hint}"
+    return discord.Embed(description=desc, color=COLOR_DANGER)
 
 
 def success_embed(message: str, title: str = "✅ Success") -> discord.Embed:
-    return discord.Embed(title=title, description=message, color=0x00CC44)
+    return discord.Embed(title=title, description=message, color=COLOR_SUCCESS)
+
+
+def info_embed(message: str, title: str = "") -> discord.Embed:
+    return discord.Embed(title=title, description=message, color=COLOR_INFO)
+
+
+def progress_bar(current: int, maximum: int, length: int = 16) -> str:
+    if maximum <= 0:
+        return "░" * length
+    ratio = max(0.0, min(1.0, current / maximum))
+    filled = round(ratio * length)
+    return "█" * filled + "░" * (length - filled)
+
+
+def apply_stamina_regen(user) -> bool:
+    """Apply time-based stamina regeneration to a user in-memory.
+
+    Returns True if the user's stamina/last_stamina_regen changed (caller should
+    save). Does NOT save the document itself.
+    """
+    from datetime import datetime, timezone
+    from config.game_config import STAMINA_REGEN_SECONDS
+
+    if user.stamina >= user.max_stamina:
+        # Keep the regen anchor fresh so we don't bank huge regen later.
+        user.last_stamina_regen = datetime.now(timezone.utc)
+        return False
+
+    now = datetime.now(timezone.utc)
+    last = user.last_stamina_regen or now
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    elapsed = (now - last).total_seconds()
+    if elapsed <= 0:
+        return False
+    regen = int(elapsed // STAMINA_REGEN_SECONDS)
+    if regen <= 0:
+        return False
+    new_stamina = min(user.max_stamina, user.stamina + regen)
+    user.stamina = new_stamina
+    # Advance the anchor by the consumed whole intervals (preserve remainder).
+    from datetime import timedelta
+    user.last_stamina_regen = last + timedelta(seconds=regen * STAMINA_REGEN_SECONDS)
+    if user.stamina >= user.max_stamina:
+        user.last_stamina_regen = now
+    return True
+
+
+def stamina_full_in(user) -> str:
+    """Human-readable time until stamina is full."""
+    from config.game_config import STAMINA_REGEN_SECONDS
+    if user.stamina >= user.max_stamina:
+        return "Full"
+    missing = user.max_stamina - user.stamina
+    secs = missing * STAMINA_REGEN_SECONDS
+    h, rem = divmod(secs, 3600)
+    m = rem // 60
+    if h:
+        return f"{h}h {m}m"
+    return f"{m}m"
 
 
 class ConfirmView(discord.ui.View):

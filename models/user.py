@@ -14,6 +14,7 @@ class User(Document):
     stamina: int = 100
     max_stamina: int = 100
     last_stamina_regen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    raids_completed: int = 0
     last_daily: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
