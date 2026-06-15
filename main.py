@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 
 from database.connection import init_db
 from models.battle_session import BattleSession
+from models.user import User
 from services.battle_presentation_service import (
     cancel_battle,
     resume_battle_presentation,
@@ -18,6 +19,7 @@ load_dotenv()
 GUILD_ID = int(os.environ.get("GUILD_ID", 0))
 
 COGS = [
+    "commands.start_cmd",
     "commands.profile",
     "commands.team_cmd",
     "commands.champions_cmd",
@@ -39,8 +41,23 @@ class AutoBattlerBot(commands.Bot):
         intents.messages = True
         super().__init__(command_prefix="!", intents=intents)
 
+    async def require_registration(self, interaction: discord.Interaction) -> bool:
+        # Allow /start through always
+        if interaction.command and interaction.command.name == "start":
+            return True
+        # Check registration
+        user = await User.find_one(User.discord_id == str(interaction.user.id))
+        if not user or not user.registered:
+            await interaction.response.send_message(
+                "❌ You haven't registered yet! Use `/start` to begin your adventure.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
     async def setup_hook(self):
         await init_db()
+        self.tree.interaction_check = self.require_registration
         for cog in COGS:
             try:
                 await self.load_extension(cog)

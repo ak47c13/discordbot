@@ -10,6 +10,7 @@ class User(Document):
     gold: int = 0
     summon_tokens: int = 0
     blacksmith_seals: int = 0
+    registered: bool = False
     stamina: int = 100
     max_stamina: int = 100
     last_stamina_regen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

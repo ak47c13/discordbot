@@ -190,6 +190,10 @@ MARKET_TAX_PCT = 0.05           # 5% of sale price taken on purchase
 SUMMON_TOKEN_COST = 100          # per single pull
 SUMMON_MULTI_COST = 950          # 10 pulls
 
+# Starter rewards granted on /start registration
+STARTER_SUMMON_TOKENS = 100   # SUMMON_MULTI_COST (enough for 1x10 pull)
+STARTER_GOLD = 500
+
 SUMMON_RATES = {
     # (item_or_champion, rank): probability
     "champion_F": 0.40,

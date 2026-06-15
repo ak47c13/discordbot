@@ -120,6 +120,58 @@ class ConfirmView(discord.ui.View):
         await interaction.response.defer()
 
 
+class TutorialView(discord.ui.View):
+    """Paginated tutorial with Back / Next / Let's Go! buttons.
+
+    Only the user who triggered /start may interact. Buttons update their
+    disabled state to reflect the current page.
+    """
+
+    def __init__(self, pages: list[discord.Embed], user_id: int, timeout: float = 120.0):
+        super().__init__(timeout=timeout)
+        self.pages = pages
+        self.user_id = user_id
+        self.index = 0
+        self._refresh_buttons()
+
+    def _refresh_buttons(self):
+        last = len(self.pages) - 1
+        self.back_button.disabled = self.index == 0
+        self.next_button.disabled = self.index >= last
+        # "Let's Go!" only on the last page
+        self.go_button.disabled = self.index != last
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message(
+                "This tutorial isn't yours. Use `/start` to begin your own.",
+                ephemeral=True,
+            )
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Back", style=discord.ButtonStyle.secondary)
+    async def back_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index > 0:
+            self.index -= 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
+    @discord.ui.button(label="▶ Next", style=discord.ButtonStyle.primary)
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.index < len(self.pages) - 1:
+            self.index += 1
+        self._refresh_buttons()
+        await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
+    @discord.ui.button(label="✅ Let's Go!", style=discord.ButtonStyle.success)
+    async def go_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for child in self.children:
+            child.disabled = True
+        self.stop()
+        await interaction.response.edit_message(embed=self.pages[self.index], view=self)
+
+
 class RerollPreviewView(discord.ui.View):
     """Accept / Reject view for reroll preview."""
 
