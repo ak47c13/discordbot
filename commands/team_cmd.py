@@ -61,8 +61,8 @@ class TeamCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="team-add", description="Add a champion to your team by slot (1-5).")
-    @app_commands.describe(champion_id="Champion ID", slot="Formation slot 1-5")
-    async def team_add(self, interaction: discord.Interaction, champion_id: str, slot: int):
+    @app_commands.describe(number="Champion list number (see /champions)", slot="Formation slot 1-5")
+    async def team_add(self, interaction: discord.Interaction, number: int, slot: int):
         await interaction.response.defer(ephemeral=True)
         if not 1 <= slot <= TEAM_SIZE:
             await interaction.followup.send(embed=error_embed("Slot must be 1–5."), ephemeral=True)
@@ -70,10 +70,11 @@ class TeamCog(commands.Cog):
 
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
-            champ = await ChampionInstance.get(champion_id)
+            champ = await get_champion_by_number(uid, number)
             if champ is None or champ.owner_id != uid:
                 await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
                 return
+            champion_id = str(champ.id)
             if champ.in_trade or champ.in_market:
                 await interaction.followup.send(embed=error_embed("Champion is in a trade or market listing."), ephemeral=True)
                 return
@@ -162,8 +163,8 @@ class TeamCog(commands.Cog):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @formation.command(name="set", description="Move a champion in your team to a specific slot (1-5).")
-    @app_commands.describe(slot="Target slot 1-5", champion_id="Champion ID to place")
-    async def formation_set(self, interaction: discord.Interaction, slot: int, champion_id: str):
+    @app_commands.describe(slot="Target slot 1-5", number="Champion list number (see /champions)")
+    async def formation_set(self, interaction: discord.Interaction, slot: int, number: int):
         await interaction.response.defer(ephemeral=True)
         if not 1 <= slot <= TEAM_SIZE:
             await interaction.followup.send(embed=error_embed("Slot must be 1–5."), ephemeral=True)
@@ -171,10 +172,11 @@ class TeamCog(commands.Cog):
 
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
-            champ = await ChampionInstance.get(champion_id)
+            champ = await get_champion_by_number(uid, number)
             if champ is None or champ.owner_id != uid:
                 await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
                 return
+            champion_id = str(champ.id)
 
             team = await Team.get_or_create(uid)
             if champion_id not in team.slots:
@@ -207,8 +209,8 @@ class TeamCog(commands.Cog):
         )
 
     @app_commands.command(name="equip", description="Equip an item to a champion.")
-    @app_commands.describe(item_id="Item ID", champion_id="Champion ID", slot="Equipment slot 1-5")
-    async def equip(self, interaction: discord.Interaction, item_id: str, champion_id: str, slot: int):
+    @app_commands.describe(item_number="Item list number (see /items)", champion_number="Champion list number (see /champions)", slot="Equipment slot 1-5")
+    async def equip(self, interaction: discord.Interaction, item_number: int, champion_number: int, slot: int):
         await interaction.response.defer(ephemeral=True)
         if not 1 <= slot <= 5:
             await interaction.followup.send(embed=error_embed("Equipment slot must be 1–5."), ephemeral=True)
@@ -216,7 +218,7 @@ class TeamCog(commands.Cog):
 
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
-            itm = await ItemInstance.get(item_id)
+            itm = await get_item_by_number(uid, item_number)
             if itm is None or itm.owner_id != uid:
                 await interaction.followup.send(embed=error_embed("Item not found or not owned by you."), ephemeral=True)
                 return
@@ -224,10 +226,11 @@ class TeamCog(commands.Cog):
                 await interaction.followup.send(embed=error_embed("Item is in a trade or listing."), ephemeral=True)
                 return
 
-            champ = await ChampionInstance.get(champion_id)
+            champ = await get_champion_by_number(uid, champion_number)
             if champ is None or champ.owner_id != uid:
                 await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
                 return
+            champion_id = str(champ.id)
 
             # Check champion doesn't already have 5 items in that slot
             existing_in_slot = await ItemInstance.find_one(
@@ -263,12 +266,12 @@ class TeamCog(commands.Cog):
         )
 
     @app_commands.command(name="unequip", description="Unequip an item from a champion.")
-    @app_commands.describe(item_id="Item ID")
-    async def unequip(self, interaction: discord.Interaction, item_id: str):
+    @app_commands.describe(item_number="Item list number (see /items)")
+    async def unequip(self, interaction: discord.Interaction, item_number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
-            itm = await ItemInstance.get(item_id)
+            itm = await get_item_by_number(uid, item_number)
             if itm is None or itm.owner_id != uid:
                 await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
                 return
