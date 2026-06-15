@@ -51,7 +51,7 @@ def _title_for(battle_type: str, zone_name: str) -> str:
     return f"⚔️ {zone_name} Battle"
 
 
-def build_initial_embed(zone_name, player_names, enemy_name, battle_type) -> discord.Embed:
+def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner_url="") -> discord.Embed:
     embed = discord.Embed(
         title=_title_for(battle_type, zone_name),
         description="⚙️ Simulating battle...",
@@ -60,10 +60,12 @@ def build_initial_embed(zone_name, player_names, enemy_name, battle_type) -> dis
     roster = "\n".join(f"• {n}" for n in player_names) or "—"
     embed.add_field(name="Your Team", value=roster, inline=True)
     embed.add_field(name="Enemy", value=enemy_name or "—", inline=True)
+    if banner_url:
+        embed.set_image(url=banner_url)
     return embed
 
 
-def build_battle_embed(battle_session, round_snapshot, zone_name, player_names) -> discord.Embed:
+def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, banner_url="") -> discord.Embed:
     rs = round_snapshot
     # Recent events from last 2 rounds
     rounds = battle_session.simulated_rounds
@@ -89,10 +91,12 @@ def build_battle_embed(battle_session, round_snapshot, zone_name, player_names) 
         color=0xE67E22,
     )
     embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
+    if banner_url:
+        embed.set_image(url=banner_url)
     return embed
 
 
-def build_final_embed(battle_session, final_snapshot, zone_name, winner) -> discord.Embed:
+def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_url="") -> discord.Embed:
     rs = final_snapshot or {}
     if winner == 0:
         title = "🏆 VICTORY"

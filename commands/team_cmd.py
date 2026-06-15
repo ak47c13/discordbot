@@ -9,6 +9,7 @@ from models.team import Team
 from utils.embeds import champion_embed, item_embed, error_embed, success_embed
 from utils.locks import get_user_lock
 from config.game_config import TEAM_SIZE
+from utils.image_gen import generate_team_banner
 
 
 class TeamCog(commands.Cog):
@@ -22,6 +23,7 @@ class TeamCog(commands.Cog):
         team = await Team.get_or_create(str(interaction.user.id))
 
         embed = discord.Embed(title="⚔️ Your Team", color=0x5865F2)
+        team_champs = []
         for idx, slot in enumerate(team.slots):
             pos = idx + 1
             row = "Front" if pos <= 2 else "Back"
@@ -35,8 +37,24 @@ class TeamCog(commands.Cog):
                         value=f"**{champ.name}** [{champ.rank}] Lv.{champ.level}",
                         inline=True,
                     )
+                    team_champs.append({
+                        "name": champ.name,
+                        "rank": champ.rank,
+                        "level": champ.level,
+                        "riot_id": champ.riot_id or "",
+                    })
                 else:
                     embed.add_field(name=f"Slot {pos} ({row})", value="*Missing*", inline=True)
+
+        if team_champs:
+            try:
+                buf = await generate_team_banner(team_champs)
+                file = discord.File(buf, filename="team.png")
+                embed.set_image(url="attachment://team.png")
+                await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+                return
+            except Exception:
+                pass
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="team-add", description="Add a champion to your team by slot (1-5).")

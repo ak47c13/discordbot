@@ -3,7 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
+from models.champion import ChampionInstance
+from models.team import Team
 from utils.embeds import error_embed
+from utils.image_gen import generate_team_banner
 
 
 class ProfileCog(commands.Cog):
@@ -26,6 +29,31 @@ class ProfileCog(commands.Cog):
         seals = getattr(user, "blacksmith_seals", 0)
         embed.add_field(name="🔏 Blacksmith Seals", value=str(seals), inline=True)
         embed.set_footer(text=f"Joined: {user.created_at.strftime('%Y-%m-%d')}")
+
+        # Attach the user's team banner if they have champions equipped.
+        team = await Team.get_or_create(str(interaction.user.id))
+        team_champs = []
+        for slot in team.slots:
+            if slot is None:
+                continue
+            champ = await ChampionInstance.get(slot)
+            if champ:
+                team_champs.append({
+                    "name": champ.name,
+                    "rank": champ.rank,
+                    "level": champ.level,
+                    "riot_id": champ.riot_id or "",
+                })
+
+        if team_champs:
+            try:
+                buf = await generate_team_banner(team_champs)
+                file = discord.File(buf, filename="team.png")
+                embed.set_image(url="attachment://team.png")
+                await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+                return
+            except Exception:
+                pass
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="daily", description="Claim your daily summon token reward.")
