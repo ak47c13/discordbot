@@ -276,30 +276,17 @@ async def finalize(
         bs.rewards_json = granted or {}
         await bs.save()
 
-    # Update battle message with final embed
+    # Update battle message with final embed (rewards included inline)
     final_snap = bs.simulated_rounds[-1] if bs.simulated_rounds else None
-    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner, banner_url=bs.static_image_url)
+    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner, banner_url=bs.static_image_url, rewards=granted if bs.winner == 0 else None)
     edit_target = None
     if hasattr(discord_channel, "edit"):
         edit_target = discord_channel
     try:
         if edit_target is not None:
-            await edit_target.edit(embed=final_embed, view=None)
+            await edit_target.edit(embed=final_embed, attachments=[], view=None)
     except Exception:
         pass
-
-    # Send a separate reward result message
-    send_target = None
-    if hasattr(discord_channel, "channel"):
-        send_target = discord_channel.channel
-    elif hasattr(discord_channel, "send"):
-        send_target = discord_channel
-    if send_target is not None and bs.winner == 0:
-        try:
-            from utils.embeds import reward_embed
-            await send_target.send(embed=reward_embed(granted, f"🎁 Rewards — {bs.zone}"))
-        except Exception:
-            pass
 
 
 async def cancel_battle(battle_session_id: str, reason: str, session) -> bool:

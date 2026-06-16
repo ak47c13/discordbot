@@ -241,27 +241,38 @@ def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, 
     return embed
 
 
-def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_url="") -> discord.Embed:
-    rs = final_snapshot or {}
+def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_url="", rewards: dict | None = None) -> discord.Embed:
     if winner == 0:
         title = "🏆 VICTORY"
         color = 0x00CC44
     else:
         title = "💀 DEFEAT"
-        color = 0xFF0000
-    desc = (
-        f"{DIVIDER}\n"
-        f"**Enemy**\n{hp_display(rs.get('enemy_hp', 0), rs.get('enemy_hp_max', 0))}\n\n"
-        f"**Your Team**\n{hp_display(rs.get('player_hp', 0), rs.get('player_hp_max', 0))}\n"
-        f"{DIVIDER}"
-    )
-    embed = discord.Embed(title=title, description=desc[:4000], color=color)
-    portrait = _boss_portrait_url(battle_session)
-    if portrait:
-        embed.set_thumbnail(url=portrait)
-    embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
+        color = 0xFF3333
+
+    embed = discord.Embed(title=title, color=color)
+
     if banner_url:
         embed.set_image(url=banner_url)
+
+    if winner == 0 and rewards:
+        lines = []
+        if rewards.get("gold"):
+            lines.append(f"🪙 **{rewards['gold']:,}** Gold")
+        if rewards.get("summon_tokens"):
+            lines.append(f"🎟️ **{rewards['summon_tokens']}** Summon Tokens")
+        if rewards.get("blacksmith_seals"):
+            lines.append(f"🔨 **{rewards['blacksmith_seals']}** Blacksmith Seals")
+        if rewards.get("rune_shards"):
+            lines.append(f"💎 **{rewards['rune_shards']}** Rune Shards")
+        if rewards.get("rune_fragments"):
+            lines.append(f"✨ **{rewards['rune_fragments']}** Rune Fragments")
+        if rewards.get("champion"):
+            c = rewards["champion"]
+            lines.append(f"⚔️ **{c['name']}** [{c['rank']}] summoned!")
+        if lines:
+            embed.add_field(name="🎁 Rewards", value="\n".join(lines), inline=False)
+
+    embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
     return embed
 
 

@@ -27,7 +27,7 @@ def _mk(name, team, hp=2000, atk=100, position=1):
 
 
 def test_champion_count():
-    assert len(CHAMPION_ROSTER) >= 172
+    assert len(CHAMPION_ROSTER) >= 170  # 171 after removing Maeve and Calix (non-LoL)
 
 
 def test_all_champions_have_two_skills():
