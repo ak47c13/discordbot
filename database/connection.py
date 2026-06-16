@@ -12,6 +12,7 @@ from models.audit_log import AuditLog
 from models.processed_interaction import ProcessedInteraction
 from models.raid import RaidQueue
 from models.battle_session import BattleSession
+from models.dungeon import Dungeon, DungeonFloor, DungeonProgress, DungeonRun
 
 
 _client: AsyncIOMotorClient | None = None
@@ -41,6 +42,10 @@ async def init_db() -> None:
             ProcessedInteraction,
             RaidQueue,
             BattleSession,
+            Dungeon,
+            DungeonFloor,
+            DungeonProgress,
+            DungeonRun,
         ],
     )
 
@@ -48,3 +53,7 @@ async def init_db() -> None:
     await db["processedinteractions"].create_index(
         "created_at", expireAfterSeconds=86400
     )
+
+    # Seed dungeon catalogue (idempotent)
+    from data.dungeon_seed import seed_dungeons
+    await seed_dungeons()

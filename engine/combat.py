@@ -49,6 +49,14 @@ class CombatUnit:
     mechanic: str = ""
     mechanic_triggered: bool = False
 
+    # Dungeon boss passive state
+    dodge_chance: float = 0.0
+    undying: bool = False
+    undying_rounds: int = 0
+    feast_stacks: int = 0
+    darius_stacks: int = 0
+    converted: bool = False   # mordekaiser: a defeated player champ now fights for the boss
+
     # Skill callables (set during build)
     basic_fn: Optional[callable] = field(default=None, repr=False)
     ultimate_fn: Optional[callable] = field(default=None, repr=False)
@@ -299,6 +307,105 @@ def _apply_boss_mechanics(enemy_units, rnd, log):
     return spawned
 
 
+# ---------------------------------------------------------------------------
+# Dungeon boss passives (round-by-round hooks)
+# ---------------------------------------------------------------------------
+def _dungeon_bosses(units: list[CombatUnit]) -> list[CombatUnit]:
+    return [u for u in units if getattr(u, "is_boss", False) and getattr(u, "mechanic", "")]
+
+
+def _apply_round_start_passives(
+    player_units: list[CombatUnit],
+    enemy_units: list[CombatUnit],
+    rnd: int,
+    log: list[str],
+) -> None:
+    """Apply dungeon boss passives that trigger at the start of a round."""
+    from engine.status_effects import Shield, Stun
+    for boss in _dungeon_bosses(enemy_units):
+        if not boss.is_alive:
+            continue
+        m = boss.mechanic
+
+        if m == "garen_passive":
+            heal = int(boss.hp_max * 0.05)
+            if boss.hp < boss.hp_max:
+                boss.hp = min(boss.hp_max, boss.hp + heal)
+                log.append(f"  {boss.name} regenerates {heal:,} HP (Perseverance).")
+
+        elif m == "darius_passive":
+            boss.darius_stacks += 1
+            boss.atk *= 1.08
+            log.append(f"  {boss.name} gains Hemorrhage — ATK rising ({boss.darius_stacks} stacks).")
+
+        elif m == "jarvan_passive" and rnd == 1 and not boss.mechanic_triggered:
+            amt = int(boss.hp_max * 0.25)
+            boss.status_effects.append(Shield(absorb=amt, duration=99))
+            boss.mechanic_triggered = True
+            log.append(f"  {boss.name} raises a {amt:,} HP shield (Demacian Standard)!")
+
+        elif m == "chogath_passive":
+            boss.feast_stacks += 1
+            gain = int(boss.hp_max * 0.05)
+            boss.hp_max += gain
+            boss.hp += gain
+            log.append(f"  {boss.name} feasts — max HP grows ({boss.feast_stacks} stacks).")
+
+        elif m == "jayce_passive":
+            # Alternate cannon (high ATK / low DEF) and hammer (low ATK / high DEF).
+            if rnd % 2 == 1:
+                boss.atk = boss.atk * 1.4
+                boss.def_stat = boss.def_stat * 0.6
+                log.append(f"  {boss.name} shifts to CANNON form (Mercury Cannon).")
+            else:
+                boss.atk = boss.atk / 1.4 * 0.6
+                boss.def_stat = boss.def_stat / 0.6 * 1.4
+                log.append(f"  {boss.name} shifts to HAMMER form (Mercury Hammer).")
+
+        elif m == "sejuani_passive" and rnd == 3 and not boss.mechanic_triggered:
+            boss.mechanic_triggered = True
+            alive = [u for u in player_units if u.is_alive]
+            if alive:
+                target = max(alive, key=lambda u: u.atk)
+                target.status_effects.append(Stun(duration=1))
+                log.append(f"  {boss.name} freezes {target.name} solid (Permafrost)!")
+
+
+def _apply_round_end_passives(
+    player_units: list[CombatUnit],
+    enemy_units: list[CombatUnit],
+    rnd: int,
+    log: list[str],
+) -> None:
+    """Apply dungeon boss passives that trigger at the end of a round."""
+    for boss in _dungeon_bosses(enemy_units):
+        if not boss.is_alive:
+            continue
+        m = boss.mechanic
+
+        if m == "swain_passive":
+            alive = [u for u in player_units if u.is_alive]
+            total = sum(u.hp for u in alive)
+            drain = int(total * 0.08)
+            if drain > 0:
+                per = max(1, drain // max(1, len(alive)))
+                for u in alive:
+                    u.hp = max(0, u.hp - per)
+                boss.hp = min(boss.hp_max, boss.hp + drain)
+                log.append(f"  {boss.name} drains {drain:,} HP from your team (Soul Steal).")
+
+        elif m == "gangplank_passive" and rnd in (5, 10, 15):
+            alive = [u for u in player_units if u.is_alive]
+            for u in alive:
+                dmg = max(1, int(u.hp * 0.15))
+                u.hp = max(0, u.hp - dmg)
+            if alive:
+                log.append(f"  {boss.name} fires a CANNON BARRAGE on your whole team!")
+
+    # Irelia: heal when an ally (enemy-side ally) dies — handled via death tracking
+    # Tryndamere undying decrement & Mordekaiser conversion handled in main loop.
+
+
 def _team_hp(units: list[CombatUnit]) -> tuple[int, int]:
     cur = sum(max(0, u.hp) for u in units)
     mx = sum(u.hp_max for u in units)
@@ -384,6 +491,14 @@ def run_battle_with_rounds(
             all_units.extend(new_adds)
             alive_enemies = [u for u in enemy_units if u.is_alive]
 
+        # Dungeon boss round-start passives
+        _apply_round_start_passives(player_units, enemy_units, rnd, log)
+        alive_players = [u for u in player_units if u.is_alive]
+        alive_enemies = [u for u in enemy_units if u.is_alive]
+
+        # Track HP before round for Irelia (heal when ally dies)
+        _hp_before_round = {id(u): u.hp for u in enemy_units}
+
         turn_order = _sort_turn_order(alive_players + alive_enemies)
 
         for unit in turn_order:
@@ -416,6 +531,10 @@ def run_battle_with_rounds(
             reflect_bosses = [b for b in enemies_of_unit if getattr(b, "mechanic", "") == "reflect"]
             hp_before = {id(b): b.hp for b in reflect_bosses}
 
+            # Snapshot HP of dodging units (yasuo_passive) so a dodge negates damage.
+            dodge_units = [b for b in enemies_of_unit if getattr(b, "dodge_chance", 0.0) > 0]
+            dodge_hp_before = {id(b): b.hp for b in dodge_units}
+
             # Choose skill
             silenced = unit.has_effect(Silence)
             if unit.mana >= MANA_ULTIMATE_THRESHOLD and not silenced and unit.ultimate_fn:
@@ -434,6 +553,14 @@ def run_battle_with_rounds(
 
             log.extend(skill_log)
 
+            # Dodge mechanic (yasuo_passive): roll per dodging unit; on success
+            # restore the HP it lost this turn (damage negated).
+            for db in dodge_units:
+                lost = dodge_hp_before[id(db)] - db.hp
+                if lost > 0 and random.random() < db.dodge_chance:
+                    db.hp = dodge_hp_before[id(db)]
+                    log.append(f"  {db.name} blocks the strike (Way of the Wanderer)!")
+
             # Reflect mechanic: bosses return a portion of damage taken to the attacker.
             for boss in reflect_bosses:
                 dealt = hp_before[id(boss)] - boss.hp
@@ -449,6 +576,51 @@ def run_battle_with_rounds(
             for u in enemy_units + player_units:
                 if u.hp == 0 and u in enemies_of_unit + allies_of_unit:
                     pass  # handled in next-round check
+
+        # Dungeon boss round-end passives (swain drain, gangplank barrage)
+        _apply_round_end_passives(player_units, enemy_units, rnd, log)
+
+        # Tryndamere undying rage: survive at 1 HP for a couple rounds.
+        for boss in _dungeon_bosses(enemy_units):
+            if boss.mechanic == "tryndamere_passive":
+                if boss.hp <= 0 and getattr(boss, "undying", False):
+                    boss.hp = 1
+                    boss.undying = False
+                    boss.undying_rounds = 2
+                    log.append(f"  {boss.name} refuses to die — UNDYING RAGE!")
+                elif boss.undying_rounds > 0:
+                    boss.undying_rounds -= 1
+                    if boss.undying_rounds <= 0:
+                        boss.hp = 0
+                        log.append(f"  {boss.name}'s rage finally fades.")
+                    else:
+                        boss.hp = max(1, boss.hp)
+
+        # Irelia: heal 20% max HP when an (enemy-side) ally dies this round.
+        irelia = [b for b in _dungeon_bosses(enemy_units) if b.mechanic == "irelia_passive"]
+        if irelia:
+            for ally in enemy_units:
+                if ally is irelia[0]:
+                    continue
+                if _hp_before_round.get(id(ally), 0) > 0 and ally.hp <= 0:
+                    boss = irelia[0]
+                    if boss.is_alive:
+                        heal = int(boss.hp_max * 0.20)
+                        boss.hp = min(boss.hp_max, boss.hp + heal)
+                        log.append(f"  {boss.name} heals {heal:,} HP avenging {ally.name} (Bladesurge)!")
+
+        # Mordekaiser: defeated player champions fight for the boss.
+        morde = [b for b in _dungeon_bosses(enemy_units) if b.mechanic == "mordekaiser_passive"]
+        if morde and morde[0].is_alive:
+            for pu in player_units:
+                if pu.hp <= 0 and not getattr(pu, "converted", False) and pu.team == 0:
+                    pu.converted = True
+                    pu.team = 1
+                    pu.hp = int(pu.hp_max * 0.5)
+                    pu.status_effects = []
+                    enemy_units.append(pu)
+                    player_units.remove(pu)
+                    log.append(f"  {morde[0].name} raises {pu.name} from death (Realm of Death)!")
 
         # Post-round check
         alive_players = [u for u in player_units if u.is_alive]

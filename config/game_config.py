@@ -415,6 +415,45 @@ BOSS_MECHANICS = {
 }
 
 # ---------------------------------------------------------------------------
+# Dungeon rewards
+# ---------------------------------------------------------------------------
+DUNGEON_FLOOR_GOLD_BASE = 50
+DUNGEON_FLOOR_GOLD_PER_FLOOR = 15
+DUNGEON_FLOOR_XP_BASE = 20
+DUNGEON_FLOOR_XP_PER_FLOOR = 8
+DUNGEON_RUNE_SHARD_CHANCE = 0.10     # 10% per floor
+DUNGEON_RUNE_FRAGMENT_CHANCE = 0.02  # 2% per floor
+
+# First-clear bonuses by dungeon length
+DUNGEON_FIRST_CLEAR = {
+    20: {"gold": 500, "summon_tokens": 100},
+    35: {"gold": 1000, "summon_tokens": 200},
+    40: {"gold": 1500, "summon_tokens": 300},
+    50: {"gold": 3000, "summon_tokens": 500},
+}
+DUNGEON_DAILY_CLEAR = {
+    20: {"gold": 200},
+    35: {"gold": 400},
+    40: {"gold": 700},
+    50: {"gold": 1200},
+}
+
+# Stamina costs
+DUNGEON_STAMINA_COST = 2
+DUNGEON_BOSS_RETRY_COST = 1
+
+# Floor scaling
+DUNGEON_HP_SCALE_PER_FLOOR = 0.08
+DUNGEON_ATK_SCALE_PER_FLOOR = 0.06
+DUNGEON_DEF_SCALE_PER_FLOOR = 0.04
+DUNGEON_BOSS_HP_MULT = 1.5
+DUNGEON_BOSS_ATK_MULT = 1.3
+
+# Champion XP / leveling thresholds (exp needed to reach next level)
+def champion_xp_threshold(level: int) -> int:
+    return 100 + (level - 1) * 50
+
+# ---------------------------------------------------------------------------
 # Formation bonuses (applied to CombatUnit before battle)
 # ---------------------------------------------------------------------------
 FORMATION_BONUSES = {
