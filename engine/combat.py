@@ -100,6 +100,8 @@ def build_unit_from_champion(
     item_docs: list,
     position: int,
     team: int,
+    active_skill_key: str = "q",
+    rune_page=None,
 ) -> CombatUnit:
     rank = champ_doc.rank
     lvl = champ_doc.level
@@ -158,6 +160,8 @@ def build_unit_from_champion(
     final_spd = int(spd + item_spd_bonus)
 
     skills = CHAMPION_SKILLS.get(champ_doc.name, {})
+    # Use player's chosen basic skill (q/w/e); R is always the ultimate
+    basic_fn = skills.get(active_skill_key) or skills.get("q") or skills.get("basic")
     unit = CombatUnit(
         unit_id=str(champ_doc.id),
         name=champ_doc.name,
@@ -171,17 +175,14 @@ def build_unit_from_champion(
         def_stat=final_def,
         spd=final_spd,
         mana=0,
-        basic_fn=skills.get("basic"),
-        ultimate_fn=skills.get("ultimate"),
+        basic_fn=basic_fn,
+        ultimate_fn=skills.get("r") or skills.get("ultimate"),
     )
 
-    # Apply formation bonuses based on position.
-    from config.game_config import FORMATION_BONUSES
-    bonuses = FORMATION_BONUSES.get(position, {})
-    if "def" in bonuses:
-        unit.def_stat = int(unit.def_stat * (1 + bonuses["def"]))
-    if "atk" in bonuses:
-        unit.atk = int(unit.atk * (1 + bonuses["atk"]))
+    # Apply rune bonuses (after base stats + items, before combat)
+    if rune_page is not None:
+        from services.rune_service import apply_rune_bonuses
+        apply_rune_bonuses(unit, rune_page, lvl)
 
     return unit
 

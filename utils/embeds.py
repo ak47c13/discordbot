@@ -44,7 +44,7 @@ def champion_embed(champ, title: str = "Champion") -> discord.Embed:
     if champ.locked:         flags.append("🔒 Locked")
     if champ.in_trade:       flags.append("🤝 In Trade")
     if champ.in_market:      flags.append("🏪 Listed")
-    if champ.equipped_in_team: flags.append("⚔️ In Team")
+    if getattr(champ, "is_active", False): flags.append("⚔️ Active")
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
 
@@ -150,7 +150,7 @@ def _champion_page_embed(champs, page: int) -> discord.Embed:
         flags = []
         if c.locked:                flags.append("🔒")
         if getattr(c, "favorite", False): flags.append("⭐")
-        if c.equipped_in_team:      flags.append("⚔️")
+        if getattr(c, "is_active", False): flags.append("⚔️")
         if c.in_market:             flags.append("🏪")
         if c.in_trade:              flags.append("🤝")
         suffix = ("  " + " ".join(flags)) if flags else ""

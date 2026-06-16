@@ -61,7 +61,7 @@ async def bulk_sell_champions(
             continue
         if c.in_trade or c.in_market:
             continue
-        if f["exclude_equipped"] and c.equipped_in_team is not None:
+        if f["exclude_equipped"] and getattr(c, "is_active", False):
             continue
         to_sell.append(c)
 

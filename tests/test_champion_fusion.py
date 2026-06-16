@@ -134,10 +134,10 @@ async def test_fusion_blocked_if_equipped(user_a):
         await c.insert()
         champs.append(c)
 
-    # Equip one
-    champs[0].equipped_in_team = "some_team_id"
+    # Mark one as active (active champions are protected from fusion)
+    champs[0].is_active = True
     await champs[0].save()
 
     session = make_mock_session()
-    with pytest.raises(FusionError, match="equipped"):
+    with pytest.raises(FusionError, match="active"):
         await fuse_champions("user_a", [str(c.id) for c in champs], session)

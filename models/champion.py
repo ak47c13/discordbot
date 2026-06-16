@@ -12,8 +12,7 @@ class ChampionInstance(Document):
     exp: int = 0
 
     # State flags — any truthy value locks the champion from most operations
-    equipped_in_team: Optional[str] = None   # team document id if equipped
-    formation_slot: Optional[int] = None     # 1-5 if in a team
+    is_active: bool = False
     locked: bool = False
     in_trade: bool = False
     in_market: bool = False
@@ -41,8 +40,8 @@ class ChampionInstance(Document):
     def is_available(self) -> bool:
         """Champion can be used in fusion / traded / etc."""
         return (
-            not self.locked
+            not self.is_active
+            and not self.locked
             and not self.in_trade
             and not self.in_market
-            and self.equipped_in_team is None
         )

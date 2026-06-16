@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from beanie import Document
 from pydantic import Field
+from models.rune_page import RunePage
 
 
 class User(Document):
@@ -19,6 +20,11 @@ class User(Document):
     rune_fragments: int = 0     # rarer dungeon drop for evolution slots
     last_daily: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    # Single active champion
+    active_champion_id: Optional[str] = None
+    active_skill: str = "q"
+    rune_page: RunePage = Field(default_factory=RunePage)
 
     class Settings:
         name = "users"

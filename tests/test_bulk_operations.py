@@ -137,10 +137,12 @@ async def test_favorite_prevents_market_listing(user_a):
         await list_champion("user_a", str(c.id), 100, session)
 
 
-def test_formation_bonus_applied():
-    champ = ChampionInstance(owner_id="user_a", name="Rengar", rank="F", level=1)
-    front = build_unit_from_champion(champ, [], position=1, team=0)
-    back = build_unit_from_champion(champ, [], position=5, team=0)
-    # Position 1 gets +10% def; position 5 gets none (but +5% atk).
-    assert front.def_stat > back.def_stat
-    assert back.atk > front.atk
+def test_unit_builds_with_active_skill():
+    champ = ChampionInstance(owner_id="user_a", name="Garen", rank="F", level=1)
+    unit_q = build_unit_from_champion(champ, [], position=1, team=0, active_skill_key="q")
+    unit_w = build_unit_from_champion(champ, [], position=1, team=0, active_skill_key="w")
+    # Both should produce valid units with callable skills
+    assert unit_q.basic_fn is not None
+    assert unit_w.basic_fn is not None
+    # Different skills should be distinct functions
+    assert unit_q.basic_fn is not unit_w.basic_fn

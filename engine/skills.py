@@ -1,32 +1,34 @@
 """
-Champion skill registry — now data-driven.
+Champion skill registry — now data-driven with Q/W/E/R support.
 
-Skills are generated from declarative definitions in ``data.champion_roster`` via
-``engine.skill_factory.skill_from_def``. Each champion exposes a basic and an
-ultimate skill function with the signature:
-
-    fn(caster: CombatUnit, all_enemies: list[CombatUnit], all_allies: list[CombatUnit]) -> int
-
-The integer return value is mana gained (always 0 for ultimates). Basic skills also
-mutate ``caster.mana`` directly. Generated log lines are stashed on ``fn.last_log``.
-
-``CHAMPION_SKILLS`` maps champion name -> {"basic": fn, "ultimate": fn, "mana_gain": int}
-to remain backward compatible with the combat engine and existing tests.
+CHAMPION_SKILLS maps champion name -> {
+    "q": fn, "w": fn, "e": fn, "r": fn,
+    "basic": fn,     # alias for "q" (backward compat for bosses)
+    "ultimate": fn,  # alias for "r" (backward compat for bosses)
+    "mana_gain": int,
+}
 """
 from __future__ import annotations
 
-from data.champion_roster import CHAMPION_ROSTER, ALL_CHAMPION_NAMES as _ROSTER_NAMES
+from data.champion_skills import CHAMPION_SKILLS as _RAW_SKILLS
 from engine.skill_factory import skill_from_def
 
 CHAMPION_SKILLS: dict[str, dict] = {}
 
-for _name, _data in CHAMPION_ROSTER.items():
-    _basic_fn = skill_from_def(_data["basic"])
-    _ult_fn = skill_from_def(_data["ultimate"])
+for _name, _skill_defs in _RAW_SKILLS.items():
+    _q_fn = skill_from_def(_skill_defs["q"])
+    _w_fn = skill_from_def(_skill_defs["w"])
+    _e_fn = skill_from_def(_skill_defs["e"])
+    _r_fn = skill_from_def(_skill_defs["r"])
     CHAMPION_SKILLS[_name] = {
-        "basic": _basic_fn,
-        "ultimate": _ult_fn,
-        "mana_gain": _data["basic"].get("mana_gain", 25),
+        "q": _q_fn,
+        "w": _w_fn,
+        "e": _e_fn,
+        "r": _r_fn,
+        # Backward-compat aliases used by boss unit builder and dungeon engine
+        "basic": _q_fn,
+        "ultimate": _r_fn,
+        "mana_gain": _skill_defs["q"].get("mana_gain", 25),
     }
 
 ALL_CHAMPION_NAMES = list(CHAMPION_SKILLS.keys())

@@ -68,7 +68,7 @@ async def fuse_champions(
             raise FusionError("Cannot fuse a favorited champion. Unfavorite first.")
         if not c.is_available:
             raise FusionError(
-                f"{c.name} is equipped, locked, in a trade, or listed on market."
+                f"{c.name} is active, locked, in a trade, or listed on market."
             )
         champs.append(c)
 

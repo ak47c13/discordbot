@@ -256,7 +256,7 @@ async def _award_champion_xp(champ_ids: list[str], xp: int, session=None) -> lis
 # ---------------------------------------------------------------------------
 # Build player units
 # ---------------------------------------------------------------------------
-async def _build_player_units(champion_ids: list[str], session=None) -> list[CombatUnit]:
+async def _build_player_units(champion_ids: list[str], session=None, active_skill_key: str = "q", rune_page=None) -> list[CombatUnit]:
     units: list[CombatUnit] = []
     for idx, cid in enumerate(champion_ids):
         try:
@@ -269,7 +269,7 @@ async def _build_player_units(champion_ids: list[str], session=None) -> list[Com
             ItemInstance.equipped_to == str(champ.id),
             session=usable_session(session),
         ).to_list()
-        units.append(build_unit_from_champion(champ, item_docs, position=idx + 1, team=0))
+        units.append(build_unit_from_champion(champ, item_docs, position=idx + 1, team=0, active_skill_key=active_skill_key, rune_page=rune_page))
     return units
 
 
@@ -296,7 +296,14 @@ async def build_floor_units(
     if floor is None:
         raise DungeonError(f"Floor {floor_num} not found.")
 
-    player_units = await _build_player_units(champion_ids, session)
+    _skill_key = "q"
+    _rune_page = None
+    _usr = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
+    if _usr:
+        _skill_key = getattr(_usr, "active_skill", "q") or "q"
+        _rune_page = getattr(_usr, "rune_page", None)
+
+    player_units = await _build_player_units(champion_ids, session, active_skill_key=_skill_key, rune_page=_rune_page)
     if not player_units:
         raise DungeonError("No valid champions provided for this run.")
 
@@ -430,8 +437,10 @@ async def enter_floor(
     if user.stamina < cost:
         raise DungeonError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
 
-    # Build player units
-    player_units = await _build_player_units(champion_ids, session)
+    # Build player units — use user's active skill and rune page
+    _active_skill = getattr(user, "active_skill", "q") or "q"
+    _rune_pg = getattr(user, "rune_page", None)
+    player_units = await _build_player_units(champion_ids, session, active_skill_key=_active_skill, rune_page=_rune_pg)
     if not player_units:
         raise DungeonError("No valid champions provided for this run.")
 

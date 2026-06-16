@@ -197,7 +197,7 @@ class ChampionsCog(commands.Cog):
             c for c in champs
             if (not name or c.name == name)
             and not c.locked and not getattr(c, "favorite", False)
-            and not c.in_trade and not c.in_market and c.equipped_in_team is None
+            and not c.in_trade and not c.in_market and not getattr(c, "is_active", False)
         ]
         if not matches:
             await interaction.followup.send(embed=error_embed("No sellable champions match."), ephemeral=True)
