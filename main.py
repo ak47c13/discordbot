@@ -17,6 +17,11 @@ from services.battle_presentation_service import (
 load_dotenv()
 
 GUILD_ID = int(os.environ.get("GUILD_ID", 0))
+# Comma-separated extra guild IDs to also sync commands to instantly
+_EXTRA_GUILDS = [
+    int(g) for g in os.environ.get("EXTRA_GUILD_IDS", "").split(",") if g.strip()
+]
+GUILD_IDS = ([GUILD_ID] if GUILD_ID else []) + _EXTRA_GUILDS
 
 COGS = [
     "commands.start_cmd",
@@ -71,12 +76,13 @@ class AutoBattlerBot(commands.Bot):
                 print(f"  ✗ Failed to load {cog}: {e}")
                 traceback.print_exc()
 
-        # Sync slash commands to the guild for instant propagation
-        if GUILD_ID:
-            guild = discord.Object(id=GUILD_ID)
-            self.tree.copy_global_to(guild=guild)
-            await self.tree.sync(guild=guild)
-            print(f"  ✓ Slash commands synced to guild {GUILD_ID}")
+        # Sync slash commands to all configured guilds for instant propagation
+        if GUILD_IDS:
+            for gid in GUILD_IDS:
+                guild = discord.Object(id=gid)
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                print(f"  ✓ Slash commands synced to guild {gid}")
         else:
             await self.tree.sync()
             print("  ✓ Slash commands synced globally")
