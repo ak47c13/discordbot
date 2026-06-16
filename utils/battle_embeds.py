@@ -146,16 +146,29 @@ def build_unit_bar(unit: dict, is_enemy: bool = False) -> str:
         return f"☠️ ~~{name}~~ [{rank}] Lv.{level} — **DEFEATED**"
 
     ult_str = " ✨" if mana >= 100 else ""
-    hp_bar = progress_bar(hp, hp_max, 16)
-    mana_bar = progress_bar(mana, 100, 16)
+
+    # Colored bars using Discord square emojis
+    bar_len = 12
+    hp_ratio = max(0.0, min(1.0, hp / hp_max)) if hp_max > 0 else 0.0
+    hp_filled = round(hp_ratio * bar_len)
+    mana_ratio = max(0.0, min(1.0, mana / 100))
+    mana_filled = round(mana_ratio * bar_len)
+
+    HP_FULL  = "🟥" if is_enemy else "🟩"
+    HP_EMPTY = "⬛"
+    MANA_FULL  = "🟦"
+    MANA_EMPTY = "⬛"
+
+    hp_bar   = HP_FULL * hp_filled + HP_EMPTY * (bar_len - hp_filled)
+    mana_bar = MANA_FULL * mana_filled + MANA_EMPTY * (bar_len - mana_filled)
     hp_emoji = "❤️" if is_enemy else "💚"
 
     lines = [
         f"{'👹' if is_enemy else '⚔️'} **{name}** [{rank}] Lv.{level}{ult_str}{' ' + status_str if status_str else ''}",
         f"{hp_emoji} {hp:,} / {hp_max:,}",
-        f"`{hp_bar}`",
+        hp_bar,
         f"💧 {mana}/100",
-        f"`{mana_bar}`",
+        mana_bar,
     ]
     return "\n".join(lines)
 
