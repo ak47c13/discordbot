@@ -3,7 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from utils.embeds import error_embed, success_embed, progress_bar, COLOR_INFO
+from utils.embeds import (
+    error_embed, success_embed, progress_bar, COLOR_INFO,
+    SummonRevealView, build_summon_result_embed,
+)
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
@@ -45,35 +48,15 @@ class SummonCog(commands.Cog):
 
         await mark_processed(iid, f"summon:{'multi' if multi else 'single'}")
 
-        title = "🎰 10x Summon Results" if multi else "🎰 Summon Result"
-        embed = discord.Embed(title=title, color=COLOR_INFO)
-
-        for r in results:
-            if r["type"] == "champion":
-                rank = r["rank"]
-                color = AURA_COLOR_BY_RANK.get(rank, 0xFFFFFF)
-                embed.add_field(
-                    name=f"🏆 Champion [{rank}]",
-                    value=f"**{r['name']}**",
-                    inline=True,
-                )
-            elif r["type"] == "item":
-                embed.add_field(
-                    name=f"⚔️ Item [{r['rank']}]",
-                    value=f"**{r['name']}**",
-                    inline=True,
-                )
-            elif r["type"] == "gold":
-                embed.add_field(name="💰 Gold", value=str(r["amount"]), inline=True)
-            elif r["type"] == "enhance_mat":
-                embed.add_field(name="🔧 Enhance Mat", value=f"x{r['amount']}", inline=True)
-            elif r["type"] == "reroll_mat":
-                embed.add_field(name="🎲 Reroll Mat", value=f"x{r['amount']}", inline=True)
-            elif r["type"] == "seal":
-                embed.add_field(name="🔏 Blacksmith's Seal!", value="x1 — RARE!", inline=True)
-
-        embed.set_footer(text=f"Cost: {SUMMON_MULTI_COST if multi else SUMMON_TOKEN_COST} summon tokens")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        if multi:
+            view = SummonRevealView(results, interaction.user.id)
+            await interaction.followup.send(embed=view.build_page_embed(), view=view, ephemeral=True)
+        else:
+            embed = build_summon_result_embed(
+                results[0],
+                footer=f"Cost: {SUMMON_TOKEN_COST} summon tokens",
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="summon-rates", description="View summon pull rates.")
     async def summon_rates(self, interaction: discord.Interaction):

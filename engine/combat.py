@@ -330,9 +330,23 @@ def run_battle_with_rounds(
         p_cur, p_max = _team_hp(player_units)
         e_cur, e_max = _team_hp(enemy_units)
         events = [l.strip() for l in log[round_log_start:] if l.strip()]
+
+        def _unit_state(u: CombatUnit) -> dict:
+            return {
+                "name": u.name,
+                "rank": getattr(u, "rank", "F") or "F",
+                "level": getattr(u, "level", 1) or 1,
+                "hp": max(0, u.hp),
+                "hp_max": u.hp_max,
+                "mana": u.mana,
+                "status_effects": [type(e).__name__ for e in u.status_effects],
+            }
+
         round_snapshots.append({
             "round": rnd,
             "events": events,
+            "player_units": [_unit_state(u) for u in player_units],
+            "enemy_units": [_unit_state(u) for u in enemy_units],
             "player_hp": p_cur,
             "player_hp_max": p_max,
             "enemy_hp": e_cur,

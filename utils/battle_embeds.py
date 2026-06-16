@@ -125,6 +125,41 @@ def _enemy_label(battle_session) -> str:
     return f"{name}{suffix}"
 
 
+STATUS_EMOJI = {
+    "Stun": "💫", "Poison": "☠️", "Burn": "🔥",
+    "Silence": "🔇", "Shield": "🛡️", "DefenseDown": "⬇️",
+}
+
+
+def build_unit_bar(unit: dict, is_enemy: bool = False) -> str:
+    hp = unit["hp"]
+    hp_max = unit["hp_max"]
+    mana = unit.get("mana", 0)
+    name = unit["name"]
+    rank = unit.get("rank", "?")
+    level = unit.get("level", 1)
+    statuses = unit.get("status_effects", [])
+
+    status_str = " ".join(STATUS_EMOJI.get(s, "") for s in statuses if s in STATUS_EMOJI)
+
+    if hp <= 0:
+        return f"☠️ ~~{name}~~ [{rank}] Lv.{level} — **DEFEATED**"
+
+    ult_str = " ✨" if mana >= 100 else ""
+    hp_bar = progress_bar(hp, hp_max, 16)
+    mana_bar = progress_bar(mana, 100, 16)
+    hp_emoji = "❤️" if is_enemy else "💚"
+
+    lines = [
+        f"{'👹' if is_enemy else '⚔️'} **{name}** [{rank}] Lv.{level}{ult_str}{' ' + status_str if status_str else ''}",
+        f"{hp_emoji} {hp:,} / {hp_max:,}",
+        f"`{hp_bar}`",
+        f"💧 {mana}/100",
+        f"`{mana_bar}`",
+    ]
+    return "\n".join(lines)
+
+
 def _mana_ready_line(rs: dict) -> str:
     ready = [name for name, mana in rs.get("mana_states", {}).items() if mana >= 100]
     if not ready:
@@ -146,25 +181,35 @@ def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, 
         blocks.append(f"**[Round {r['round']}]**\n" + "\n".join(evs[:6]))
     recent_text = "\n\n".join(reversed(blocks)) or "—"
 
-    enemy_label = _enemy_label(battle_session)
-    mana_line = _mana_ready_line(rs)
-
-    desc_parts = [
-        f"🐲 **{enemy_label}**\n❤️ {hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
-        f"⚔️ **Your Team**\n❤️ {hp_display(rs['player_hp'], rs['player_hp_max'])}",
-        DIVIDER,
-        f"📜 **Recent Events**\n{recent_text}",
-    ]
-    if mana_line:
-        desc_parts.append(DIVIDER)
-        desc_parts.append(mana_line)
-    desc = "\n\n".join(desc_parts)
+    enemy_units = rs.get("enemy_units")
+    player_units = rs.get("player_units")
 
     embed = discord.Embed(
         title=f"⚔️ {zone_name} — Round {rs['round']}/{battle_session.max_rounds}",
-        description=desc[:4000],
         color=0xE67E22,
     )
+
+    if enemy_units or player_units:
+        enemy_text = "\n\n".join(build_unit_bar(u, is_enemy=True) for u in (enemy_units or []))
+        player_text = "\n\n".join(build_unit_bar(u, is_enemy=False) for u in (player_units or []))
+        embed.add_field(name="👹 Enemies", value=(enemy_text or "—")[:1024], inline=False)
+        embed.add_field(name="⚔️ Your Team", value=(player_text or "—")[:1024], inline=False)
+        embed.add_field(name="📜 Recent Events", value=(recent_text or "—")[:1024], inline=False)
+    else:
+        # Fallback for legacy snapshots without per-unit data.
+        enemy_label = _enemy_label(battle_session)
+        mana_line = _mana_ready_line(rs)
+        desc_parts = [
+            f"🐲 **{enemy_label}**\n❤️ {hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
+            f"⚔️ **Your Team**\n❤️ {hp_display(rs['player_hp'], rs['player_hp_max'])}",
+            DIVIDER,
+            f"📜 **Recent Events**\n{recent_text}",
+        ]
+        if mana_line:
+            desc_parts.append(DIVIDER)
+            desc_parts.append(mana_line)
+        embed.description = "\n\n".join(desc_parts)[:4000]
+
     # Boss portrait thumbnail.
     portrait = _boss_portrait_url(battle_session)
     if portrait:

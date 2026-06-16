@@ -246,6 +246,164 @@ class PaginatedItemView(_PaginatedView):
         super().__init__(sort_items(items), user_id, _item_page_embed, timeout)
 
 
+# ---------------------------------------------------------------------------
+# Summon reveal
+# ---------------------------------------------------------------------------
+_SUMMON_RANK_ORDER = {"F": 0, "E": 1, "D": 2, "C": 3, "B": 4, "A": 5, "S": 6}
+_SUMMON_RANK_LABEL = {
+    "F": "Common", "E": "Uncommon", "D": "Rare",
+    "C": "Epic", "B": "Legendary", "A": "Mythic", "S": "Divine",
+}
+_SUMMON_STAT_EMOJI = {"atk": "⚔️", "def": "🛡️", "hp": "❤️"}
+_SUMMON_REWARD_EMOJI = {"gold": "💰", "enhance_mat": "🔨", "reroll_mat": "🎲", "seal": "🔒"}
+
+
+def _summon_title_prefix(rank: str) -> str:
+    if rank == "B":
+        return "⭐ Rare Pull! "
+    if rank == "A":
+        return "🌟 EPIC PULL! "
+    if rank == "S":
+        return "💎 LEGENDARY PULL! "
+    return ""
+
+
+def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
+    """Build a detailed single-result embed (champion / item / reward)."""
+    rtype = r["type"]
+    rank = r.get("rank", "F")
+    title_prefix = _summon_title_prefix(rank)
+    color = COLOR_RANK.get(rank, 0x888888)
+
+    if rtype == "champion":
+        name = r["name"]
+        from data.champion_roster import CHAMPION_ROSTER
+        roster = CHAMPION_ROSTER.get(name, {})
+        title_text = r.get("title") or roster.get("title", "The Unknown")
+        role = (r.get("role") or roster.get("role", "fighter")).title()
+        riot_id = r.get("riot_id") or roster.get("riot_id", name.replace(" ", "").replace("'", ""))
+
+        from config.game_config import CHAMPION_BASE_STATS
+        stats = CHAMPION_BASE_STATS.get(rank, {})
+
+        embed = discord.Embed(
+            title=f"{title_prefix}🎴 {name}",
+            description=(
+                f"*{title_text}*\n\n"
+                f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] {role}**\n\n"
+                f"❤️ HP: **{stats.get('hp', '?'):,}**\n"
+                f"⚔️ ATK: **{stats.get('atk', '?')}**\n"
+                f"🛡️ DEF: **{stats.get('def', '?')}**\n"
+                f"💨 SPD: **{stats.get('spd', '?')}**"
+            ),
+            color=color,
+        )
+        embed.set_image(
+            url=f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg"
+        )
+    elif rtype == "item":
+        name = r["name"]
+        stat_type = r.get("stat_type", "atk")
+        passive = r.get("passive", "")
+        secondary = r.get("secondary_stat", "")
+        secondary_val = r.get("secondary_val", 0)
+        embed = discord.Embed(
+            title=f"{title_prefix}🎒 {name}",
+            description=(
+                f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] Item**\n\n"
+                f"{_SUMMON_STAT_EMOJI.get(stat_type, '📊')} Main Stat: **{stat_type.upper()}**\n"
+                f"✨ Passive: **{passive.replace('_passive', '').replace('_', ' ').title()}**\n"
+                f"📊 Secondary: **{secondary.replace('_', ' ').title()} +{secondary_val/10:.1f}%**"
+            ),
+            color=color,
+        )
+    else:
+        emoji = _SUMMON_REWARD_EMOJI.get(rtype, "🎁")
+        amount = r.get("amount", 1)
+        label = rtype.replace("_", " ").title()
+        embed = discord.Embed(
+            title=f"{emoji} {label}",
+            description=f"You received **{amount}x {label}**!",
+            color=0xFFD700,
+        )
+
+    if footer:
+        embed.set_footer(text=footer)
+    return embed
+
+
+class SummonRevealView(discord.ui.View):
+    def __init__(self, results: list[dict], user_id: int):
+        super().__init__(timeout=120)
+        self.results = self._sort_worst_first(results)
+        self.user_id = user_id
+        self.page = 0
+        self._update_buttons()
+
+    def _sort_worst_first(self, results):
+        def sort_key(r):
+            rank = r.get("rank", "F")
+            rtype = 0 if r["type"] == "champion" else (1 if r["type"] == "item" else 2)
+            return (_SUMMON_RANK_ORDER.get(rank, 0), rtype)
+        return sorted(results, key=sort_key)
+
+    def build_page_embed(self) -> discord.Embed:
+        if self.page >= len(self.results):
+            return self._build_summary_embed()
+        r = self.results[self.page]
+        footer = f"Pull {self.page + 1} / {len(self.results)} • Use ▶ to see next"
+        return build_summon_result_embed(r, footer=footer)
+
+    def _build_summary_embed(self) -> discord.Embed:
+        from collections import Counter
+        rank_counts = Counter(r.get("rank", "?") for r in self.results if r.get("rank"))
+        lines = ["**10-Pull Summary**\n"]
+        for rank in ["S", "A", "B", "C", "D", "E", "F"]:
+            if rank in rank_counts:
+                lines.append(f"[{rank}] {_SUMMON_RANK_LABEL[rank]}: {rank_counts[rank]}x")
+        best = max(
+            self.results,
+            key=lambda r: _SUMMON_RANK_ORDER.get(r.get("rank", "F"), 0),
+            default=None,
+        )
+        if best:
+            lines.append(f"\n✨ Best Pull: **{best.get('name', best['type'])}** [{best.get('rank', '?')}]")
+        return discord.Embed(
+            title="🎰 10-Pull Complete!",
+            description="\n".join(lines),
+            color=0xFFD700,
+        )
+
+    def _update_buttons(self):
+        total_pages = len(self.results) + 1  # +1 for summary
+        self.prev_btn.disabled = (self.page == 0)
+        self.next_btn.disabled = (self.page >= total_pages - 1)
+        self.page_btn.label = f"{self.page + 1}/{total_pages}"
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This isn't your summon!", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = max(0, self.page - 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.build_page_embed(), view=self)
+
+    @discord.ui.button(label="1/10", style=discord.ButtonStyle.secondary, disabled=True)
+    async def page_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer()
+
+    @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        total_pages = len(self.results) + 1
+        self.page = min(total_pages - 1, self.page + 1)
+        self._update_buttons()
+        await interaction.response.edit_message(embed=self.build_page_embed(), view=self)
+
+
 def error_embed(message: str, hint: str = "") -> discord.Embed:
     """Standard error embed. Format: '❌ **Error:** {message}' with optional hint."""
     desc = f"**{message}**" if message.startswith("❌") else f"**Error:** {message}"

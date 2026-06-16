@@ -95,13 +95,32 @@ async def _apply_summon_result(
         rank = key.split("_")[1].upper()
         name = random.choice(ALL_CHAMPION_NAMES)
         champ = await grant_champion(owner_id, name, rank, session)
-        return {"type": "champion", "name": name, "rank": rank, "id": str(champ.id)}
+        from data.champion_roster import CHAMPION_ROSTER
+        roster = CHAMPION_ROSTER.get(name, {})
+        return {
+            "type": "champion",
+            "name": name,
+            "rank": rank,
+            "id": str(champ.id),
+            "title": roster.get("title", ""),
+            "role": roster.get("role", "fighter"),
+            "riot_id": roster.get("riot_id", ""),
+        }
 
     elif key.startswith("item_"):
         rank = key.split("_")[1].upper()
         name, stat_type, passive = random.choice(SUMMON_ITEM_POOL)
         itm = await grant_item(owner_id, name, rank, stat_type, passive, session)
-        return {"type": "item", "name": name, "rank": rank, "id": str(itm.id)}
+        return {
+            "type": "item",
+            "name": name,
+            "rank": rank,
+            "id": str(itm.id),
+            "stat_type": stat_type,
+            "passive": passive,
+            "secondary_stat": itm.secondary_stat_type,
+            "secondary_val": itm.secondary_stat_value,
+        }
 
     elif key == "gold_small":
         amount = random.randint(200, 500)
