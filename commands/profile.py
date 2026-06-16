@@ -4,7 +4,6 @@ from discord.ext import commands
 
 from models.user import User
 from models.champion import ChampionInstance
-from models.team import Team
 from utils.embeds import (
     error_embed, progress_bar, apply_stamina_regen, stamina_full_in,
     COLOR_INFO, COLOR_GOLD,
@@ -52,13 +51,11 @@ class ProfileCog(commands.Cog):
         embed.add_field(name="⚔️ Champions", value=str(champ_count), inline=True)
         embed.set_footer(text=f"Joined: {profile_user.created_at.strftime('%Y-%m-%d')}")
 
-        # Attach the user's team banner if they have champions equipped.
-        team = await Team.get_or_create(str(target.id))
+        # Attach the user's active champion banner.
+        profile_user_data = await User.find_one(User.discord_id == str(target.id))
         team_champs = []
-        for slot in team.slots:
-            if slot is None:
-                continue
-            champ = await ChampionInstance.get(slot)
+        if profile_user_data and profile_user_data.active_champion_id:
+            champ = await ChampionInstance.get(profile_user_data.active_champion_id)
             if champ:
                 team_champs.append({
                     "name": champ.name,

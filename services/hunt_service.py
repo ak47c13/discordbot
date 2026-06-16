@@ -24,7 +24,6 @@ async def _run_with_retry(coro_fn, max_retries=3):
 from models.user import User
 from models.champion import ChampionInstance
 from models.item import ItemInstance
-from models.team import Team
 from models.audit_log import AuditLog
 from engine.combat import (
     build_unit_from_champion,
@@ -76,26 +75,23 @@ async def run_hunt(
     if user.stamina < cost:
         raise HuntError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
 
-    # Load team
-    team = await Team.get_or_create(owner_id)
-    active_slots = [s for s in team.slots if s is not None]
-    if not active_slots:
-        raise HuntError("Your team has no champions. Use /team add to set up your team.")
+    # Load active champion
+    if not user.active_champion_id:
+        raise HuntError("No active champion. Use /champion-select to pick one.")
 
     # Build player units
     player_units = []
-    for idx, champ_id in enumerate(active_slots):
-        champ_doc = await ChampionInstance.get(champ_id)
-        if champ_doc is None:
-            continue
-        item_docs = await ItemInstance.find(
-            ItemInstance.equipped_to == str(champ_doc.id)
-        ).to_list()
-        unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
-        player_units.append(unit)
+    champ_doc = await ChampionInstance.get(user.active_champion_id)
+    if champ_doc is None:
+        raise HuntError("Active champion not found. Use /champion-select to pick one.")
+    item_docs = await ItemInstance.find(
+        ItemInstance.equipped_to == str(champ_doc.id)
+    ).to_list()
+    unit = build_unit_from_champion(champ_doc, item_docs, position=1, team=0)
+    player_units.append(unit)
 
     if not player_units:
-        raise HuntError("No valid champions in team.")
+        raise HuntError("No valid champions available.")
 
     # Consume stamina
     user.stamina -= cost
@@ -184,24 +180,21 @@ async def start_hunt(
         if user.stamina < cost:
             raise HuntError(f"Not enough stamina. Need {cost}, have {user.stamina}.")
 
-        team = await Team.get_or_create(player_id)
-        active_slots = [slot for slot in team.slots if slot is not None]
-        if not active_slots:
-            raise HuntError("Your team has no champions. Use /team add to set up your team.")
+        if not user.active_champion_id:
+            raise HuntError("No active champion. Use /champion-select to pick one.")
 
         units = []
-        for idx, champ_id in enumerate(active_slots):
-            champ_doc = await ChampionInstance.get(champ_id)
-            if champ_doc is None:
-                continue
-            item_docs = await ItemInstance.find(
-                ItemInstance.equipped_to == str(champ_doc.id)
-            ).to_list()
-            unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
-            units.append(unit)
+        champ_doc = await ChampionInstance.get(user.active_champion_id)
+        if champ_doc is None:
+            raise HuntError("Active champion not found. Use /champion-select to pick one.")
+        item_docs = await ItemInstance.find(
+            ItemInstance.equipped_to == str(champ_doc.id)
+        ).to_list()
+        unit = build_unit_from_champion(champ_doc, item_docs, position=1, team=0)
+        units.append(unit)
 
         if not units:
-            raise HuntError("No valid champions in team.")
+            raise HuntError("No valid champions available.")
 
         user.stamina -= cost
         await user.save(session=usable_session(s))

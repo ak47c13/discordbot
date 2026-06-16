@@ -9,7 +9,6 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from models.team import Team
 from models.dungeon import Dungeon, DungeonProgress
 from utils.embeds import error_embed, success_embed, info_embed, ConfirmView
 from utils.locks import get_user_lock
@@ -43,9 +42,11 @@ HAZARD_DESCRIPTIONS = {
 }
 
 
-async def _team_champion_ids(owner_id: str) -> list[str]:
-    team = await Team.get_or_create(owner_id)
-    return [str(s) for s in team.slots if s is not None]
+async def _active_champion_ids(owner_id: str) -> list[str]:
+    user = await User.find_one(User.discord_id == owner_id)
+    if not user or not user.active_champion_id:
+        return []
+    return [user.active_champion_id]
 
 
 async def _dungeon_choices(current: str) -> list[app_commands.Choice[str]]:
@@ -174,9 +175,9 @@ class DungeonCog(commands.Cog):
                 f"You can't jump to floor {floor_override}. Highest reached: {prog.highest_floor}."))
             return
 
-        champ_ids = await _team_champion_ids(uid)
+        champ_ids = await _active_champion_ids(uid)
         if not champ_ids:
-            await interaction.followup.send(embed=error_embed("Your team is empty. Use /team-add."))
+            await interaction.followup.send(embed=error_embed("No active champion. Use /champion-select first."))
             return
 
         try:
