@@ -26,6 +26,7 @@ COGS = [
     "commands.items_cmd",
     "commands.blacksmith_cmd",
     "commands.hunt_cmd",
+    "commands.dungeon_cmd",
     "commands.raid_cmd",
     "commands.market_cmd",
     "commands.trade_cmd",
