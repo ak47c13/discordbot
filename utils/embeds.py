@@ -221,7 +221,7 @@ class _PaginatedView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
     async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.index > 0:
             self.index -= 1
@@ -357,9 +357,9 @@ class SummonRevealView(discord.ui.View):
     def _build_summary_embed(self) -> discord.Embed:
         from collections import Counter
         rank_counts = Counter(r.get("rank", "?") for r in self.results if r.get("rank"))
-        lines = ["**10-Pull Summary**\n"]
+        lines = ["**Pull Summary**\n"]
         for rank in ["S", "A", "B", "C", "D", "E", "F"]:
-            if rank in rank_counts:
+            if rank in rank_counts and rank_counts[rank] > 0:
                 lines.append(f"[{rank}] {_SUMMON_RANK_LABEL[rank]}: {rank_counts[rank]}x")
         best = max(
             self.results,
@@ -386,7 +386,7 @@ class SummonRevealView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(label="◀", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="◀ Previous", style=discord.ButtonStyle.secondary)
     async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.page = max(0, self.page - 1)
         self._update_buttons()
@@ -396,7 +396,7 @@ class SummonRevealView(discord.ui.View):
     async def page_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.defer()
 
-    @discord.ui.button(label="▶", style=discord.ButtonStyle.primary)
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.primary)
     async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         total_pages = len(self.results) + 1
         self.page = min(total_pages - 1, self.page + 1)
@@ -484,6 +484,20 @@ class ConfirmView(discord.ui.View):
     def __init__(self, timeout: float = 30.0):
         super().__init__(timeout=timeout)
         self.confirmed: bool | None = None
+        self.message: discord.Message | None = None
+
+    async def on_timeout(self):
+        for child in self.children:
+            child.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(
+                    content="⏰ Confirmation expired. Run the command again.",
+                    embed=None,
+                    view=self,
+                )
+            except Exception:
+                pass
 
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):

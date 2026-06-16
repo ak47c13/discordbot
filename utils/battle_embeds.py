@@ -57,24 +57,27 @@ def hp_display(current, maximum) -> str:
 def mana_compact(mana_states: dict) -> str:
     lines = []
     for name, mana in mana_states.items():
+        short = name if len(name) <= 10 else name[:9] + "…"
         if mana >= 100:
-            lines.append(f"{name[:8]} ✨ULT")
+            lines.append(f"{short} ✨ULT")
         else:
-            lines.append(f"{name[:8]} {mana}/100")
+            lines.append(f"{short} {mana}/100")
     return "\n".join(lines)
 
 
 def champion_status_icon(hp, hp_max) -> str:
-    if hp == 0:
+    if hp <= 0:
         return "☠️"
     if hp_max <= 0:
-        return "🔴"
+        return "🟢"
     ratio = hp / hp_max
     if ratio > 0.6:
         return "🟢"
     if ratio > 0.3:
         return "🟡"
-    return "🔴"
+    if ratio > 0.15:
+        return "🔴"
+    return "🚨"
 
 
 def _title_for(battle_type: str, zone_name: str) -> str:
@@ -203,11 +206,16 @@ def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, 
     )
 
     if enemy_units or player_units:
-        enemy_text = "\n\n".join(build_unit_bar(u, is_enemy=True) for u in (enemy_units or []))
-        player_text = "\n\n".join(build_unit_bar(u, is_enemy=False) for u in (player_units or []))
-        embed.add_field(name="👹 Enemies", value=(enemy_text or "—")[:1024], inline=False)
-        embed.add_field(name="⚔️ Your Team", value=(player_text or "—")[:1024], inline=False)
+        # Unit bars are rendered in the generated battle image (attachment://battle.png).
+        # Only show the event log as text here.
         embed.add_field(name="📜 Recent Events", value=(recent_text or "—")[:1024], inline=False)
+        # Compact unit status line (alive count + downed count) so players have a quick glance
+        if enemy_units:
+            alive_e = sum(1 for u in enemy_units if u.get("hp", 0) > 0)
+            embed.add_field(name="👹 Enemies", value=f"{alive_e}/{len(enemy_units)} alive", inline=True)
+        if player_units:
+            alive_p = sum(1 for u in player_units if u.get("hp", 0) > 0)
+            embed.add_field(name="⚔️ Team", value=f"{alive_p}/{len(player_units)} alive", inline=True)
     else:
         # Fallback for legacy snapshots without per-unit data.
         enemy_label = _enemy_label(battle_session)

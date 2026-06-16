@@ -25,29 +25,52 @@ class TeamCog(commands.Cog):
         await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
         team = await Team.get_or_create(str(interaction.user.id))
 
-        embed = discord.Embed(title="⚔️ Your Team", color=COLOR_INFO)
+        embed = discord.Embed(title="⚔️ Your Team Formation", color=COLOR_INFO)
+
+        # Resolve all slots
+        slot_data = []
         team_champs = []
-        for idx, slot in enumerate(team.slots):
-            pos = idx + 1
-            row = "Front" if pos <= 2 else "Back"
-            if slot is None:
-                embed.add_field(name=f"Slot {pos} ({row})", value="*Empty*", inline=True)
+        for idx, slot_id in enumerate(team.slots):
+            if slot_id is None:
+                slot_data.append(None)
             else:
-                champ = await ChampionInstance.get(slot)
+                champ = await ChampionInstance.get(slot_id)
+                slot_data.append(champ)
                 if champ:
-                    embed.add_field(
-                        name=f"Slot {pos} ({row})",
-                        value=f"**{champ.name}** [{champ.rank}] Lv.{champ.level}",
-                        inline=True,
-                    )
                     team_champs.append({
                         "name": champ.name,
                         "rank": champ.rank,
                         "level": champ.level,
                         "riot_id": champ.riot_id or "",
                     })
-                else:
-                    embed.add_field(name=f"Slot {pos} ({row})", value="*Missing*", inline=True)
+
+        # Front row (slots 1-2): DEF bonus
+        front_lines = []
+        for i in range(2):
+            champ = slot_data[i] if i < len(slot_data) else None
+            if champ:
+                front_lines.append(f"**{i+1}.** {champ.name} [{champ.rank}] Lv.{champ.level}")
+            else:
+                front_lines.append(f"**{i+1}.** *— Empty —*")
+        embed.add_field(
+            name="🛡️ Front Row — DEF +10%",
+            value="\n".join(front_lines),
+            inline=False,
+        )
+
+        # Back row (slots 3-5): ATK bonus
+        back_lines = []
+        for i in range(2, 5):
+            champ = slot_data[i] if i < len(slot_data) else None
+            if champ:
+                back_lines.append(f"**{i+1}.** {champ.name} [{champ.rank}] Lv.{champ.level}")
+            else:
+                back_lines.append(f"**{i+1}.** *— Empty —*")
+        embed.add_field(
+            name="⚔️ Back Row — ATK +5%",
+            value="\n".join(back_lines),
+            inline=False,
+        )
 
         if team_champs:
             try:

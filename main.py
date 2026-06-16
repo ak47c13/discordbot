@@ -25,7 +25,6 @@ COGS = [
     "commands.champions_cmd",
     "commands.items_cmd",
     "commands.blacksmith_cmd",
-    "commands.hunt_cmd",
     "commands.dungeon_cmd",
     "commands.raid_cmd",
     "commands.market_cmd",
@@ -82,7 +81,7 @@ class AutoBattlerBot(commands.Bot):
         print(f"\n🤖 {self.user} is online!")
         print(f"   Guilds: {[g.name for g in self.guilds]}")
         await self.change_presence(
-            activity=discord.Game(name="Auto-Battler RPG | /hunt")
+            activity=discord.Game(name="Auto-Battler RPG | /dungeon-enter")
         )
 
         # Resume any ACTIVE battle sessions that lost their worker on restart.

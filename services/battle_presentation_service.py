@@ -34,6 +34,7 @@ from config.game_config import (
     DISPLAY_MAX_UPDATES,
 )
 from utils.image_gen import generate_team_banner, _riot_id_from_name
+from utils.battle_image_gen import generate_battle_image
 from data.champion_roster import CHAMPION_ROSTER
 
 BATTLE_BANNER_FILENAME = "team.png"
@@ -192,9 +193,30 @@ async def advance_and_display(
 
         rs = bs.simulated_rounds[idx]
         player_names = [s["name"] for s in bs.player_snapshot]
-        embed = build_battle_embed(bs, rs, bs.zone, player_names, banner_url=bs.static_image_url)
+        embed = build_battle_embed(bs, rs, bs.zone, player_names, banner_url="attachment://battle.png")
+
+        # Generate per-round battle image (champion cards with HP/mana bars)
+        battle_file = None
+        player_u = rs.get("player_units")
+        enemy_u = rs.get("enemy_units")
+        if player_u and enemy_u:
+            # Attach riot_id from snapshot for portrait lookup
+            for u in player_u:
+                if not u.get("riot_id"):
+                    u["riot_id"] = _roster_riot_id(u.get("name", ""))
+            for u in enemy_u:
+                if not u.get("riot_id"):
+                    u["riot_id"] = _roster_riot_id(u.get("name", ""))
+            img_buf = await generate_battle_image(player_u, enemy_u)
+            if img_buf:
+                import discord as _discord
+                battle_file = _discord.File(img_buf, filename="battle.png")
+
         try:
-            await message.edit(embed=embed)
+            if battle_file:
+                await message.edit(embed=embed, attachments=[battle_file])
+            else:
+                await message.edit(embed=embed)
         except Exception:
             await cancel_battle(str(bs.id), "CANCELLED_MESSAGE_DELETED", session=None)
             return
