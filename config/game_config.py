@@ -379,6 +379,75 @@ TEAM_SIZE = 5
 # ---------------------------------------------------------------------------
 RAID_MAX_PLAYERS = 5
 RAID_QUEUE_TIMEOUT_SECONDS = 300   # 5 min to fill before auto-start
+RAID_DAILY_LIMIT = 5               # max raids per day per player
+
+# F→S raid difficulties — boss stats scale exponentially
+# gold/token payouts multiply by ~2.5x per tier; champion/item drop quality rises
+RAID_DIFFICULTIES = {
+    "F": {
+        "display": "F — Skirmish",
+        "boss_rank": "E", "boss_level": 10, "boss_hp_mult": 1.0,
+        "gold_min": 800,   "gold_max": 1500,
+        "token_min": 5,    "token_max": 10,
+        "champ_chance": 0.10, "champ_ranks": ["F", "E"],
+        "item_chance":  0.15, "item_ranks":  ["F", "E"],
+        "seal_chance":  0.01,
+    },
+    "E": {
+        "display": "E — Skirmish+",
+        "boss_rank": "D", "boss_level": 20, "boss_hp_mult": 1.5,
+        "gold_min": 2000,  "gold_max": 3500,
+        "token_min": 12,   "token_max": 22,
+        "champ_chance": 0.12, "champ_ranks": ["E", "D"],
+        "item_chance":  0.18, "item_ranks":  ["E", "D"],
+        "seal_chance":  0.02,
+    },
+    "D": {
+        "display": "D — Incursion",
+        "boss_rank": "C", "boss_level": 35, "boss_hp_mult": 2.2,
+        "gold_min": 5000,  "gold_max": 8500,
+        "token_min": 28,   "token_max": 50,
+        "champ_chance": 0.15, "champ_ranks": ["D", "C"],
+        "item_chance":  0.20, "item_ranks":  ["D", "C"],
+        "seal_chance":  0.03,
+    },
+    "C": {
+        "display": "C — Siege",
+        "boss_rank": "B", "boss_level": 55, "boss_hp_mult": 3.5,
+        "gold_min": 12000, "gold_max": 20000,
+        "token_min": 60,   "token_max": 110,
+        "champ_chance": 0.18, "champ_ranks": ["C", "B"],
+        "item_chance":  0.22, "item_ranks":  ["C", "B"],
+        "seal_chance":  0.05,
+    },
+    "B": {
+        "display": "B — Assault",
+        "boss_rank": "A", "boss_level": 80, "boss_hp_mult": 5.5,
+        "gold_min": 30000, "gold_max": 50000,
+        "token_min": 130,  "token_max": 240,
+        "champ_chance": 0.20, "champ_ranks": ["B", "A"],
+        "item_chance":  0.25, "item_ranks":  ["B", "A"],
+        "seal_chance":  0.08,
+    },
+    "A": {
+        "display": "A — Conquest",
+        "boss_rank": "S", "boss_level": 120, "boss_hp_mult": 9.0,
+        "gold_min": 75000, "gold_max": 125000,
+        "token_min": 280,  "token_max": 500,
+        "champ_chance": 0.22, "champ_ranks": ["A", "S"],
+        "item_chance":  0.28, "item_ranks":  ["A", "S"],
+        "seal_chance":  0.12,
+    },
+    "S": {
+        "display": "S — Annihilation",
+        "boss_rank": "S", "boss_level": 200, "boss_hp_mult": 16.0,
+        "gold_min": 200000, "gold_max": 350000,
+        "token_min": 600,   "token_max": 1000,
+        "champ_chance": 0.25, "champ_ranks": ["A", "S"],
+        "item_chance":  0.30, "item_ranks":  ["A", "S"],
+        "seal_chance":  0.20,
+    },
+}
 
 # ---------------------------------------------------------------------------
 # Stamina regeneration

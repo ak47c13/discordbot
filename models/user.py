@@ -16,6 +16,8 @@ class User(Document):
     max_stamina: int = 100
     last_stamina_regen: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     raids_completed: int = 0
+    daily_raids_used: int = 0
+    daily_raids_reset: Optional[datetime] = None
     rune_shards: int = 0        # dungeon-exclusive crafting material
     rune_fragments: int = 0     # rarer dungeon drop for evolution slots
     last_daily: Optional[datetime] = None
