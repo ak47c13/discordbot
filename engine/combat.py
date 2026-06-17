@@ -54,6 +54,16 @@ class CombatUnit:
     dodge_chance: float = 0.0     # percent (0–100)
     attack_speed: float = 1.0     # multiplier
 
+    # Item passive state
+    has_sheen: bool = False           # True if unit has a Sheen item equipped
+    guardian_angel_ready: bool = False  # True if Guardian Angel has not yet triggered
+    sterak_triggered: bool = False    # True once Sterak's Gage shield has fired
+    banshee_ready: bool = False       # True if Banshee's Veil spell shield is active
+    reflect_damage_pct: float = 0.0   # % of damage to return to attacker (Thornmail)
+    sunfire_burn: bool = False        # True if unit has Sunfire Aegis (burns nearby enemies)
+    liandry_burn: bool = False        # True if unit has Liandry's Anguish (burns on ability hit)
+    warmog_regen: bool = False        # True if unit has Warmog's Armor (regenerate HP each round)
+
     # Boss mechanic state
     is_boss: bool = False
     mechanic: str = ""
@@ -172,6 +182,64 @@ def build_unit_from_champion(
     final_def = dfn + item_def_bonus
     final_spd = int(spd + item_spd_bonus)
 
+    # ------------------------------------------------------------------
+    # Resolve passive effects from the best item of each passive type.
+    # passive_pool maps passive_name -> (sort_key, item).
+    # We accumulate numeric bonuses here (before building the unit) so
+    # we can pass them as constructor arguments.
+    # ------------------------------------------------------------------
+    passive_crit_chance: float = 0.0
+    passive_crit_dmg: float = 0.0       # bonus on top of base 175
+    passive_magic_resist: float = 0.0
+    passive_lifesteal: float = 0.0
+    passive_attack_speed: float = 0.0
+    passive_armor_pen: float = 0.0
+    has_sheen = False
+    has_guardian_angel = False
+    has_sterak = False
+    has_banshee = False
+    reflect_pct: float = 0.0
+    has_sunfire = False
+    has_liandry = False
+    has_warmog = False
+
+    # Also scan all items (not just best-per-passive) for numeric passives
+    # that stack across items — but follow the dedup rule: only the best
+    # item per passive key contributes its *passive* bonus.
+    for pname, (_, itm) in passive_pool.items():
+        if pname == "crit_damage_passive":
+            # Infinity Edge: crit_dmg cap raised to 235, others give crit chance
+            if itm.name == "Infinity Edge":
+                passive_crit_dmg += 60.0      # 175 + 60 = 235%
+            else:
+                passive_crit_chance += 10.0   # generic crit item
+        elif pname == "attack_speed_passive":
+            passive_attack_speed += 0.20      # +20% attack speed per item tier
+        elif pname == "lifesteal_passive":
+            passive_lifesteal += 12.0         # 12% lifesteal
+        elif pname == "magic_resist_passive":
+            passive_magic_resist += 30.0      # +30 MR from best MR item
+        elif pname == "armor_pen_passive":
+            passive_armor_pen += 20.0         # flat armor pen
+        elif pname == "sheen_passive":
+            has_sheen = True
+
+        # Item-name-specific specials
+        if itm.name == "Guardian Angel":
+            has_guardian_angel = True
+        elif itm.name == "Sterak's Gage":
+            has_sterak = True
+        elif itm.name == "Banshee's Veil":
+            has_banshee = True
+        elif itm.name == "Thornmail":
+            reflect_pct = 0.25
+        elif itm.name == "Sunfire Aegis":
+            has_sunfire = True
+        elif itm.name == "Liandry's Anguish":
+            has_liandry = True
+        elif itm.name == "Warmog's Armor":
+            has_warmog = True
+
     skills = CHAMPION_SKILLS.get(champ_doc.name, {})
     # Use player's chosen basic skill (q/w/e); R is always the ultimate
     basic_fn = skills.get(active_skill_key) or skills.get("q") or skills.get("basic")
@@ -191,6 +259,36 @@ def build_unit_from_champion(
         basic_fn=basic_fn,
         ultimate_fn=skills.get("r") or skills.get("ultimate"),
     )
+
+    # Apply item passive bonuses to the unit
+    if passive_crit_chance > 0:
+        unit.crit_chance += passive_crit_chance
+    if passive_crit_dmg > 0:
+        unit.crit_dmg += passive_crit_dmg
+    if passive_magic_resist > 0:
+        unit.magic_resist += passive_magic_resist
+    if passive_lifesteal > 0:
+        unit.lifesteal += passive_lifesteal
+    if passive_attack_speed > 0:
+        unit.attack_speed += passive_attack_speed
+    if passive_armor_pen > 0:
+        unit.armor_pen += passive_armor_pen
+    if has_sheen:
+        unit.has_sheen = True
+    if has_guardian_angel:
+        unit.guardian_angel_ready = True
+    if has_sterak:
+        unit.sterak_triggered = False
+    if has_banshee:
+        unit.banshee_ready = True
+    if reflect_pct > 0:
+        unit.reflect_damage_pct = reflect_pct
+    if has_sunfire:
+        unit.sunfire_burn = True
+    if has_liandry:
+        unit.liandry_burn = True
+    if has_warmog:
+        unit.warmog_regen = True
 
     # Apply rune bonuses (after base stats + items, before combat)
     if rune_page is not None:
@@ -558,12 +656,15 @@ def run_battle_with_rounds(
 
             # Choose skill
             silenced = unit.has_effect(Silence)
+            _used_skill = False
             if unit.mana >= MANA_ULTIMATE_THRESHOLD and not silenced and unit.ultimate_fn:
                 log.append(f"  💫 {unit.name} casts ULTIMATE!")
                 skill_log = _invoke_skill(unit.ultimate_fn, unit, enemies_of_unit, allies_of_unit)
                 unit.mana = 0
+                _used_skill = True
             elif unit.basic_fn:
                 skill_log = _invoke_skill(unit.basic_fn, unit, enemies_of_unit, allies_of_unit)
+                _used_skill = True
             else:
                 # Fallback: simple auto-attack
                 t = random.choice(enemies_of_unit)
@@ -573,6 +674,24 @@ def run_battle_with_rounds(
                 unit.mana = min(MANA_MAX, unit.mana + 20)
 
             log.extend(skill_log)
+
+            # Sheen: after using a skill, deal 150% ATK as a bonus hit
+            if _used_skill and unit.has_sheen:
+                alive_now = [u for u in enemies_of_unit if u.is_alive]
+                if alive_now:
+                    sheen_target = alive_now[0]
+                    sheen_dmg = max(1, int(unit.atk * 1.5))
+                    sheen_target.hp = max(0, sheen_target.hp - sheen_dmg)
+                    log.append(f"  ⚡ {unit.name}'s Sheen empowers a bonus strike on {sheen_target.name} for {sheen_dmg:,}!")
+
+            # --- Attack Speed passive: if attack_speed >= 1.5, grant one extra hit ---
+            if getattr(unit, "attack_speed", 1.0) >= 1.5 and unit.is_alive:
+                alive_now = [u for u in enemies_of_unit if u.is_alive]
+                if alive_now:
+                    asp_target = random.choice(alive_now)
+                    asp_dmg = max(1, int(unit.atk * 0.6))
+                    asp_target.hp = max(0, asp_target.hp - asp_dmg)
+                    log.append(f"  ⚡ {unit.name} attacks again (Attack Speed) — {asp_dmg:,} dmg to {asp_target.name}!")
 
             # Attribute contribution stats.
             for e in enemies_of_unit:
@@ -595,6 +714,42 @@ def run_battle_with_rounds(
                     unit.hp = max(0, unit.hp - reflected)
                     log.append(f"  {boss.name} reflects {reflected} damage back to {unit.name}!")
 
+            # Item reflect (Thornmail): any enemy with reflect_damage_pct returns damage.
+            for defender in enemies_of_unit:
+                rpct = getattr(defender, "reflect_damage_pct", 0.0)
+                if rpct > 0:
+                    dmg_dealt_to_def = max(0, _enemy_hp_before.get(id(defender), defender.hp) - defender.hp)
+                    if dmg_dealt_to_def > 0 and unit.is_alive:
+                        reflected = max(1, int(dmg_dealt_to_def * rpct))
+                        unit.hp = max(0, unit.hp - reflected)
+                        log.append(f"  🌿 {defender.name}'s Thornmail reflects {reflected} dmg to {unit.name}!")
+
+            # Liandry's Anguish: after ability use, apply % max HP burn to hit targets
+            if _used_skill and getattr(unit, "liandry_burn", False):
+                for t in [e for e in enemies_of_unit if e.is_alive]:
+                    burn_dmg = max(1, int(t.hp_max * 0.04))
+                    t.hp = max(0, t.hp - burn_dmg)
+                    log.append(f"  🔥 {unit.name}'s Liandry's burns {t.name} for {burn_dmg:,}!")
+
+            # Banshee's Veil: block one magic skill per battle (toggle on first magic hit received)
+            # Note: handled passively in skill_factory via _apply_damage; we mark the unit here.
+            # The blocking itself is in _apply_damage_with_banshee called from skill resolution.
+
+            # Sterak's Gage: grant shield when HP drops below 30% for first time
+            if not unit.sterak_triggered and unit.sterak_triggered is not None:
+                if unit.hp_max > 0 and unit.hp <= int(unit.hp_max * 0.30) and unit.is_alive:
+                    shield_amt = int(unit.hp_max * 0.75)
+                    from engine.status_effects import Shield
+                    unit.status_effects.append(Shield(absorb=shield_amt, duration=3))
+                    unit.sterak_triggered = True
+                    log.append(f"  🛡️ {unit.name}'s Sterak's Gage activates — {shield_amt:,} HP shield!")
+
+            # Guardian Angel: revive at 50% HP on lethal hit (checked post-action)
+            if getattr(unit, "guardian_angel_ready", False) and unit.hp <= 0:
+                unit.hp = int(unit.hp_max * 0.50)
+                unit.guardian_angel_ready = False
+                log.append(f"  👼 {unit.name}'s Guardian Angel revives them at {unit.hp:,} HP!")
+
             # End-of-turn effects
             log.extend(unit.tick_effects_end())
 
@@ -602,6 +757,22 @@ def run_battle_with_rounds(
             for u in enemy_units + player_units:
                 if u.hp == 0 and u in enemies_of_unit + allies_of_unit:
                     pass  # handled in next-round check
+
+        # Sunfire Aegis: at round end, units with sunfire_burn deal aura damage to all enemies
+        for u in alive_players + alive_enemies:
+            if getattr(u, "sunfire_burn", False) and u.is_alive:
+                foes = [x for x in (alive_enemies if u.team == 0 else alive_players) if x.is_alive]
+                for foe in foes:
+                    sfb = max(1, int(u.hp_max * 0.02))
+                    foe.hp = max(0, foe.hp - sfb)
+                log.append(f"  🔥 {u.name}'s Sunfire Aegis burns nearby enemies for {sfb:,} each!")
+
+        # Warmog's Armor: regenerate 15% of missing HP each round
+        for u in alive_players + alive_enemies:
+            if getattr(u, "warmog_regen", False) and u.is_alive and u.hp < u.hp_max:
+                regen = max(1, int((u.hp_max - u.hp) * 0.15))
+                u.hp = min(u.hp_max, u.hp + regen)
+                log.append(f"  💚 {u.name}'s Warmog's Armor regenerates {regen:,} HP.")
 
         # Dungeon boss round-end passives (swain drain, gangplank barrage)
         _apply_round_end_passives(player_units, enemy_units, rnd, log)
