@@ -11,27 +11,25 @@ RANK_INDEX = {r: i for i, r in enumerate(RANKS)}  # F=0 … S=6
 
 # ---------------------------------------------------------------------------
 # Champion fusion costs (gold) indexed by resulting rank
-# F->E costs 100, E->D 200, D->C 400 …
-# ---------------------------------------------------------------------------
 CHAMPION_FUSION_COST = {
-    "E": 100,
-    "D": 200,
-    "C": 400,
-    "B": 800,
-    "A": 1600,
-    "S": 3200,
+    "E": 200,
+    "D": 500,
+    "C": 1200,
+    "B": 3000,
+    "A": 7500,
+    "S": 18000,
 }
 
 # ---------------------------------------------------------------------------
 # Item fusion costs (gold) indexed by resulting rank
 # ---------------------------------------------------------------------------
 ITEM_FUSION_COST = {
-    "E": 50,
-    "D": 100,
-    "C": 200,
-    "B": 400,
-    "A": 800,
-    "S": 1600,
+    "E": 100,
+    "D": 250,
+    "C": 600,
+    "B": 1500,
+    "A": 3800,
+    "S": 9000,
 }
 
 # ---------------------------------------------------------------------------
@@ -79,11 +77,11 @@ ENHANCEMENT_MULTIPLIER = {
     15: 1.45,
 }
 
-# Enhancement gold cost per attempt (multiplied by current enhancement level, min 10)
-ENHANCEMENT_GOLD_BASE = 10
+# Enhancement gold cost per attempt: base * (level+1), min 50
+ENHANCEMENT_GOLD_BASE = 50
 
 def enhancement_gold_cost(current_level: int) -> int:
-    return max(10, ENHANCEMENT_GOLD_BASE * (current_level + 1))
+    return max(50, ENHANCEMENT_GOLD_BASE * (current_level + 1))
 
 # Enhancement material cost per attempt (basic_enhance_mat quantity)
 ENHANCEMENT_MAT_COST = {
@@ -104,8 +102,8 @@ def clearing_gold_cost(rank: str, enhancement: int) -> int:
 # ---------------------------------------------------------------------------
 # Reroll costs (gold) by item rank
 # ---------------------------------------------------------------------------
-REROLL_FULL_COST = {r: 100 * (RANK_INDEX[r] + 1) for r in RANKS}   # changes type+value
-REROLL_VALUE_COST = {r: 50 * (RANK_INDEX[r] + 1) for r in RANKS}   # keeps type, changes value
+REROLL_FULL_COST  = {r: 500  * (RANK_INDEX[r] + 1) for r in RANKS}   # changes type+value
+REROLL_VALUE_COST = {r: 250  * (RANK_INDEX[r] + 1) for r in RANKS}   # keeps type, changes value
 
 # ---------------------------------------------------------------------------
 # Rank-based champion base stats
@@ -138,9 +136,9 @@ CHAMPION_MAX_LEVEL = {
 
 # Exponential gold cost per level: base * growth^(level-1)
 RANK_LEVELUP_BASE = {
-    "F": 50, "E": 120, "D": 280, "C": 600, "B": 1200, "A": 2500, "S": 5000,
+    "F": 60, "E": 120, "D": 250, "C": 700, "B": 1800, "A": 3800, "S": 7500,
 }
-RANK_LEVELUP_GROWTH = 1.18
+RANK_LEVELUP_GROWTH = 1.05
 LEVEL_UP_GOLD_COST = 20  # legacy fallback; use levelup_cost() instead
 
 
@@ -207,7 +205,7 @@ SUMMON_MULTI_COST = 950          # 10 pulls
 
 # Starter rewards granted on /start registration
 STARTER_SUMMON_TOKENS = 950   # enough for 1x10 pull
-STARTER_GOLD = 500
+STARTER_GOLD = 5000
 
 SUMMON_RATES = {
     # (item_or_champion, rank): probability
@@ -432,8 +430,8 @@ BOSS_MECHANICS = {
 # ---------------------------------------------------------------------------
 # Dungeon rewards
 # ---------------------------------------------------------------------------
-DUNGEON_FLOOR_GOLD_BASE = 50
-DUNGEON_FLOOR_GOLD_PER_FLOOR = 15
+DUNGEON_FLOOR_GOLD_BASE = 200
+DUNGEON_FLOOR_GOLD_PER_FLOOR = 50
 DUNGEON_FLOOR_XP_BASE = 20
 DUNGEON_FLOOR_XP_PER_FLOOR = 8
 DUNGEON_RUNE_SHARD_CHANCE = 0.10     # 10% per floor
@@ -441,16 +439,16 @@ DUNGEON_RUNE_FRAGMENT_CHANCE = 0.02  # 2% per floor
 
 # First-clear bonuses by dungeon length
 DUNGEON_FIRST_CLEAR = {
-    20: {"gold": 500, "summon_tokens": 100},
-    35: {"gold": 1000, "summon_tokens": 200},
-    40: {"gold": 1500, "summon_tokens": 300},
-    50: {"gold": 3000, "summon_tokens": 500},
+    20: {"gold": 5000,  "summon_tokens": 100},
+    35: {"gold": 15000, "summon_tokens": 200},
+    40: {"gold": 25000, "summon_tokens": 300},
+    50: {"gold": 50000, "summon_tokens": 500},
 }
 DUNGEON_DAILY_CLEAR = {
-    20: {"gold": 200},
-    35: {"gold": 400},
-    40: {"gold": 700},
-    50: {"gold": 1200},
+    20: {"gold": 2000},
+    35: {"gold": 5000},
+    40: {"gold": 9000},
+    50: {"gold": 15000},
 }
 
 # Stamina costs
@@ -483,8 +481,8 @@ FORMATION_BONUSES = {
 # ---------------------------------------------------------------------------
 # Bulk sell prices (gold) by rank
 # ---------------------------------------------------------------------------
-SELL_PRICE_CHAMPION = {"F": 50, "E": 150, "D": 400, "C": 1000, "B": 2500, "A": 6000, "S": 15000}
-SELL_PRICE_ITEM     = {"F": 30, "E": 90,  "D": 240, "C": 600,  "B": 1500, "A": 3600, "S": 9000}
+SELL_PRICE_CHAMPION = {"F": 100, "E": 400, "D": 1200, "C": 4000, "B": 12000, "A": 35000, "S": 100000}
+SELL_PRICE_ITEM     = {"F": 50,  "E": 200, "D": 600,  "C": 2000, "B": 6000,  "A": 18000, "S": 50000}
 
 # ---------------------------------------------------------------------------
 # Battle presentation display timing (seconds per round)
