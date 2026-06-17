@@ -9,7 +9,6 @@ from models.champion import ChampionInstance
 from models.item import ItemInstance
 from utils.embeds import error_embed, success_embed, COLOR_INFO, COLOR_WARNING, get_champion_by_number, get_item_by_number
 from utils.locks import get_user_lock
-from utils.db_session import get_motor_client
 from services.trade_service import create_trade, accept_trade, cancel_trade, TradeError
 
 
@@ -92,15 +91,15 @@ class TradeOfferView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        trade = await accept_trade(self.trade_id, uid, session)
-                    except TradeError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
+        try:
+            async with get_user_lock(uid):
+                trade = await accept_trade(self.trade_id, uid, None)
+        except TradeError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Trade failed: {e}"), ephemeral=True)
+            return
 
         # Update the public embed to show completed
         for child in self.children:
@@ -123,15 +122,15 @@ class TradeOfferView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        await cancel_trade(self.trade_id, uid, session)
-                    except TradeError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
+        try:
+            async with get_user_lock(uid):
+                await cancel_trade(self.trade_id, uid, None)
+        except TradeError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Cancel failed: {e}"), ephemeral=True)
+            return
 
         for child in self.children:
             child.disabled = True
@@ -239,20 +238,20 @@ class TradeCog(commands.Cog):
         want_text  = _detail(their_gold, their_champ_names, their_item_names)
 
         # Create the trade in DB
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        trade = await create_trade(
-                            uid, target_id,
-                            my_champ_ids, my_item_ids, my_gold,
-                            their_champ_ids, their_item_ids, their_gold,
-                            session,
-                        )
-                    except TradeError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
+        try:
+            async with get_user_lock(uid):
+                trade = await create_trade(
+                    uid, target_id,
+                    my_champ_ids, my_item_ids, my_gold,
+                    their_champ_ids, their_item_ids, their_gold,
+                    None,
+                )
+        except TradeError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Trade creation failed: {e}"), ephemeral=True)
+            return
 
         # Post the public offer embed with Accept/Decline buttons
         view = TradeOfferView(str(trade.id), interaction.user.id, target.id)
@@ -293,15 +292,15 @@ class TradeCog(commands.Cog):
             )
             return
 
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        await accept_trade(trade_id, uid, session)
-                    except TradeError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
+        try:
+            async with get_user_lock(uid):
+                await accept_trade(trade_id, uid, None)
+        except TradeError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Trade failed: {e}"), ephemeral=True)
+            return
 
         await interaction.followup.send(embed=success_embed("✅ Trade completed!"), ephemeral=True)
 
@@ -311,15 +310,15 @@ class TradeCog(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        await cancel_trade(trade_id, uid, session)
-                    except TradeError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
+        try:
+            async with get_user_lock(uid):
+                await cancel_trade(trade_id, uid, None)
+        except TradeError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            return
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Cancel failed: {e}"), ephemeral=True)
+            return
 
         await interaction.followup.send(embed=success_embed("Trade cancelled."), ephemeral=True)
 
