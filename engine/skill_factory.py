@@ -117,7 +117,7 @@ def make_skill(
                     break
                 dmg = 0
                 crit_chance = getattr(caster, "crit_chance", 0.0)
-                crit_dmg_mult = getattr(caster, "crit_dmg", 1.75)
+                crit_dmg_mult = getattr(caster, "crit_dmg", 175.0)
                 armor_pen = getattr(caster, "armor_pen", 0.0)
                 magic_pen = getattr(caster, "magic_pen", 0.0)
                 lifesteal = getattr(caster, "lifesteal", 0.0)

@@ -686,8 +686,8 @@ def run_battle_with_rounds(
                     sheen_target.hp = max(0, sheen_target.hp - sheen_dmg)
                     log.append(f"  ⚡ {unit.name}'s Sheen empowers a bonus strike on {sheen_target.name} for {sheen_dmg:,}!")
 
-            # --- Attack Speed passive: if attack_speed >= 1.5, grant one extra hit ---
-            if getattr(unit, "attack_speed", 1.0) >= 1.5 and unit.is_alive:
+            # --- Attack Speed passive: extra hit when attack_speed >= 1.15 ---
+            if getattr(unit, "attack_speed", 1.0) >= 1.15 and unit.is_alive:
                 alive_now = [u for u in enemies_of_unit if u.is_alive]
                 if alive_now:
                     asp_target = random.choice(alive_now)
