@@ -19,7 +19,7 @@ from engine.combat import build_unit_from_champion, run_battle
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
-from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS
+from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS
 
 
 class RaidError(Exception):
@@ -35,11 +35,18 @@ def _today_utc() -> date:
 
 
 def _reset_daily_raids_if_needed(user: User) -> None:
-    today = _today_utc()
-    reset_date = user.daily_raids_reset.date() if user.daily_raids_reset else None
-    if reset_date != today:
+    now = datetime.now(timezone.utc)
+    if user.daily_raids_reset is None:
         user.daily_raids_used = 0
-        user.daily_raids_reset = datetime.now(timezone.utc)
+        user.daily_raids_reset = now
+        return
+    last = user.daily_raids_reset
+    if last.tzinfo is None:
+        last = last.replace(tzinfo=timezone.utc)
+    from datetime import timedelta
+    if (now - last) >= timedelta(hours=RAID_RESET_HOURS):
+        user.daily_raids_used = 0
+        user.daily_raids_reset = now
 
 
 def raids_remaining(user: User) -> int:
@@ -131,7 +138,7 @@ async def create_raid_queue(
         raise RaidError("User not found.")
     _reset_daily_raids_if_needed(user)
     if user.daily_raids_used >= RAID_DAILY_LIMIT:
-        raise RaidError(f"Daily raid limit reached ({RAID_DAILY_LIMIT}/day). Resets at midnight UTC.")
+        raise RaidError(f"Raid limit reached ({RAID_DAILY_LIMIT} raids per {RAID_RESET_HOURS}h). Try again later.")
 
     existing = await RaidQueue.find_one(
         RaidQueue.leader_id == leader_id,
@@ -179,7 +186,7 @@ async def join_raid(
     if user:
         _reset_daily_raids_if_needed(user)
         if user.daily_raids_used >= RAID_DAILY_LIMIT:
-            raise RaidError(f"Daily raid limit reached ({RAID_DAILY_LIMIT}/day). Resets at midnight UTC.")
+            raise RaidError(f"Raid limit reached ({RAID_DAILY_LIMIT} raids per {RAID_RESET_HOURS}h). Try again later.")
 
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != player_id:

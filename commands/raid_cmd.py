@@ -11,15 +11,25 @@ from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
 from services.raid_service import create_raid_queue, join_raid, start_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
-from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_DIFFICULTY_WEIGHTS
+from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTY_WEIGHTS
 
 
 def _difficulty_overview_embed(user: User) -> discord.Embed:
     remaining = raids_remaining(user)
+    from datetime import datetime, timezone, timedelta
+    last = user.daily_raids_reset
+    if last:
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=timezone.utc)
+        next_reset = last + timedelta(hours=RAID_RESET_HOURS)
+        mins_left = max(0, int((next_reset - datetime.now(timezone.utc)).total_seconds() / 60))
+        reset_str = f"Resets in {mins_left}m" if mins_left > 0 else "Resets now"
+    else:
+        reset_str = f"Resets every {RAID_RESET_HOURS}h"
     embed = discord.Embed(
         title="Raid",
         description=(
-            f"**{remaining}/{RAID_DAILY_LIMIT}** raids remaining today.\n\n"
+            f"**{remaining}/{RAID_DAILY_LIMIT}** raids remaining — {reset_str}.\n\n"
             "Each raid rolls a random difficulty (F→S). Higher tiers are rarer but pay much more.\n"
             "Boss level is also randomized within the tier's range.\n"
             "Bosses stay at full strength for solo runs — 60% gold/token payout if you win alone."
@@ -40,7 +50,7 @@ def _difficulty_overview_embed(user: User) -> discord.Embed:
             ),
             inline=True,
         )
-    embed.set_footer(text="Daily limit resets at midnight UTC.")
+    embed.set_footer(text="Raid limit resets every 3 hours.")
     return embed
 
 

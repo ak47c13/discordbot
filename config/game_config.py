@@ -371,7 +371,8 @@ TEAM_SIZE = 5
 # ---------------------------------------------------------------------------
 RAID_MAX_PLAYERS = 5
 RAID_QUEUE_TIMEOUT_SECONDS = 300   # 5 min to fill before auto-start
-RAID_DAILY_LIMIT = 5               # max raids per day per player
+RAID_DAILY_LIMIT = 5               # max raids per reset window per player
+RAID_RESET_HOURS = 3               # raid limit resets every 3 hours
 
 # Raid difficulty weights for RNG roll (higher weight = more common)
 RAID_DIFFICULTY_WEIGHTS = {
@@ -450,7 +451,7 @@ RAID_DIFFICULTIES = {
 # ---------------------------------------------------------------------------
 # Stamina regeneration
 # ---------------------------------------------------------------------------
-STAMINA_REGEN_SECONDS = 360   # 1 stamina per 6 minutes
+STAMINA_REGEN_SECONDS = 36    # 1 stamina per 36 seconds → full 100 stamina in 1 hour
 
 # ---------------------------------------------------------------------------
 # Aura visuals (for embed display)
