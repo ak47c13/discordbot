@@ -7,16 +7,13 @@ from models.user import User
 from models.trade import TradeOffer
 from models.champion import ChampionInstance
 from models.item import ItemInstance
-from utils.embeds import error_embed, success_embed, ConfirmView, COLOR_INFO, COLOR_WARNING, get_champion_by_number, get_item_by_number
+from utils.embeds import error_embed, success_embed, COLOR_INFO, COLOR_WARNING, get_champion_by_number, get_item_by_number
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from services.trade_service import create_trade, accept_trade, cancel_trade, TradeError
 
 
 async def _resolve_champion_numbers(uid: str, numbers: list[int]) -> tuple[list[str], str]:
-    """Convert display_id numbers to champion instance ID strings.
-    Returns (ids, error_message). error_message is empty on success.
-    """
     ids = []
     for n in numbers:
         c = await get_champion_by_number(uid, n)
@@ -27,7 +24,6 @@ async def _resolve_champion_numbers(uid: str, numbers: list[int]) -> tuple[list[
 
 
 async def _resolve_item_numbers(uid: str, numbers: list[int]) -> tuple[list[str], str]:
-    """Convert display_id numbers to item instance ID strings."""
     ids = []
     for n in numbers:
         itm = await get_item_by_number(uid, n)
@@ -38,13 +34,21 @@ async def _resolve_item_numbers(uid: str, numbers: list[int]) -> tuple[list[str]
 
 
 def _parse_numbers(s: str) -> list[int] | None:
-    """Parse comma-separated integers. Returns None on parse error."""
     if not s or not s.strip():
         return []
     try:
         return [int(x.strip()) for x in s.split(",") if x.strip()]
     except ValueError:
         return None
+
+
+def _detail(gold, champ_names, item_names):
+    lines = []
+    if gold:
+        lines.append(f"{gold:,} gold")
+    lines.extend(f"• {n}" for n in champ_names)
+    lines.extend(f"• {n}" for n in item_names)
+    return "\n".join(lines) or "nothing"
 
 
 def _summ(gold, champ_ids, item_ids):
@@ -56,6 +60,88 @@ def _summ(gold, champ_ids, item_ids):
     if item_ids:
         parts.append(f"{len(item_ids)} item(s)")
     return ", ".join(parts) or "nothing"
+
+
+def _trade_embed(trade_id: str, initiator_mention: str, target_mention: str,
+                 offer_text: str, want_text: str, status: str = "pending") -> discord.Embed:
+    colors = {"pending": COLOR_WARNING, "completed": 0x00CC44, "cancelled": 0x888888}
+    titles = {"pending": "🤝 Trade Offer", "completed": "✅ Trade Completed", "cancelled": "❌ Trade Cancelled"}
+    embed = discord.Embed(title=titles.get(status, "🤝 Trade"), color=colors.get(status, COLOR_WARNING))
+    embed.add_field(name=f"{initiator_mention} offers", value=offer_text, inline=True)
+    embed.add_field(name=f"wants from {target_mention}", value=want_text, inline=True)
+    if status == "pending":
+        embed.set_footer(text=f"Trade ID: {trade_id}")
+    return embed
+
+
+class TradeOfferView(discord.ui.View):
+    """Persistent view attached to the public trade offer message."""
+
+    def __init__(self, trade_id: str, initiator_id: int, target_id: int):
+        super().__init__(timeout=None)  # persistent — survives bot restart
+        self.trade_id = trade_id
+        self.initiator_id = initiator_id
+        self.target_id = target_id
+
+    @discord.ui.button(label="✅ Accept", style=discord.ButtonStyle.success, custom_id="trade_accept_btn")
+    async def accept_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.target_id:
+            await interaction.response.send_message("This trade isn't addressed to you.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        trade = await accept_trade(self.trade_id, uid, session)
+                    except TradeError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        # Update the public embed to show completed
+        for child in self.children:
+            child.disabled = True
+        new_embed = discord.Embed(
+            title="✅ Trade Completed",
+            description=f"<@{self.initiator_id}> and {interaction.user.mention} completed a trade.",
+            color=0x00CC44,
+        )
+        await interaction.message.edit(embed=new_embed, view=self)
+        await interaction.followup.send(embed=success_embed("Trade accepted!"), ephemeral=True)
+
+    @discord.ui.button(label="❌ Decline", style=discord.ButtonStyle.danger, custom_id="trade_decline_btn")
+    async def decline_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Either party can cancel
+        if interaction.user.id not in (self.initiator_id, self.target_id):
+            await interaction.response.send_message("This trade isn't yours.", ephemeral=True)
+            return
+
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+
+        async with get_user_lock(uid):
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                async with session.start_transaction():
+                    try:
+                        await cancel_trade(self.trade_id, uid, session)
+                    except TradeError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        return
+
+        for child in self.children:
+            child.disabled = True
+        new_embed = discord.Embed(
+            title="❌ Trade Cancelled",
+            description=f"Trade cancelled by {interaction.user.mention}.",
+            color=0x888888,
+        )
+        await interaction.message.edit(embed=new_embed, view=self)
+        await interaction.followup.send(embed=success_embed("Trade cancelled."), ephemeral=True)
 
 
 class TradeCog(commands.Cog):
@@ -83,6 +169,7 @@ class TradeCog(commands.Cog):
         my_items: str = "",
         their_items: str = "",
     ):
+        # Defer ephemerally for validation
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         target_id = str(target.id)
@@ -91,42 +178,34 @@ class TradeCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Cannot trade with yourself."), ephemeral=True)
             return
 
-        # Parse numbers
-        my_champ_nums = _parse_numbers(my_champions)
+        my_champ_nums   = _parse_numbers(my_champions)
         their_champ_nums = _parse_numbers(their_champions)
-        my_item_nums = _parse_numbers(my_items)
+        my_item_nums    = _parse_numbers(my_items)
         their_item_nums = _parse_numbers(their_items)
 
         for val, label in [
-            (my_champ_nums, "my_champions"),
-            (their_champ_nums, "their_champions"),
-            (my_item_nums, "my_items"),
-            (their_item_nums, "their_items"),
+            (my_champ_nums, "my_champions"), (their_champ_nums, "their_champions"),
+            (my_item_nums,  "my_items"),     (their_item_nums,  "their_items"),
         ]:
             if val is None:
                 await interaction.followup.send(
-                    embed=error_embed(f"Invalid format for {label}. Use comma-separated numbers e.g. `1,2,3`."),
+                    embed=error_embed(f"Invalid format for {label}. Use comma-separated numbers e.g. `1,2`."),
                     ephemeral=True,
                 )
                 return
 
-        # Resolve your champions/items by display number
         my_champ_ids, err = await _resolve_champion_numbers(uid, my_champ_nums)
         if err:
             await interaction.followup.send(embed=error_embed(err), ephemeral=True)
             return
-
         my_item_ids, err = await _resolve_item_numbers(uid, my_item_nums)
         if err:
             await interaction.followup.send(embed=error_embed(err), ephemeral=True)
             return
-
-        # Resolve target's champions/items by their display number
         their_champ_ids, err = await _resolve_champion_numbers(target_id, their_champ_nums)
         if err:
             await interaction.followup.send(embed=error_embed(f"Target: {err}"), ephemeral=True)
             return
-
         their_item_ids, err = await _resolve_item_numbers(target_id, their_item_nums)
         if err:
             await interaction.followup.send(embed=error_embed(f"Target: {err}"), ephemeral=True)
@@ -136,7 +215,7 @@ class TradeCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Trade must include at least one item, champion, or gold."), ephemeral=True)
             return
 
-        # Build friendly names for preview
+        # Build friendly name previews
         async def _champ_names(ids):
             names = []
             for cid in ids:
@@ -151,31 +230,15 @@ class TradeCog(commands.Cog):
                 names.append(f"{itm.name} [{itm.rank}]" if itm else iid)
             return names
 
-        my_champ_names = await _champ_names(my_champ_ids)
+        my_champ_names   = await _champ_names(my_champ_ids)
         their_champ_names = await _champ_names(their_champ_ids)
-        my_item_names = await _item_names(my_item_ids)
+        my_item_names    = await _item_names(my_item_ids)
         their_item_names = await _item_names(their_item_ids)
 
-        def _detail(gold, champs, items):
-            lines = []
-            if gold:
-                lines.append(f"{gold:,} gold")
-            lines.extend(f"• {n}" for n in champs)
-            lines.extend(f"• {n}" for n in items)
-            return "\n".join(lines) or "nothing"
+        offer_text = _detail(my_gold, my_champ_names, my_item_names)
+        want_text  = _detail(their_gold, their_champ_names, their_item_names)
 
-        embed = discord.Embed(title="🤝 Confirm Trade Offer", color=COLOR_WARNING)
-        embed.add_field(name="You Offer", value=_detail(my_gold, my_champ_names, my_item_names), inline=True)
-        embed.add_field(name="You Want",  value=_detail(their_gold, their_champ_names, their_item_names), inline=True)
-        embed.add_field(name="To", value=target.mention, inline=False)
-
-        view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Trade cancelled.", color=COLOR_INFO), ephemeral=True)
-            return
-
+        # Create the trade in DB
         async with get_user_lock(uid):
             client = get_motor_client()
             async with await client.start_session() as session:
@@ -191,30 +254,30 @@ class TradeCog(commands.Cog):
                         await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
 
-        await interaction.followup.send(
-            embed=success_embed(
-                f"Trade offer sent to {target.mention}!\n"
-                f"They can accept with `/trade-accept {trade.id}`"
-            ),
-            ephemeral=True,
+        # Post the public offer embed with Accept/Decline buttons
+        view = TradeOfferView(str(trade.id), interaction.user.id, target.id)
+        embed = _trade_embed(
+            str(trade.id),
+            interaction.user.mention, target.mention,
+            offer_text, want_text,
         )
+        # Use channel.send directly — most reliable way to post a public message
+        # from a command that deferred ephemerally
+        try:
+            await interaction.channel.send(content=target.mention, embed=embed, view=view)
+            await interaction.followup.send(embed=success_embed("Trade offer posted!"), ephemeral=True)
+        except Exception:
+            # Fallback: if channel.send fails, tell the user the trade ID
+            await interaction.followup.send(
+                embed=success_embed(
+                    f"Trade created! Trade ID: `{trade.id}`\n"
+                    f"Tell {target.mention} to run `/trade-accept {trade.id}`"
+                ),
+                ephemeral=True,
+            )
 
-        # Notify in channel so target sees the ping
-        notify_embed = discord.Embed(
-            title="🤝 Trade Offer",
-            description=(
-                f"{interaction.user.mention} → {target.mention}\n\n"
-                f"**Offer:** {_detail(my_gold, my_champ_names, my_item_names)}\n"
-                f"**Wants:** {_detail(their_gold, their_champ_names, their_item_names)}\n\n"
-                f"Accept: `/trade-accept {trade.id}`\n"
-                f"Decline: `/trade-cancel {trade.id}`"
-            ),
-            color=COLOR_WARNING,
-        )
-        await interaction.followup.send(content=target.mention, embed=notify_embed, ephemeral=False)
-
-    @app_commands.command(name="trade-accept", description="Accept a trade offer.")
-    @app_commands.describe(trade_id="Trade ID from the trade notification")
+    @app_commands.command(name="trade-accept", description="Accept a trade offer by ID (fallback).")
+    @app_commands.describe(trade_id="Trade ID from /trade-list")
     async def trade_accept(self, interaction: discord.Interaction, trade_id: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
@@ -225,31 +288,9 @@ class TradeCog(commands.Cog):
             trade_doc = None
         if trade_doc is None or trade_doc.target_id != uid or trade_doc.status != "pending":
             await interaction.followup.send(
-                embed=error_embed(
-                    "Trade not found or not addressed to you.",
-                    "Use `/trade-list` to see your pending trades."
-                ),
+                embed=error_embed("Trade not found or not addressed to you. Use /trade-list to check."),
                 ephemeral=True,
             )
-            return
-
-        you_give = _summ(trade_doc.target_gold, trade_doc.target_champion_ids, trade_doc.target_item_ids)
-        you_get  = _summ(trade_doc.initiator_gold, trade_doc.initiator_champion_ids, trade_doc.initiator_item_ids)
-        embed = discord.Embed(
-            title="🤝 Confirm Trade",
-            description=(
-                f"Accept trade from <@{trade_doc.initiator_id}>?\n"
-                f"**You give:** {you_give}\n"
-                f"**You receive:** {you_get}\n"
-                f"⚠️ This cannot be undone."
-            ),
-            color=COLOR_WARNING,
-        )
-        view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Trade declined.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -263,17 +304,9 @@ class TradeCog(commands.Cog):
                         return
 
         await interaction.followup.send(embed=success_embed("✅ Trade completed!"), ephemeral=True)
-        await interaction.followup.send(
-            embed=discord.Embed(
-                title="✅ Trade Completed",
-                description=f"<@{trade_doc.initiator_id}> and {interaction.user.mention} completed a trade.",
-                color=0x00CC44,
-            ),
-            ephemeral=False,
-        )
 
-    @app_commands.command(name="trade-cancel", description="Cancel or decline a trade.")
-    @app_commands.describe(trade_id="Trade ID")
+    @app_commands.command(name="trade-cancel", description="Cancel a trade offer.")
+    @app_commands.describe(trade_id="Trade ID from /trade-list")
     async def trade_cancel(self, interaction: discord.Interaction, trade_id: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
@@ -307,15 +340,15 @@ class TradeCog(commands.Cog):
                 you_give = _summ(t.initiator_gold, t.initiator_champion_ids, t.initiator_item_ids)
                 you_get  = _summ(t.target_gold,    t.target_champion_ids,    t.target_item_ids)
             else:
-                role, other = "incoming", t.initiator_id
+                role, other = "incoming ← action needed", t.initiator_id
                 you_give = _summ(t.target_gold,    t.target_champion_ids,    t.target_item_ids)
                 you_get  = _summ(t.initiator_gold, t.initiator_champion_ids, t.initiator_item_ids)
             embed.add_field(
-                name=f"[{role}] with <@{other}> — `{t.id}`",
-                value=f"You give: {you_give}\nYou receive: {you_get}",
+                name=f"[{role}] with <@{other}>",
+                value=f"You give: {you_give}\nYou get: {you_get}\nID: `{t.id}`",
                 inline=False,
             )
-        embed.set_footer(text="Use /trade-accept <id> or /trade-cancel <id>")
+        embed.set_footer(text="/trade-accept <id> · /trade-cancel <id>")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
