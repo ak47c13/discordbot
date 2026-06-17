@@ -246,15 +246,26 @@ class ChampionsCog(commands.Cog):
         await interaction.followup.send(embed=success_embed(f"{c.name} [{c.rank}] is now {state}."), ephemeral=True)
 
     @app_commands.command(name="levelup", description="Level up a champion (costs gold).")
-    @app_commands.describe(number="Champion display ID (see /champions)", times="1, 10, or max")
-    @app_commands.choices(times=[
-        app_commands.Choice(name="×1 (one level)", value=1),
-        app_commands.Choice(name="×10 (ten levels)", value=10),
-        app_commands.Choice(name="Max (as far as gold allows)", value=9999),
-    ])
-    async def levelup(self, interaction: discord.Interaction, number: int, times: int = 1):
+    @app_commands.describe(number="Champion display ID (see /champions)", times="Number of levels, or 'max' to spend all gold")
+    async def levelup(self, interaction: discord.Interaction, number: int, times: str = "1"):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
+
+        # Parse times: integer or "max"
+        times_lower = times.strip().lower()
+        if times_lower == "max":
+            requested = 9999
+        else:
+            try:
+                requested = int(times_lower)
+                if requested < 1:
+                    raise ValueError
+            except ValueError:
+                await interaction.followup.send(
+                    embed=error_embed("Enter a number of levels or 'max'."),
+                    ephemeral=True,
+                )
+                return
 
         champ = await get_champion_by_number(uid, number)
         if champ is None or champ.owner_id != uid:
@@ -274,10 +285,10 @@ class ChampionsCog(commands.Cog):
 
         user = await User.get_or_create(uid, interaction.user.display_name)
 
-        # Compute how many levels are actually affordable (for preview and ×Max)
+        # Compute affordable levels (walk one by one to handle gold limit correctly)
         affordable = 0
         preview_cost = 0
-        cap = min(times, max_lvl - champ.level)
+        cap = min(requested, max_lvl - champ.level)
         for i in range(cap):
             c = levelup_cost(champ.rank, champ.level + i)
             if user.gold - preview_cost < c:
@@ -298,7 +309,7 @@ class ChampionsCog(commands.Cog):
         target_lvl = champ.level + actual
 
         cap_note = " (rank cap)" if target_lvl >= max_lvl else ""
-        gold_note = "" if times < 9999 else " (gold limit)" if target_lvl < max_lvl else ""
+        gold_note = " (gold limit)" if requested > actual and target_lvl < max_lvl else ""
         embed = discord.Embed(
             title="Confirm Level Up",
             description=(
