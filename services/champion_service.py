@@ -186,7 +186,11 @@ async def level_up_champion(
     session: AsyncIOMotorClientSession,
     times: int = 1,
 ) -> tuple[ChampionInstance, int]:
-    """Level up a champion by `times` levels. Returns (champion, gold_spent)."""
+    """Level up a champion by up to `times` levels. Returns (champion, gold_spent).
+
+    For times > 1 (including the 'Max' path), levels as many times as possible
+    within the user's current gold, stopping at rank cap.
+    """
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != owner_id:
         raise ValueError("Champion not found or not owned by you.")
@@ -195,15 +199,24 @@ async def level_up_champion(
     if c.level >= max_lvl:
         raise ValueError(f"{c.name} is already at max level ({max_lvl}) for rank {c.rank}.")
 
-    actual_times = min(times, max_lvl - c.level)
-    total_cost = levelup_cost_range(c.rank, c.level, c.level + actual_times)
-
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
-    if user.gold < total_cost:
-        raise ValueError(f"Need {total_cost:,} gold. You have {user.gold:,}.")
+
+    # Walk levels one by one to spend as much gold as possible.
+    levels_gained = 0
+    total_cost = 0
+    while levels_gained < times and c.level + levels_gained < max_lvl:
+        cost = levelup_cost(c.rank, c.level + levels_gained)
+        if user.gold - total_cost < cost:
+            break
+        total_cost += cost
+        levels_gained += 1
+
+    if levels_gained == 0:
+        cost_next = levelup_cost(c.rank, c.level)
+        raise ValueError(f"Need {cost_next:,} gold for the next level. You have {user.gold:,}.")
 
     user.gold -= total_cost
-    c.level += actual_times
+    c.level += levels_gained
     await user.save(session=usable_session(session))
     await c.save(session=usable_session(session))
     return c, total_cost

@@ -250,7 +250,7 @@ class ChampionsCog(commands.Cog):
     @app_commands.choices(times=[
         app_commands.Choice(name="×1 (one level)", value=1),
         app_commands.Choice(name="×10 (ten levels)", value=10),
-        app_commands.Choice(name="Max (to rank cap)", value=9999),
+        app_commands.Choice(name="Max (as far as gold allows)", value=9999),
     ])
     async def levelup(self, interaction: discord.Interaction, number: int, times: int = 1):
         await interaction.response.defer(ephemeral=True)
@@ -272,16 +272,39 @@ class ChampionsCog(commands.Cog):
             )
             return
 
-        actual = min(times, max_lvl - champ.level)
-        total_cost = levelup_cost_range(champ.rank, champ.level, champ.level + actual)
+        user = await User.get_or_create(uid, interaction.user.display_name)
+
+        # Compute how many levels are actually affordable (for preview and ×Max)
+        affordable = 0
+        preview_cost = 0
+        cap = min(times, max_lvl - champ.level)
+        for i in range(cap):
+            c = levelup_cost(champ.rank, champ.level + i)
+            if user.gold - preview_cost < c:
+                break
+            preview_cost += c
+            affordable += 1
+
+        if affordable == 0:
+            cost_next = levelup_cost(champ.rank, champ.level)
+            await interaction.followup.send(
+                embed=error_embed(f"Need {cost_next:,} gold for the next level. You have {user.gold:,}."),
+                ephemeral=True,
+            )
+            return
+
+        actual = affordable
+        total_cost = preview_cost
         target_lvl = champ.level + actual
 
+        cap_note = " (rank cap)" if target_lvl >= max_lvl else ""
+        gold_note = "" if times < 9999 else " (gold limit)" if target_lvl < max_lvl else ""
         embed = discord.Embed(
-            title="⬆️ Confirm Level Up",
+            title="Confirm Level Up",
             description=(
                 f"Level up **{champ.name} [{champ.rank}]** "
-                f"Lv.{champ.level} → Lv.{target_lvl}?\n"
-                f"Cost: **{total_cost:,} gold**"
+                f"Lv.{champ.level} → Lv.{target_lvl}{cap_note}{gold_note}?\n"
+                f"Cost: **{total_cost:,} gold** (you have {user.gold:,})"
             ),
             color=COLOR_WARNING,
         )
