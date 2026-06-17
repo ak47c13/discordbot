@@ -23,6 +23,9 @@ class User(Document):
     last_daily: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+    # Starter free pulls claimed (values: "champion", "rune", "item")
+    starter_pulls_claimed: list[str] = Field(default_factory=list)
+
     # Single active champion
     active_champion_id: Optional[str] = None
     active_skill: str = "q"
