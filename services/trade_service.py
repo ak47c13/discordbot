@@ -105,29 +105,45 @@ async def accept_trade(
     target.gold += trade.initiator_gold
 
     # Transfer champions
-    all_champ_ids = trade.initiator_champion_ids + trade.target_champion_ids
+    initiator_traded_champ_ids = set(trade.initiator_champion_ids)
+    target_traded_champ_ids = set(trade.target_champion_ids)
+
     for cid in trade.initiator_champion_ids:
         c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         c.owner_id = target_id
         c.in_trade = False
+        c.is_active = False
         await c.save(session=usable_session(session))
     for cid in trade.target_champion_ids:
         c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
         c.owner_id = trade.initiator_id
         c.in_trade = False
+        c.is_active = False
         await c.save(session=usable_session(session))
 
-    # Transfer items
+    # Transfer items — strip equipped_to if the champion they were on also moved
     for iid in trade.initiator_item_ids:
         itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         itm.owner_id = target_id
         itm.in_trade = False
+        if itm.equipped_to and itm.equipped_to in initiator_traded_champ_ids:
+            itm.equipped_to = None
+            itm.equipment_slot = None
         await itm.save(session=usable_session(session))
     for iid in trade.target_item_ids:
         itm = await ItemInstance.get(PydanticObjectId(iid), session=usable_session(session))
         itm.owner_id = trade.initiator_id
         itm.in_trade = False
+        if itm.equipped_to and itm.equipped_to in target_traded_champ_ids:
+            itm.equipped_to = None
+            itm.equipment_slot = None
         await itm.save(session=usable_session(session))
+
+    # Clear active_champion if the champion was traded away
+    if initiator.active_champion_id in initiator_traded_champ_ids:
+        initiator.active_champion_id = None
+    if target.active_champion_id in target_traded_champ_ids:
+        target.active_champion_id = None
 
     await initiator.save(session=usable_session(session))
     await target.save(session=usable_session(session))
