@@ -127,10 +127,18 @@ async def create_raid_queue(
     if existing:
         raise RaidError("You already have an open raid. Start or cancel it first.")
 
+    # Resolve the leader's active champion
+    if not user.active_champion_id:
+        raise RaidError("No active champion. Use /champion-select to pick one first.")
+    leader_champ = await ChampionInstance.get(user.active_champion_id)
+    if leader_champ is None or leader_champ.owner_id != leader_id:
+        raise RaidError("Active champion not found. Use /champion-select to pick one first.")
+
     raid = RaidQueue(
         zone=difficulty,
         leader_id=leader_id,
         player_ids=[leader_id],
+        player_champions={leader_id: str(leader_champ.id)},
         status="waiting",
     )
     await raid.insert(session=usable_session(session))
@@ -191,11 +199,7 @@ async def start_raid(
     n_players = len(raid.player_ids)
     is_solo = n_players == 1
 
-    raid.status = "in_progress"
-    raid.started_at = datetime.now(timezone.utc)
-    await raid.save(session=usable_session(session))
-
-    # Build player team
+    # Build player team BEFORE marking in_progress so a bad state can't get stuck
     player_units = []
     for idx, player_id in enumerate(raid.player_ids):
         champ_id = raid.player_champions.get(player_id)
@@ -212,6 +216,10 @@ async def start_raid(
 
     if not player_units:
         raise RaidError("No valid champions in raid.")
+
+    raid.status = "in_progress"
+    raid.started_at = datetime.now(timezone.utc)
+    await raid.save(session=usable_session(session))
 
     boss = _build_raid_boss(difficulty, n_players)
     battle_result = run_battle(player_units, [boss])
