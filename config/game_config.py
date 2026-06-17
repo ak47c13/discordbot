@@ -216,8 +216,6 @@ SUMMON_RATES = {
     "champion_B": 0.04,
     "champion_A": 0.02,
     "champion_S": 0.005,
-    "item_F":     0.00,   # items via summon
-    "item_E":     0.00,
     "item_D":     0.025,
     "item_C":     0.015,
     "item_B":     0.005,
@@ -268,15 +266,6 @@ BOSS_DROPS = {
     "summon_token":  {"min": 10, "max": 30, "chance": 0.60},
 }
 
-RAID_DROPS = {
-    "gold":         {"min": 300, "max": 800, "chance": 1.00},
-    "champion":     {"chance": 0.15},
-    "item":         {"chance": 0.20},
-    "enhance_mat":  {"min": 8, "max": 20, "chance": 0.50},
-    "reroll_mat":   {"min": 3, "max": 8,  "chance": 0.25},
-    "seal":         {"chance": 0.02},
-    "summon_token": {"min": 50, "max": 100, "chance": 1.00},
-}
 
 # ---------------------------------------------------------------------------
 # Hunt zones

@@ -276,120 +276,253 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"), ephemeral=True)
 
 
-    @app_commands.command(name="build", description="Craft an item from its components (components or completed items).")
-    @app_commands.describe(item_name="Item to craft (e.g. Infinity Edge, B.F. Sword, Zeal)")
-    async def build(self, interaction: discord.Interaction, item_name: str):
+    @app_commands.command(name="build", description="Craft an item from its components. Browse with the menu or type a name directly.")
+    @app_commands.describe(item_name="Optional: type item name directly (e.g. Infinity Edge). Leave blank to browse.")
+    async def build(self, interaction: discord.Interaction, item_name: str = ""):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
 
-        from data.item_recipes import ITEM_RECIPES
-        # Case-insensitive match
-        matched = next((k for k in ITEM_RECIPES if k.lower() == item_name.lower()), None)
-        if matched is None:
-            # Try prefix match
-            candidates = [k for k in ITEM_RECIPES if k.lower().startswith(item_name.lower())]
-            if len(candidates) == 1:
-                matched = candidates[0]
-            else:
-                hint = ", ".join(candidates[:8]) if candidates else "Use `/recipes` to browse all craftable items."
-                await interaction.followup.send(
-                    embed=error_embed(f"No recipe found for **{item_name}**.", hint),
-                    ephemeral=True,
-                )
-                return
-
-        recipe = ITEM_RECIPES[matched]
-        components_needed = recipe["components"]
-
-        # Find one unequipped, unlocked, non-traded copy of each component
-        async with get_user_lock(uid):
-            items_to_consume = []
-            missing = []
-            for comp_name in components_needed:
-                found = await ItemInstance.find_one(
-                    ItemInstance.owner_id == uid,
-                    ItemInstance.name == comp_name,
-                    ItemInstance.equipped_to == None,
-                    ItemInstance.locked == False,
-                    ItemInstance.in_trade == False,
-                    ItemInstance.in_market == False,
-                )
-                if found:
-                    items_to_consume.append(found)
-                else:
-                    missing.append(comp_name)
-
-            if missing:
-                have_lines = [f"✅ {c}" for c in components_needed if c not in missing]
-                miss_lines = [f"❌ {c}" for c in missing]
-                all_lines = "\n".join(have_lines + miss_lines)
-                await interaction.followup.send(
-                    embed=error_embed(
-                        f"Missing components for **{matched}**.",
-                        all_lines,
-                    ),
-                    ephemeral=True,
-                )
-                return
-
-            # Determine output rank — use the lowest rank among components
-            rank_order = ["F", "E", "D", "C", "B", "A", "S"]
-            comp_ranks = [itm.rank for itm in items_to_consume]
-            output_rank = min(comp_ranks, key=lambda r: rank_order.index(r))
-
-            # Confirm embed before consuming
-            from utils.embeds import ConfirmView
-            gold_cost = recipe.get("gold_cost", 0)
-
-            from models.user import User
-            user = await User.find_one(User.discord_id == uid)
-            if user.gold < gold_cost:
-                await interaction.followup.send(
-                    embed=error_embed(f"Need {gold_cost:,} gold to craft. You have {user.gold:,}."),
-                    ephemeral=True,
-                )
-                return
-
-            comp_list = "\n".join(f"• {itm.name} [{itm.rank}]" for itm in items_to_consume)
-            confirm_embed = discord.Embed(
-                title=f"Craft: {matched} [{output_rank}]",
-                description=(
-                    f"**Components consumed:**\n{comp_list}\n\n"
-                    f"**Gold cost:** {gold_cost:,}\n"
-                    f"**Output rank:** [{output_rank}] (lowest component rank)\n\n"
-                    "This cannot be undone."
-                ),
+        if not item_name:
+            # Show category browser
+            embed = discord.Embed(
+                title="Blacksmith — Craft Item",
+                description="Pick a category to browse craftable items.",
                 color=0xFFAA00,
             )
-            view = ConfirmView()
+            view = _BuildCategoryView(uid)
+            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            return
+
+        # Direct craft by name
+        await _do_build(interaction, uid, item_name)
+
+
+async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, msg=None):
+    """Shared craft logic used by both the UI flow and direct name input."""
+    from data.item_recipes import ITEM_RECIPES
+    from utils.embeds import ConfirmView, item_embed
+
+    matched = next((k for k in ITEM_RECIPES if k.lower() == item_name.lower()), None)
+    if matched is None:
+        candidates = [k for k in ITEM_RECIPES if k.lower().startswith(item_name.lower())]
+        if len(candidates) == 1:
+            matched = candidates[0]
+        else:
+            hint = ", ".join(candidates[:8]) if candidates else "Use /recipes to browse all craftable items."
+            embed = error_embed(f"No recipe found for **{item_name}**.", hint)
+            if msg:
+                await msg.edit(embed=embed, view=None)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+    recipe = ITEM_RECIPES[matched]
+    components_needed = recipe["components"]
+
+    async with get_user_lock(uid):
+        items_to_consume = []
+        missing = []
+        for comp_name in components_needed:
+            found = await ItemInstance.find_one(
+                ItemInstance.owner_id == uid,
+                ItemInstance.name == comp_name,
+                ItemInstance.equipped_to == None,
+                ItemInstance.locked == False,
+                ItemInstance.in_trade == False,
+                ItemInstance.in_market == False,
+            )
+            if found:
+                items_to_consume.append(found)
+            else:
+                missing.append(comp_name)
+
+        if missing:
+            have_lines = [f"✅ {c}" for c in components_needed if c not in missing]
+            miss_lines = [f"❌ {c}" for c in missing]
+            embed = error_embed(
+                f"Missing components for **{matched}**.",
+                "\n".join(have_lines + miss_lines),
+            )
+            if msg:
+                await msg.edit(embed=embed, view=None)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        rank_order = ["F", "E", "D", "C", "B", "A", "S"]
+        comp_ranks = [itm.rank for itm in items_to_consume]
+        output_rank = min(comp_ranks, key=lambda r: rank_order.index(r))
+
+        gold_cost = recipe.get("gold_cost", 0)
+        user = await User.find_one(User.discord_id == uid)
+        if user.gold < gold_cost:
+            embed = error_embed(f"Need {gold_cost:,} gold to craft. You have {user.gold:,}.")
+            if msg:
+                await msg.edit(embed=embed, view=None)
+            else:
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            return
+
+        comp_list = "\n".join(f"• {itm.name} [{itm.rank}]" for itm in items_to_consume)
+        confirm_embed = discord.Embed(
+            title=f"Craft: {matched} [{output_rank}]",
+            description=(
+                f"**Components consumed:**\n{comp_list}\n\n"
+                f"**Gold cost:** {gold_cost:,}\n"
+                f"**Output rank:** [{output_rank}] (lowest component rank)\n\n"
+                "This cannot be undone."
+            ),
+            color=0xFFAA00,
+        )
+        view = ConfirmView()
+        if msg:
+            await msg.edit(embed=confirm_embed, view=view)
+            view.message = msg
+        else:
             msg = await interaction.followup.send(embed=confirm_embed, view=view, ephemeral=True, wait=True)
             view.message = msg
-            await view.wait()
+        await view.wait()
 
-            if not view.confirmed:
-                await msg.edit(embed=error_embed("Craft cancelled."), view=None)
-                return
+        if not view.confirmed:
+            await msg.edit(embed=error_embed("Craft cancelled."), view=None)
+            return
 
-            # Consume components and charge gold
-            for itm in items_to_consume:
-                await itm.delete()
-            user.gold -= gold_cost
-            await user.save()
+        for itm in items_to_consume:
+            await itm.delete()
+        user.gold -= gold_cost
+        await user.save()
 
-            # Grant the crafted item
-            from services.item_service import grant_item
-            crafted = await grant_item(
-                uid,
-                matched,
-                output_rank,
-                recipe["stat_type"],
-                recipe["passive"],
+        from services.item_service import grant_item
+        crafted = await grant_item(uid, matched, output_rank, recipe["stat_type"], recipe["passive"])
+
+    from utils.embeds import item_embed
+    embed = item_embed(crafted, f"Crafted: {matched}")
+    embed.description = recipe["description"]
+    await msg.edit(embed=embed, view=None)
+
+
+# ---------------------------------------------------------------------------
+# Build UI — category picker → item select → craft confirm
+# ---------------------------------------------------------------------------
+
+# Categorise completed items by thematic role (for the select menus)
+_BUILD_CATEGORIES: dict[str, tuple[str, set[str]]] = {
+    "attack":    ("Attack / Marksman", {
+        "Infinity Edge", "Immortal Shieldbow", "Phantom Dancer", "Runaan's Hurricane",
+        "Kraken Slayer", "Blade of the Ruined King", "Manamune", "Guardian Angel",
+    }),
+    "fighter":   ("Fighter / Bruiser", {
+        "Trinity Force", "Ravenous Hydra", "Death's Dance", "Black Cleaver",
+        "Titanic Hydra", "Sterak's Gage", "Heartsteel",
+    }),
+    "magic":     ("Magic / Mage", {
+        "Rabadon's Deathcap", "Luden's Companion", "Shadowflame", "Void Staff",
+        "Nashor's Tooth", "Liandry's Anguish", "Morellonomicon", "Archangel's Staff",
+        "Rod of Ages", "Rylai's Crystal Scepter", "Zhonya's Hourglass",
+        "Banshee's Veil", "Horizon Focus",
+    }),
+    "defense":   ("Defense / Tank", {
+        "Sunfire Aegis", "Thornmail", "Frozen Heart", "Gargoyle Stoneplate",
+        "Randuin's Omen", "Dead Man's Plate", "Warmog's Armor", "Spirit Visage",
+        "Force of Nature", "Abyssal Mask", "Jak'Sho the Protean",
+    }),
+    "components": ("Component Recipes", set()),  # populated dynamically
+}
+
+
+class _BuildCategoryView(discord.ui.View):
+    def __init__(self, uid: str):
+        super().__init__(timeout=120)
+        self.uid = uid
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if str(interaction.user.id) != self.uid:
+            await interaction.response.send_message("Not your menu.", ephemeral=True)
+            return False
+        return True
+
+    async def _show_items(self, interaction: discord.Interaction, category_key: str):
+        from data.item_recipes import COMPLETED_RECIPES, COMPONENT_RECIPES
+        label, item_set = _BUILD_CATEGORIES[category_key]
+
+        if category_key == "components":
+            recipes = COMPONENT_RECIPES
+        else:
+            recipes = {k: v for k, v in COMPLETED_RECIPES.items() if k in item_set}
+
+        options = [
+            discord.SelectOption(
+                label=name[:100],
+                value=name[:100],
+                description=(f"{' + '.join(r['components'][:3])}")[:100],
             )
+            for name, r in recipes.items()
+        ]
+        embed = discord.Embed(
+            title=f"Craft — {label}",
+            description=f"Select an item to craft. {len(options)} recipes available.",
+            color=0xFFAA00,
+        )
+        view = _BuildItemSelectView(self.uid, options)
+        await interaction.response.edit_message(embed=embed, view=view)
 
-        from utils.embeds import item_embed
-        embed = item_embed(crafted, f"Crafted: {matched}")
-        embed.description = recipe["description"]
-        await msg.edit(embed=embed, view=None)
+    @discord.ui.button(label="Attack / Marksman", style=discord.ButtonStyle.primary,  custom_id="build_cat_attack")
+    async def cat_attack(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._show_items(interaction, "attack")
+
+    @discord.ui.button(label="Fighter / Bruiser",  style=discord.ButtonStyle.primary,  custom_id="build_cat_fighter")
+    async def cat_fighter(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._show_items(interaction, "fighter")
+
+    @discord.ui.button(label="Magic / Mage",       style=discord.ButtonStyle.primary,  custom_id="build_cat_magic")
+    async def cat_magic(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._show_items(interaction, "magic")
+
+    @discord.ui.button(label="Defense / Tank",     style=discord.ButtonStyle.secondary, custom_id="build_cat_defense")
+    async def cat_defense(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._show_items(interaction, "defense")
+
+    @discord.ui.button(label="Component Recipes",  style=discord.ButtonStyle.secondary, custom_id="build_cat_components")
+    async def cat_components(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self._show_items(interaction, "components")
+
+
+class _BuildItemSelectView(discord.ui.View):
+    def __init__(self, uid: str, options: list[discord.SelectOption]):
+        super().__init__(timeout=120)
+        self.uid = uid
+        select = discord.ui.Select(
+            placeholder="Choose an item to craft...",
+            options=options[:25],
+            custom_id="build_item_pick",
+        )
+        select.callback = self._on_select
+        self.add_item(select)
+        back = discord.ui.Button(label="Back", style=discord.ButtonStyle.secondary, custom_id="build_back")
+        back.callback = self._on_back
+        self.add_item(back)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if str(interaction.user.id) != self.uid:
+            await interaction.response.send_message("Not your menu.", ephemeral=True)
+            return False
+        return True
+
+    async def _on_select(self, interaction: discord.Interaction):
+        item_name = interaction.data["values"][0]
+        # Get the original message to pass to _do_build
+        msg = interaction.message
+        # Acknowledge the interaction by deferring edit, then run craft logic
+        await interaction.response.defer()
+        await _do_build(interaction, self.uid, item_name, msg=msg)
+
+    async def _on_back(self, interaction: discord.Interaction):
+        embed = discord.Embed(
+            title="Blacksmith — Craft Item",
+            description="Pick a category to browse craftable items.",
+            color=0xFFAA00,
+        )
+        await interaction.response.edit_message(embed=embed, view=_BuildCategoryView(self.uid))
 
     @app_commands.command(name="recipes", description="Browse all craftable items by tier.")
     @app_commands.describe(tier="Which tier to show")

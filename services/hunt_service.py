@@ -318,14 +318,9 @@ async def _roll_drops(
             c = await grant_champion(owner_id, name, rank, session)
             rewards["champions"].append({"name": name, "rank": rank, "id": str(c.id)})
 
-        elif drop_key in ("item_F", "item", "item_FE", "item_basic", "item_advanced"):
+        elif drop_key in ("item_basic", "item_advanced"):
             ranks = cfg.get("ranks")
-            if ranks:
-                rank = random.choice(ranks)
-            elif drop_key == "item_F":
-                rank = "F"
-            else:
-                rank = random.choice(["F", "E"])
+            rank = random.choice(ranks) if ranks else random.choice(["F", "E"])
             if drop_key == "item_advanced":
                 pool = ADVANCED_ITEM_POOL
             else:
