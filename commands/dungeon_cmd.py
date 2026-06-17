@@ -271,6 +271,41 @@ class DungeonCog(commands.Cog):
             view = _RepeatFloorView(self, uid, slug, floor_num, res.checkpoint_floor, champ_ids, interaction.user.id)
             await interaction.followup.send(embed=embed, view=view)
 
+    async def _run_repeat_continuous(self, interaction, uid, slug, floor_num, champ_ids):
+        """Farm the same floor repeatedly until death or stamina runs out."""
+        runs = 0
+        stop_reason = "out of stamina"
+
+        while True:
+            ok, reason = await dungeon_service.can_enter_dungeon(uid, slug, None)
+            if not ok:
+                stop_reason = f"out of stamina"
+                break
+
+            try:
+                await self._run_floor(interaction, uid, slug, floor_num, champ_ids)
+            except DungeonError as e:
+                stop_reason = str(e)
+                break
+
+            prog = await dungeon_service.get_or_create_progress(uid, slug, None)
+            if prog.highest_floor < floor_num and runs == 0:
+                # Lost on first attempt and floor was never cleared — can't farm it
+                stop_reason = f"defeated on floor {floor_num}"
+                break
+            if prog.highest_floor < floor_num:
+                stop_reason = f"defeated on floor {floor_num}"
+                break
+
+            runs += 1
+
+        embed = discord.Embed(
+            title="Repeat Run Complete",
+            description=f"**Floor {floor_num} runs:** {runs}\n**Stopped:** {stop_reason}",
+            color=0x5865F2,
+        )
+        await interaction.followup.send(embed=embed)
+
     async def _run_continuous(self, interaction, uid, slug, start_floor, champ_ids):
         """Run floors back-to-back until death, stamina depletion, or map clear."""
         from models.dungeon import Dungeon
@@ -488,9 +523,10 @@ class _RepeatFloorView(discord.ui.View):
         self.champ_ids = champ_ids
         self.user_id = user_id
 
-        # Hide checkpoint button if it would be the same floor or there's no checkpoint
+        # Hide checkpoint buttons if there's no meaningful checkpoint to go back to
         if not checkpoint_floor or checkpoint_floor >= floor_num:
             self.remove_item(self.checkpoint_btn)
+            self.remove_item(self.farm_checkpoint_btn)
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.user_id:
@@ -523,6 +559,19 @@ class _RepeatFloorView(discord.ui.View):
             c.disabled = True
         await interaction.response.edit_message(view=self)
         await self._run(interaction, self.checkpoint_floor)
+
+    @discord.ui.button(label="Farm Checkpoint", style=discord.ButtonStyle.success)
+    async def farm_checkpoint_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        farm_floor = self.checkpoint_floor if self.checkpoint_floor and self.checkpoint_floor < self.floor_num else self.floor_num
+        from utils.locks import get_user_lock
+        try:
+            async with get_user_lock(self.uid):
+                await self.cog._run_repeat_continuous(interaction, self.uid, self.slug, farm_floor, self.champ_ids)
+        except DungeonError as e:
+            await interaction.followup.send(embed=error_embed(str(e)))
 
 
 class _NextFloorView(discord.ui.View):
@@ -560,6 +609,18 @@ class _NextFloorView(discord.ui.View):
             c.disabled = True
         await interaction.response.edit_message(view=self)
         await self._check_and_run(interaction, self.current_floor)
+
+    @discord.ui.button(label="Repeat Continuously", style=discord.ButtonStyle.secondary)
+    async def repeat_continuous_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        from utils.locks import get_user_lock
+        try:
+            async with get_user_lock(self.uid):
+                await self.cog._run_repeat_continuous(interaction, self.uid, self.slug, self.current_floor, self.champ_ids)
+        except DungeonError as e:
+            await interaction.followup.send(embed=error_embed(str(e)))
 
     @discord.ui.button(label="Next Floor", style=discord.ButtonStyle.primary)
     async def next_floor_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
