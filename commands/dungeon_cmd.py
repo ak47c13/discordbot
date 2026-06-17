@@ -52,28 +52,22 @@ async def _active_champion_ids(owner_id: str) -> list[str]:
 async def _dungeon_choices(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
     uid = str(interaction.user.id)
     dungeons = await Dungeon.find(Dungeon.is_active == True).to_list()  # noqa: E712
+    dungeons.sort(key=lambda d: d.total_floors)
+
     progresses = await dungeon_service.get_all_progress(uid)
     completed_slugs = {p.dungeon_slug for p in progresses if p.completions > 0}
-    # Map completed slugs to total_floors for ANY_N unlock checks
-    completed_lens: set[int] = set()
-    for slug in completed_slugs:
-        d = await Dungeon.find_one(Dungeon.slug == slug)
-        if d:
-            completed_lens.add(d.total_floors)
 
     cur = (current or "").lower()
     out = []
-    for d in sorted(dungeons, key=lambda x: x.total_floors):
-        req = d.unlock_req
-        if req:
-            if req == "ANY_20" and 20 not in completed_lens:
-                continue
-            if req == "ANY_40" and 40 not in completed_lens:
-                continue
-            if req not in ("ANY_20", "ANY_40") and req not in completed_slugs:
-                continue
+    for d in dungeons:
+        # Show map if: no unlock requirement (map 1), OR the required map is completed
+        if d.unlock_req and d.unlock_req not in completed_slugs:
+            continue
         if cur in d.name.lower() or cur in d.slug.lower():
-            out.append(app_commands.Choice(name=f"{d.emoji} {d.name} [{d.total_floors}F]", value=d.slug))
+            prog = next((p for p in progresses if p.dungeon_slug == d.slug), None)
+            hf = prog.highest_floor if prog else 0
+            label = f"{d.emoji} {d.name} [{hf}/{d.total_floors}F]"
+            out.append(app_commands.Choice(name=label[:100], value=d.slug))
         if len(out) >= 25:
             break
     return out
@@ -108,59 +102,58 @@ class DungeonCog(commands.Cog):
         self.bot = bot
 
     # ---------------------------------------------------------------
-    @app_commands.command(name="dungeon-list", description="View all dungeons and your progress.")
+    @app_commands.command(name="dungeon-list", description="View the dungeon map chain and your progress.")
     async def dungeon_list(self, interaction: discord.Interaction):
         await interaction.response.defer()
         uid = str(interaction.user.id)
         dungeons = await Dungeon.find(Dungeon.is_active == True).to_list()  # noqa: E712
-        dungeons.sort(key=lambda d: (d.total_floors, d.name))
+        dungeons.sort(key=lambda d: d.total_floors)
+
         progresses = {
             p.dungeon_slug: p
             for p in await DungeonProgress.find(DungeonProgress.owner_id == uid).to_list()
         }
-        completed_lens = {
-            (await Dungeon.find_one(Dungeon.slug == s)).total_floors
-            for s, p in progresses.items() if p.completions > 0
-        }
         completed_slugs = {s for s, p in progresses.items() if p.completions > 0}
 
-        embed = discord.Embed(title="Dungeon Map", color=0x5865F2)
-        for d in dungeons:
+        embed = discord.Embed(
+            title="Dungeon Campaign",
+            description="Clear each map to unlock the next. Progress saved at checkpoints every 10 floors.",
+            color=0x5865F2,
+        )
+
+        for i, d in enumerate(dungeons):
             prog = progresses.get(d.slug)
-            locked = self._is_locked(d, completed_slugs, completed_lens)
-            if locked:
-                status = "🔒 Locked"
-                unlock = self._unlock_text(d)
-                val = f"Recommended: {d.recommended_rank} | Boss: {d.boss_name}\n{unlock}"
+            is_locked = d.unlock_req and d.unlock_req not in completed_slugs
+
+            if is_locked:
+                icon = "🔒"
+                status = "Locked"
+                val = f"Rec. Rank [{d.recommended_rank}] · {d.total_floors} floors · Boss: {d.boss_name}\nComplete the previous map to unlock."
+            elif prog and prog.completions > 0:
+                icon = "✅"
+                status = f"Cleared  ×{prog.completions}"
+                val = f"Rec. Rank [{d.recommended_rank}] · {d.total_floors} floors · Boss: {d.boss_name}"
+            elif prog and prog.highest_floor > 0:
+                icon = "⚔️"
+                status = f"Floor {prog.highest_floor}/{d.total_floors} — In Progress"
+                val = f"Rec. Rank [{d.recommended_rank}] · {d.total_floors} floors · Boss: {d.boss_name}\nCheckpoint: Floor {prog.checkpoint_floor}"
             else:
-                hf = prog.highest_floor if prog else 0
-                mark = "✅" if (prog and prog.completions > 0) else "⭐"
-                status = f"{mark} Floor {hf}/{d.total_floors}"
-                val = f"Recommended: {d.recommended_rank} | Boss: {d.boss_name}"
+                icon = "▶️"
+                status = "Ready to start"
+                val = f"Rec. Rank [{d.recommended_rank}] · {d.total_floors} floors · Boss: {d.boss_name}"
+
+            # Show connector arrow between maps
+            connector = "  ↓\n" if i < len(dungeons) - 1 else ""
             embed.add_field(
-                name=f"{d.emoji} {d.name} [{d.total_floors}F] — {status}",
-                value=val,
+                name=f"{icon} {d.emoji} {d.name} — {status}",
+                value=val + (f"\n{connector}" if connector else ""),
                 inline=False,
             )
+
         await interaction.followup.send(embed=embed)
 
-    def _is_locked(self, d: Dungeon, completed_slugs: set, completed_lens: set) -> bool:
-        req = d.unlock_req
-        if not req:
-            return False
-        if req == "ANY_20":
-            return 20 not in completed_lens
-        if req == "ANY_40":
-            return 40 not in completed_lens
-        return req not in completed_slugs
-
-    def _unlock_text(self, d: Dungeon) -> str:
-        req = d.unlock_req
-        if req == "ANY_20":
-            return "Unlock: Clear any 20F dungeon"
-        if req == "ANY_40":
-            return "Unlock: Clear any 40F dungeon"
-        return f"Unlock: Clear {req.replace('-', ' ').title()}"
+    def _is_locked(self, d: Dungeon, completed_slugs: set) -> bool:
+        return bool(d.unlock_req and d.unlock_req not in completed_slugs)
 
     # ---------------------------------------------------------------
     @app_commands.command(name="dungeon-enter", description="Enter a dungeon and fight floor by floor.")

@@ -1,10 +1,11 @@
 """
-Dungeon seed data — 12 LoL-region dungeons with full floor definitions.
+Dungeon seed data — 8 linear maps, each unlocking the next on clear.
 
-All Dungeon and DungeonFloor documents are generated here and inserted once via
-``seed_dungeons()`` (idempotent). Floor enemy stats are computed at battle time
-from the per-floor multipliers stored on each DungeonFloor, using the scaling
-formula in ``services.dungeon_service``.
+Progression:
+  Map 1 (F)  → Map 2 (E)  → Map 3 (D)  → Map 4 (D/C)
+  → Map 5 (C) → Map 6 (B) → Map 7 (A) → Map 8 (S)
+
+Enemy rank, floor count, and boss difficulty all scale progressively.
 """
 from __future__ import annotations
 import random
@@ -13,7 +14,7 @@ from models.dungeon import Dungeon, DungeonFloor
 
 
 # ---------------------------------------------------------------------------
-# Region -> champion roster used to populate floors
+# Region -> champion roster for floor enemies
 # ---------------------------------------------------------------------------
 REGION_ROSTERS: dict[str, list[str]] = {
     "demacia":      ["Garen", "Lux", "Fiora", "Jarvan IV", "Poppy"],
@@ -27,110 +28,123 @@ REGION_ROSTERS: dict[str, list[str]] = {
 }
 
 REGION_EMOJI: dict[str, str] = {
-    "demacia": "🏰",
-    "noxus": "🗡️",
-    "ionia": "🌸",
-    "freljord": "❄️",
-    "void": "🌌",
+    "demacia":      "🏰",
+    "noxus":        "🗡️",
+    "freljord":     "❄️",
+    "ionia":        "🌸",
+    "piltover":     "⚙️",
+    "bilgewater":   "⚓",
     "shadow-isles": "💀",
-    "piltover": "⚙️",
-    "bilgewater": "⚓",
+    "void":         "🌌",
 }
 
 HAZARDS = ["wound", "berserker", "armored", "speed_seal", "double_strike"]
 
 
 # ---------------------------------------------------------------------------
-# Dungeon catalogue
-# (slug, name, region, total_floors, boss_name, boss_passive, unlock_req, rank)
+# Linear map chain
+# (slug, name, region, total_floors, boss_name, boss_passive, unlock_req, rec_rank)
 # ---------------------------------------------------------------------------
 DUNGEON_DEFS = [
-    ("demacia-outskirts", "Demacia Outskirts", "demacia", 20, "Garen", "garen_passive", "", "F"),
-    ("noxus-warfront", "Noxus Warfront", "noxus", 20, "Darius", "darius_passive", "", "F"),
-    ("ionia-temple-trials", "Ionia Temple Trials", "ionia", 20, "Irelia", "irelia_passive", "", "F"),
-    ("freljord-wilds", "Freljord Wilds", "freljord", 20, "Sejuani", "sejuani_passive", "", "F"),
-    ("demacias-depths", "Demacia's Depths", "demacia", 40, "Jarvan IV", "jarvan_passive", "demacia-outskirts", "D"),
-    ("noxian-conquest", "Noxian Conquest", "noxus", 40, "Swain", "swain_passive", "noxus-warfront", "D"),
-    ("ionian-war", "Ionian War", "ionia", 40, "Yasuo", "yasuo_passive", "ionia-temple-trials", "D"),
-    ("freljord-siege", "Freljord Siege", "freljord", 40, "Tryndamere", "tryndamere_passive", "freljord-wilds", "D"),
-    ("void-incursion", "Void Incursion", "void", 50, "Cho'Gath", "chogath_passive", "ANY_40", "B"),
-    ("shadow-isles", "Shadow Isles", "shadow-isles", 50, "Mordekaiser", "mordekaiser_passive", "ANY_40", "B"),
-    ("piltover-uprising", "Piltover Uprising", "piltover", 35, "Jayce", "jayce_passive", "ANY_20", "C"),
-    ("bilgewater-docks", "Bilgewater Docks", "bilgewater", 35, "Gangplank", "gangplank_passive", "ANY_20", "C"),
+    ("map-1-demacia",      "Map 1: Demacia Outskirts",    "demacia",      15, "Garen",       "garen_passive",       "",                   "F"),
+    ("map-2-noxus",        "Map 2: Noxus Warfront",       "noxus",        20, "Darius",       "darius_passive",      "map-1-demacia",      "E"),
+    ("map-3-freljord",     "Map 3: Freljord Wilds",       "freljord",     25, "Sejuani",      "sejuani_passive",     "map-2-noxus",        "D"),
+    ("map-4-ionia",        "Map 4: Ionia Temple Trials",  "ionia",        30, "Irelia",       "irelia_passive",      "map-3-freljord",     "D"),
+    ("map-5-piltover",     "Map 5: Piltover Uprising",    "piltover",     35, "Jayce",        "jayce_passive",       "map-4-ionia",        "C"),
+    ("map-6-bilgewater",   "Map 6: Bilgewater Docks",     "bilgewater",   40, "Gangplank",    "gangplank_passive",   "map-5-piltover",     "B"),
+    ("map-7-shadow-isles", "Map 7: Shadow Isles",         "shadow-isles", 45, "Mordekaiser",  "mordekaiser_passive", "map-6-bilgewater",   "A"),
+    ("map-8-void",         "Map 8: Void Incursion",       "void",         50, "Cho'Gath",     "chogath_passive",     "map-7-shadow-isles", "S"),
 ]
 
 DUNGEON_DESCRIPTIONS = {
-    "demacia-outskirts": "The sunlit borderlands of Demacia. A trial for fledgling summoners.",
-    "noxus-warfront": "Blood-soaked battlefields where only the strong advance.",
-    "ionia-temple-trials": "Sacred grounds testing balance, focus, and resolve.",
-    "freljord-wilds": "Unforgiving frozen tundra ruled by warring tribes.",
-    "demacias-depths": "Forgotten dungeons beneath the Great City, guarded by the Exemplar of Demacia.",
-    "noxian-conquest": "The march of empire — Swain's grand vision realized in steel.",
-    "ionian-war": "Ionia rises against invaders. The Unforgiven awaits.",
-    "freljord-siege": "An endless winter assault led by the Barbarian King.",
-    "void-incursion": "Reality tears open. The Terror of the Void hungers.",
-    "shadow-isles": "A cursed mist swallows all. The Iron Revenant rules the dead.",
-    "piltover-uprising": "The City of Progress turns its inventions to war.",
-    "bilgewater-docks": "Lawless ports ruled by the Saltwater Scourge.",
+    "map-1-demacia":      "The sunlit borderlands of Demacia. A trial for fledgling summoners. F-rank champions recommended.",
+    "map-2-noxus":        "Blood-soaked battlefields where only the strong advance. Bring an E-rank champion.",
+    "map-3-freljord":     "Unforgiving frozen tundra ruled by warring tribes. D-rank champions and above.",
+    "map-4-ionia":        "Sacred grounds testing balance, focus, and resolve. Enemies hit harder — D/C rank advised.",
+    "map-5-piltover":     "The City of Progress turns its inventions to war. C-rank champions recommended.",
+    "map-6-bilgewater":   "Lawless ports ruled by the Saltwater Scourge. Bring your best B-rank champion.",
+    "map-7-shadow-isles": "A cursed mist swallows all. The Iron Revenant rules the dead. A-rank required.",
+    "map-8-void":         "Reality tears open. The Terror of the Void hungers. S-rank only — the final challenge.",
 }
 
 
-def _rank_for_floor(total_floors: int, floor_num: int) -> str:
-    """Progressive enemy rank scaling across the dungeon's floors."""
-    ranks = ["F", "E", "D", "C", "B", "A", "S"]
+# ---------------------------------------------------------------------------
+# Floor generation
+# ---------------------------------------------------------------------------
+
+def _rank_for_floor(map_index: int, total_floors: int, floor_num: int) -> str:
+    """
+    Enemy rank scales with both the map number and floor position within the map.
+    Map 1 → mostly F/E; Map 8 → mostly A/S.
+    """
+    all_ranks = ["F", "E", "D", "C", "B", "A", "S"]
+    # Base rank index determined by which map this is (0-7 → rank offset 0-4)
+    base_idx = min(map_index // 2, 4)
+    # Within the map, enemies get tougher on later floors
     frac = floor_num / max(1, total_floors)
-    idx = min(len(ranks) - 1, int(frac * len(ranks)))
-    return ranks[idx]
+    floor_bonus = int(frac * 2)  # +0 early floors, +1 mid, +2 boss area
+    idx = min(len(all_ranks) - 1, base_idx + floor_bonus)
+    return all_ranks[idx]
 
 
 def _checkpoints_for(total_floors: int) -> set[int]:
     return {f for f in range(10, total_floors, 10)}
 
 
-def _hazard_for_floor(rng: random.Random, floor_num: int, boss_floor: bool) -> str:
+def _hazard_for_floor(rng: random.Random, floor_num: int, boss_floor: bool, map_index: int) -> str:
     if boss_floor:
         return ""
-    # ~35% of non-boss floors carry a hazard, deterministic per dungeon/floor.
-    if rng.random() < 0.35:
+    # Hazard frequency increases slightly on later maps
+    chance = 0.25 + map_index * 0.03
+    if rng.random() < chance:
         return rng.choice(HAZARDS)
     return ""
 
 
 def build_floors(slug: str, region: str, total_floors: int,
-                 boss_name: str, boss_passive: str) -> list[DungeonFloor]:
-    """Generate the DungeonFloor documents for one dungeon."""
+                 boss_name: str, boss_passive: str, map_index: int) -> list[DungeonFloor]:
     roster = REGION_ROSTERS[region]
     checkpoints = _checkpoints_for(total_floors)
-    rng = random.Random(slug)  # deterministic per dungeon
+    rng = random.Random(slug)
     floors: list[DungeonFloor] = []
 
     for floor_num in range(1, total_floors + 1):
         boss_floor = floor_num == total_floors
-        rank = _rank_for_floor(total_floors, floor_num)
-        hazard = _hazard_for_floor(rng, floor_num, boss_floor)
+        rank = _rank_for_floor(map_index, total_floors, floor_num)
+        hazard = _hazard_for_floor(rng, floor_num, boss_floor, map_index)
+
+        # Boss stats scale with map depth
+        boss_hp_mult = 1.2 + map_index * 0.15
+        boss_atk_mult = 1.1 + map_index * 0.10
 
         if boss_floor:
             enemies = [{
                 "name": boss_name,
                 "rank": rank,
-                "level": 10 + floor_num,
-                "hp_mult": 1.0,
-                "atk_mult": 1.0,
-                "def_mult": 1.0,
+                "level": 5 + total_floors + map_index * 5,
+                "hp_mult": boss_hp_mult,
+                "atk_mult": boss_atk_mult,
+                "def_mult": 1.0 + map_index * 0.05,
             }]
         else:
-            count = rng.randint(1, 3)
+            # Enemy count increases on later maps
+            max_count = min(3, 1 + map_index // 3)
+            count = rng.randint(1, max_count)
             enemies = []
             for _ in range(count):
                 name = rng.choice(roster)
                 enemies.append({
                     "name": name,
                     "rank": rank,
-                    "level": max(1, floor_num),
-                    "hp_mult": round(rng.uniform(0.9, 1.15), 2),
-                    "atk_mult": round(rng.uniform(0.9, 1.1), 2),
-                    "def_mult": round(rng.uniform(0.9, 1.1), 2),
+                    "level": max(1, floor_num + map_index * 2),
+                    "hp_mult":  round(rng.uniform(0.9, 1.15), 2),
+                    "atk_mult": round(rng.uniform(0.9, 1.10), 2),
+                    "def_mult": round(rng.uniform(0.9, 1.10), 2),
                 })
+
+        # Gold and XP scale with map depth
+        gold_base = 50 + map_index * 30
+        xp_base = 20 + map_index * 15
 
         floors.append(DungeonFloor(
             dungeon_slug=slug,
@@ -140,9 +154,9 @@ def build_floors(slug: str, region: str, total_floors: int,
             boss_passive=boss_passive if boss_floor else "",
             hazard=hazard,
             checkpoint_floor=floor_num in checkpoints,
-            reward_gold=50 + floor_num * 15,
-            reward_xp=20 + floor_num * 8,
-            extra_drop_chance=0.10,
+            reward_gold=gold_base + floor_num * (10 + map_index * 5),
+            reward_xp=xp_base + floor_num * (5 + map_index * 3),
+            extra_drop_chance=0.08 + map_index * 0.015,
         ))
     return floors
 
@@ -150,14 +164,20 @@ def build_floors(slug: str, region: str, total_floors: int,
 async def seed_dungeons() -> bool:
     """Create all Dungeon and DungeonFloor documents. Idempotent.
 
-    Returns True if seeding ran, False if dungeons already existed.
+    If old-style dungeons exist (pre-linear-chain), wipes them and reseeds.
+    Returns True if seeding ran, False if already up to date.
     """
-    existing = await Dungeon.find_one(Dungeon.slug == "demacia-outskirts")
-    if existing is not None:
+    # Check if new-style linear maps already exist
+    existing_new = await Dungeon.find_one(Dungeon.slug == "map-1-demacia")
+    if existing_new is not None:
         return False
 
-    for (slug, name, region, total_floors, boss_name,
-         boss_passive, unlock_req, rank) in DUNGEON_DEFS:
+    # Wipe any legacy dungeons so old/new don't coexist
+    await Dungeon.delete_all()
+    await DungeonFloor.delete_all()
+
+    for idx, (slug, name, region, total_floors, boss_name,
+               boss_passive, unlock_req, rank) in enumerate(DUNGEON_DEFS):
         dungeon = Dungeon(
             slug=slug,
             name=name,
@@ -173,7 +193,7 @@ async def seed_dungeons() -> bool:
         )
         await dungeon.insert()
 
-        floors = build_floors(slug, region, total_floors, boss_name, boss_passive)
+        floors = build_floors(slug, region, total_floors, boss_name, boss_passive, idx)
         for floor in floors:
             await floor.insert()
 
