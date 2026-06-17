@@ -44,9 +44,9 @@ def build_champion_stat_block(champ, rune_page=None) -> str:
         apply_rune_bonuses(unit, rune_page, lvl)
 
     lines = [
-        f"❤️ **HP** {int(unit.hp_max):,}　⚔️ **ATK** {int(unit.atk):,}　🛡️ **Armor** {int(unit.def_stat):,}　💨 **SPD** {unit.spd}",
-        f"🎯 **Crit** {unit.crit_chance:.1f}%　💥 **Crit DMG** {unit.crit_dmg:.0f}%　🩸 **Lifesteal** {unit.lifesteal:.1f}%　💨 **Dodge** {unit.dodge_chance:.1f}%",
-        f"🔱 **Arm Pen** {unit.armor_pen:.0f}　🔮 **Mag Pen** {unit.magic_pen:.0f}　🧲 **Mag Res** {unit.magic_resist:.0f}　⚡ **Atk Spd** {unit.attack_speed:.2f}×",
+        f"HP {int(unit.hp_max):,}   ATK {int(unit.atk):,}   Armor {int(unit.def_stat):,}   SPD {unit.spd}",
+        f"Crit {unit.crit_chance:.1f}%   Crit DMG {unit.crit_dmg:.0f}%   Lifesteal {unit.lifesteal:.1f}%   Dodge {unit.dodge_chance:.1f}%",
+        f"Arm Pen {unit.armor_pen:.0f}   Mag Pen {unit.magic_pen:.0f}   Mag Res {unit.magic_resist:.0f}   Atk Spd {unit.attack_speed:.2f}×",
     ]
     return "\n".join(lines)
 
@@ -60,16 +60,16 @@ def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Em
     )
 
     embed.add_field(
-        name="📊 Stats",
+        name="Stats",
         value=build_champion_stat_block(champ, rune_page),
         inline=False,
     )
 
     flags = []
     if champ.locked:                        flags.append("🔒 Locked")
-    if champ.in_trade:                      flags.append("🤝 In Trade")
-    if champ.in_market:                     flags.append("🏪 Listed")
-    if getattr(champ, "is_active", False):  flags.append("⚔️ Active")
+    if champ.in_trade:                      flags.append("In Trade")
+    if champ.in_market:                     flags.append("Listed")
+    if getattr(champ, "is_active", False):  flags.append("Active")
     if getattr(champ, "favorite", False):   flags.append("⭐ Fav")
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
@@ -104,9 +104,9 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
     flags = []
     if itm.locked:       flags.append("🔒 Locked")
     if getattr(itm, "favorite", False): flags.append("⭐ Fav")
-    if itm.in_trade:     flags.append("🤝 In Trade")
-    if itm.in_market:    flags.append("🏪 Listed")
-    if itm.equipped_to:  flags.append("⚔️ Equipped")
+    if itm.in_trade:     flags.append("In Trade")
+    if itm.in_market:    flags.append("Listed")
+    if itm.equipped_to:  flags.append("Equipped")
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
 
@@ -116,17 +116,17 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
 def reward_embed(rewards: dict, title: str = "Rewards") -> discord.Embed:
     embed = discord.Embed(title=title, color=0xFFD700)
     if rewards.get("gold"):
-        embed.add_field(name="💰 Gold", value=str(rewards["gold"]), inline=True)
+        embed.add_field(name="Gold", value=str(rewards["gold"]), inline=True)
     if rewards.get("seals"):
-        embed.add_field(name="🔏 Blacksmith's Seal", value=str(rewards["seals"]), inline=True)
+        embed.add_field(name="Blacksmith's Seal", value=str(rewards["seals"]), inline=True)
     if rewards.get("summon_tokens"):
-        embed.add_field(name="🎟️ Summon Tokens", value=str(rewards["summon_tokens"]), inline=True)
+        embed.add_field(name="Summon Tokens", value=str(rewards["summon_tokens"]), inline=True)
     if rewards.get("champions"):
         lines = [f"• {c['name']} [{c['rank']}]" for c in rewards["champions"]]
-        embed.add_field(name="🏆 Champions", value="\n".join(lines), inline=False)
+        embed.add_field(name="Champions", value="\n".join(lines), inline=False)
     if rewards.get("items"):
         lines = [f"• {i['name']} [{i['rank']}]" for i in rewards["items"]]
-        embed.add_field(name="⚔️ Items", value="\n".join(lines), inline=False)
+        embed.add_field(name="Items", value="\n".join(lines), inline=False)
     return embed
 
 
@@ -175,9 +175,9 @@ def _champion_page_embed(champs, page: int) -> discord.Embed:
         flags = []
         if c.locked:                flags.append("🔒")
         if getattr(c, "favorite", False): flags.append("⭐")
-        if getattr(c, "is_active", False): flags.append("⚔️ Active")
-        if c.in_market:             flags.append("🏪")
-        if c.in_trade:              flags.append("🤝")
+        if getattr(c, "is_active", False): flags.append("Active")
+        if c.in_market:             flags.append("Listed")
+        if c.in_trade:              flags.append("Trade")
         suffix = ("  " + " ".join(flags)) if flags else ""
         did = c.display_id or "?"
         lines.append(f"#{did:<4} {c.name}  [{c.rank}] Lv.{c.level}{suffix}")
@@ -188,7 +188,7 @@ def _champion_page_embed(champs, page: int) -> discord.Embed:
         "\nUse `/champion-select <id>` to set as your active champion."
     )
     embed = discord.Embed(
-        title=f"🏆 Your Champions ({total} total) — Page {page + 1}/{total_pages}",
+        title=f"Champions ({total}) — Page {page + 1}/{total_pages}",
         description=desc,
         color=0x5865F2,
     )
@@ -207,17 +207,17 @@ def _item_page_embed(items, page: int) -> discord.Embed:
         flags = []
         if itm.locked:       flags.append("🔒")
         if getattr(itm, "favorite", False): flags.append("⭐")
-        if itm.in_market:    flags.append("🏪")
-        if itm.in_trade:     flags.append("🤝")
+        if itm.in_market:    flags.append("Listed")
+        if itm.in_trade:     flags.append("Trade")
         if itm.equipped_to:
-            flags.append(f"⚔️{itm.main_stat_type}")
+            flags.append(f"Equip/{itm.main_stat_type}")
         suffix = ("  " + " ".join(flags)) if flags else ""
         lines.append(f"#{i:<3} {itm.name}  [{itm.rank}] +{itm.enhancement}{suffix}")
 
     desc = "\n".join(lines) if lines else "*No items.*"
     desc += "\n\nUse `/item-info <number>` to view details."
     embed = discord.Embed(
-        title=f"🎒 Your Items ({total} total) — Page {page + 1}/{total_pages}",
+        title=f"Items ({total}) — Page {page + 1}/{total_pages}",
         description=desc,
         color=0x5865F2,
     )
@@ -313,14 +313,11 @@ def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
         stats = CHAMPION_BASE_STATS.get(rank, {})
 
         embed = discord.Embed(
-            title=f"{title_prefix}🎴 {name}",
+            title=f"{title_prefix}{name}",
             description=(
                 f"*{title_text}*\n\n"
                 f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] {role}**\n\n"
-                f"❤️ HP: **{stats.get('hp', '?'):,}**\n"
-                f"⚔️ ATK: **{stats.get('atk', '?')}**\n"
-                f"🛡️ DEF: **{stats.get('def', '?')}**\n"
-                f"💨 SPD: **{stats.get('spd', '?')}**"
+                f"HP {stats.get('hp', '?'):,}   ATK {stats.get('atk', '?')}   DEF {stats.get('def', '?')}   SPD {stats.get('spd', '?')}"
             ),
             color=color,
         )
@@ -334,12 +331,12 @@ def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
         secondary = r.get("secondary_stat", "")
         secondary_val = r.get("secondary_val", 0)
         embed = discord.Embed(
-            title=f"{title_prefix}🎒 {name}",
+            title=f"{title_prefix}{name}",
             description=(
                 f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] Item**\n\n"
-                f"{_SUMMON_STAT_EMOJI.get(stat_type, '📊')} Main Stat: **{stat_type.upper()}**\n"
-                f"✨ Passive: **{passive.replace('_passive', '').replace('_', ' ').title()}**\n"
-                f"📊 Secondary: **{secondary.replace('_', ' ').title()} +{secondary_val/10:.1f}%**"
+                f"Main Stat: **{stat_type.upper()}**\n"
+                f"Passive: **{passive.replace('_passive', '').replace('_', ' ').title()}**\n"
+                f"Secondary: **{secondary.replace('_', ' ').title()} +{secondary_val/10:.1f}%**"
             ),
             color=color,
         )
@@ -393,9 +390,9 @@ class SummonRevealView(discord.ui.View):
             default=None,
         )
         if best:
-            lines.append(f"\n✨ Best Pull: **{best.get('name', best['type'])}** [{best.get('rank', '?')}]")
+            lines.append(f"\nBest: **{best.get('name', best['type'])}** [{best.get('rank', '?')}]")
         return discord.Embed(
-            title="🎰 10-Pull Complete!",
+            title="10-Pull Summary",
             description="\n".join(lines),
             color=0xFFD700,
         )
@@ -518,7 +515,7 @@ class ConfirmView(discord.ui.View):
         if self.message:
             try:
                 await self.message.edit(
-                    content="⏰ Confirmation expired. Run the command again.",
+                    content="Confirmation expired. Run the command again.",
                     embed=None,
                     view=self,
                 )

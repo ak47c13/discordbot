@@ -7,7 +7,7 @@ from utils.embeds import COLOR_INFO
 
 HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
     "getting-started": (
-        "🎮 Getting Started",
+        "Getting Started",
         [
             "Welcome! Here's the core gameplay loop:\n\n"
             "1. **/start** — register and claim starter rewards\n"
@@ -20,7 +20,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "champions": (
-        "⚔️ Champions",
+        "Champions",
         [
             "**Ranks:** F → E → D → C → B → A → S (higher is stronger)\n\n"
             "**Fusion:** Combine 3 identical same-rank champions into 1 of the next rank.\n"
@@ -34,7 +34,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "items": (
-        "🎒 Items",
+        "Items",
         [
             "Items are equipped to champions for stat bonuses and passives.\n\n"
             "• `/items` — view your inventory (each item has a number)\n"
@@ -46,7 +46,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "blacksmith": (
-        "⚒️ Blacksmith",
+        "Blacksmith",
         [
             "Improve your items:\n\n"
             "• **/enhance <number>** — +1 enhancement level (boosts main stat).\n"
@@ -59,7 +59,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "combat": (
-        "🛡️ Combat",
+        "Combat",
         [
             "Battles are fully automatic. You select your champion; the engine fights.\n\n"
             "**Champion:** Use `/champion-select <id>` to set your active champion.\n"
@@ -72,7 +72,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "economy": (
-        "💰 Economy",
+        "Economy",
         [
             "**Gold** — earned from hunts; spent on fusion, leveling, and blacksmith.\n"
             "**Summon Tokens** — spent on /summon; earned daily and from raids.\n\n"
@@ -84,7 +84,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "raids": (
-        "🐉 Raids",
+        "Raids",
         [
             "Team up with up to 5 players against a powerful boss:\n\n"
             "• **/raid-create <zone>** — open a raid queue (you become leader)\n"
@@ -95,7 +95,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "commands": (
-        "📋 Command List",
+        "Command List",
         [
             "**Account:** /start, /profile, /stamina, /daily, /leaderboard\n"
             "**Champions:** /champions, /champion-info, /fuse-champions, "
@@ -133,7 +133,7 @@ def _topic_embed(topic: str) -> discord.Embed:
 
 def _main_embed() -> discord.Embed:
     embed = discord.Embed(
-        title="📖 Help",
+        title="Help",
         description=(
             "Welcome to the auto-battler RPG! Pick a topic below to learn more.\n\n"
             + "\n".join(f"• **{label}**" for label in TOPIC_LABELS.values())

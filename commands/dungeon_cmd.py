@@ -82,18 +82,18 @@ async def _dungeon_choices(interaction: discord.Interaction, current: str) -> li
 def _rewards_lines(rewards: dict) -> str:
     lines = []
     if rewards.get("gold"):
-        lines.append(f"💰 {rewards['gold']} gold")
+        lines.append(f"{rewards['gold']} gold")
     if rewards.get("xp"):
-        lines.append(f"✨ {rewards['xp']} XP")
+        lines.append(f"{rewards['xp']} XP")
     if rewards.get("rune_shards"):
-        lines.append(f"🔮 {rewards['rune_shards']} rune shard")
+        lines.append(f"{rewards['rune_shards']} rune shard")
     if rewards.get("rune_fragments"):
-        lines.append(f"💎 {rewards['rune_fragments']} rune fragment")
+        lines.append(f"{rewards['rune_fragments']} rune fragment")
     for lv in rewards.get("leveled", []):
-        lines.append(f"⬆️ {lv['name']} reached Lv.{lv['level']}!")
+        lines.append(f"{lv['name']} reached Lv.{lv['level']}!")
     bonus = rewards.get("bonus")
     if bonus:
-        label = "🎉 First Clear Bonus" if bonus.get("type") == "first_clear" else "📅 Daily Clear Bonus"
+        label = "First Clear Bonus" if bonus.get("type") == "first_clear" else "Daily Clear Bonus"
         b = []
         if bonus.get("gold"):
             b.append(f"{bonus['gold']} gold")
@@ -124,7 +124,7 @@ class DungeonCog(commands.Cog):
         }
         completed_slugs = {s for s, p in progresses.items() if p.completions > 0}
 
-        embed = discord.Embed(title="🗺️ Dungeon Map", color=0x5865F2)
+        embed = discord.Embed(title="Dungeon Map", color=0x5865F2)
         for d in dungeons:
             prog = progresses.get(d.slug)
             locked = self._is_locked(d, completed_slugs, completed_lens)
@@ -248,9 +248,9 @@ class DungeonCog(commands.Cog):
             res = await DungeonProgress.find_one(
                 DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
             next_floor = floor_num + 1 if floor_num < units["total_floors"] else None
-            title = f"🏆 Floor {floor_num} Cleared!"
+            title = f"Floor {floor_num} Cleared"
             if next_floor is None:
-                title = f"👑 {units['dungeon_name']} CONQUERED!"
+                title = f"{units['dungeon_name']} Conquered!"
             embed = discord.Embed(title=title, color=0x00CC44)
             embed.description = f"Checkpoint: Floor {res.checkpoint_floor}"
             if next_floor:
@@ -262,7 +262,7 @@ class DungeonCog(commands.Cog):
             res = await DungeonProgress.find_one(
                 DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
             embed = discord.Embed(
-                title="💀 Defeated",
+                title="Defeated",
                 description=f"You fell on Floor {floor_num}. Restarting from checkpoint Floor {res.checkpoint_floor}.",
                 color=0xFF3333,
             )
@@ -341,8 +341,8 @@ class DungeonCog(commands.Cog):
             return
 
         progresses = await DungeonProgress.find(DungeonProgress.owner_id == uid).to_list()
-        embed = discord.Embed(title="🗺️ Your Dungeon Progress", color=0x5865F2)
-        embed.description = f"⚡ Stamina: {user.stamina}/{user.max_stamina}" if user else ""
+        embed = discord.Embed(title="Dungeon Progress", color=0x5865F2)
+        embed.description = f"Stamina: {user.stamina}/{user.max_stamina}" if user else ""
         if not progresses:
             embed.add_field(name="No progress yet", value="Use /dungeon-enter to begin.", inline=False)
         for p in progresses:
@@ -420,7 +420,7 @@ class DungeonCog(commands.Cog):
             )
         embed.add_field(
             name="Drop Table",
-            value="💰 Gold • ✨ XP • 🔮 Rune Shards (10%) • 💎 Rune Fragments (2%)",
+            value="Gold • XP • Rune Shards (10%) • Rune Fragments (2%)",
             inline=False,
         )
         await interaction.followup.send(embed=embed)
@@ -444,7 +444,7 @@ class DungeonCog(commands.Cog):
             done = "✅" if p.completions > 0 else ""
             lines.append(f"#{i} {name} — Floor {p.highest_floor}/{d.total_floors} {done}")
         embed = discord.Embed(
-            title=f"🏆 {d.name} — Leaderboard",
+            title=f"{d.name} — Leaderboard",
             description="\n".join(lines) if lines else "No challengers yet.",
             color=0xFFD700,
         )

@@ -25,20 +25,20 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
         color = AURA_COLOR_BY_RANK.get(champ.rank, COLOR_INFO)
 
     embed = discord.Embed(
-        title=f"📜 {target.display_name}'s Profile",
+        title=f"{target.display_name}'s Profile",
         color=color,
     )
 
     # ── Economy row ────────────────────────────────────────────────
     seals = getattr(profile_user, "blacksmith_seals", 0)
-    embed.add_field(name="💰 Gold",             value=f"{profile_user.gold:,}",        inline=True)
-    embed.add_field(name="🎟️ Summon Tokens",    value=str(profile_user.summon_tokens), inline=True)
-    embed.add_field(name="🔏 Blacksmith Seals", value=str(seals),                      inline=True)
+    embed.add_field(name="Gold",             value=f"{profile_user.gold:,}",        inline=True)
+    embed.add_field(name="Summon Tokens",    value=str(profile_user.summon_tokens), inline=True)
+    embed.add_field(name="Blacksmith Seals", value=str(seals),                      inline=True)
 
     # ── Stamina ────────────────────────────────────────────────────
     bar = progress_bar(profile_user.stamina, profile_user.max_stamina)
     embed.add_field(
-        name="⚡ Stamina",
+        name="Stamina",
         value=f"{profile_user.stamina}/{profile_user.max_stamina}  {bar}\nFull in: {stamina_full_in(profile_user)}",
         inline=False,
     )
@@ -51,7 +51,7 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
         rp = getattr(profile_user, "rune_page", None)
 
         embed.add_field(
-            name=f"⚔️ {champ.name} [{champ.rank}] Lv.{champ.level}  •  #{champ.display_id}",
+            name=f"{champ.name} [{champ.rank}] Lv.{champ.level}  •  #{champ.display_id}",
             value=build_champion_stat_block(champ, rp),
             inline=False,
         )
@@ -63,7 +63,7 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
             blues   = sum(1 for s in rp.blues   if s.rune_id)
             quints  = sum(1 for s in rp.quints  if s.rune_id)
             embed.add_field(
-                name="💎 Rune Page",
+                name="Rune Page",
                 value=f"🔴 {reds}/9　🟡 {yellows}/9　🔵 {blues}/9　⚪ {quints}/3",
                 inline=False,
             )
@@ -72,12 +72,12 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
         items = await ItemInstance.find(ItemInstance.equipped_to == str(champ.id)).to_list()
         if items:
             item_lines = [f"Slot {itm.equipment_slot}: **{itm.name}** [{itm.rank}] +{itm.enhancement}" for itm in items]
-            embed.add_field(name="🎒 Equipped Items", value="\n".join(item_lines), inline=False)
+            embed.add_field(name="Equipped Items", value="\n".join(item_lines), inline=False)
         else:
-            embed.add_field(name="🎒 Equipped Items", value="None equipped", inline=False)
+            embed.add_field(name="Equipped Items", value="None equipped", inline=False)
     else:
         embed.add_field(
-            name="⚔️ Active Champion",
+            name="Active Champion",
             value="None — use `/champion-select <id>` to set one.",
             inline=False,
         )
@@ -85,7 +85,7 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
     # ── Footer ─────────────────────────────────────────────────────
     champ_count = await ChampionInstance.find(ChampionInstance.owner_id == str(target.id)).count()
     embed.set_footer(
-        text=f"⚔️ {champ_count} champions  •  🏆 {getattr(profile_user, 'raids_completed', 0)} raids  •  Joined {profile_user.created_at.strftime('%Y-%m-%d')}"
+        text=f"{champ_count} champions  •  {getattr(profile_user, 'raids_completed', 0)} raids  •  Joined {profile_user.created_at.strftime('%Y-%m-%d')}"
     )
     return embed
 
@@ -118,7 +118,7 @@ class ProfileCog(commands.Cog):
         mins = STAMINA_REGEN_SECONDS // 60
         bar = progress_bar(user.stamina, user.max_stamina)
         embed = discord.Embed(
-            title="⚡ Stamina",
+            title="Stamina",
             description=(
                 f"**{user.stamina} / {user.max_stamina}**\n{bar}\n\n"
                 f"Regenerates 1 per {mins} minutes.\n"
@@ -140,12 +140,12 @@ class ProfileCog(commands.Cog):
 
         if type == "gold":
             users = await User.find(User.registered == True).sort(-User.gold).limit(10).to_list()
-            rows = [f"**{i}.** {u.username} — 💰 {u.gold:,} gold" for i, u in enumerate(users, 1)]
-            title = "🏆 Leaderboard — Gold"
+            rows = [f"**{i}.** {u.username} — {u.gold:,} gold" for i, u in enumerate(users, 1)]
+            title = "Leaderboard — Gold"
         elif type == "raids":
             users = await User.find(User.registered == True).sort(-User.raids_completed).limit(10).to_list()
-            rows = [f"**{i}.** {u.username} — 🏆 {getattr(u, 'raids_completed', 0)} raids" for i, u in enumerate(users, 1)]
-            title = "🏆 Leaderboard — Raids Completed"
+            rows = [f"**{i}.** {u.username} — {getattr(u, 'raids_completed', 0)} raids" for i, u in enumerate(users, 1)]
+            title = "Leaderboard — Raids"
         else:
             users = await User.find(User.registered == True).to_list()
             counts = []
@@ -153,8 +153,8 @@ class ProfileCog(commands.Cog):
                 cnt = await ChampionInstance.find(ChampionInstance.owner_id == u.discord_id).count()
                 counts.append((u.username, cnt))
             counts.sort(key=lambda x: -x[1])
-            rows = [f"**{i}.** {name} — ⚔️ {cnt} champions" for i, (name, cnt) in enumerate(counts[:10], 1)]
-            title = "🏆 Leaderboard — Champions"
+            rows = [f"**{i}.** {name} — {cnt} champions" for i, (name, cnt) in enumerate(counts[:10], 1)]
+            title = "Leaderboard — Champions"
 
         if not rows:
             await interaction.followup.send(embed=error_embed("No players on the leaderboard yet."), ephemeral=True)
@@ -185,8 +185,8 @@ class ProfileCog(commands.Cog):
         user.last_daily = now
         await user.save()
         embed = discord.Embed(
-            title="🎁 Daily Reward",
-            description=f"+{DAILY_SUMMON_TOKENS} Summon Tokens!",
+            title="Daily Reward",
+            description=f"+{DAILY_SUMMON_TOKENS} Summon Tokens",
             color=COLOR_GOLD,
         )
         await interaction.followup.send(embed=embed, ephemeral=True)

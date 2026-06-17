@@ -82,10 +82,10 @@ def champion_status_icon(hp, hp_max) -> str:
 
 def _title_for(battle_type: str, zone_name: str) -> str:
     if battle_type == "boss":
-        return "🏰 BOSS BATTLE"
+        return "BOSS BATTLE"
     if battle_type == "raid":
-        return "🔴 RAID"
-    return f"⚔️ {zone_name} Battle"
+        return "RAID"
+    return f"{zone_name} Battle"
 
 
 def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner_url="", zone_key="") -> discord.Embed:
@@ -95,8 +95,8 @@ def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner
         color=0x5865F2,
     )
     roster = "\n".join(f"• {n}" for n in player_names) or "—"
-    embed.add_field(name="⚔️ Your Team", value=roster, inline=True)
-    embed.add_field(name="🐲 Enemy", value=enemy_name or "—", inline=True)
+    embed.add_field(name="Your Team", value=roster, inline=True)
+    embed.add_field(name="Enemy", value=enemy_name or "—", inline=True)
     if banner_url:
         embed.set_image(url=banner_url)
     # Boss portrait thumbnail from the start
@@ -167,10 +167,10 @@ def build_unit_bar(unit: dict, is_enemy: bool = False) -> str:
     hp_emoji = "❤️" if is_enemy else "💚"
 
     lines = [
-        f"{'👹' if is_enemy else '⚔️'} **{name}** [{rank}] Lv.{level}{ult_str}{' ' + status_str if status_str else ''}",
+        f"**{name}** [{rank}] Lv.{level}{ult_str}{' ' + status_str if status_str else ''}",
         f"{hp_emoji} {hp:,} / {hp_max:,}",
         hp_bar,
-        f"💧 {mana}/100",
+        f"MP {mana}/100",
         mana_bar,
     ]
     return "\n".join(lines)
@@ -180,7 +180,7 @@ def _mana_ready_line(rs: dict) -> str:
     ready = [name for name, mana in rs.get("mana_states", {}).items() if mana >= 100]
     if not ready:
         return ""
-    return "✨ **Mana Ready:** " + ", ".join(ready[:6])
+    return "**Ult Ready:** " + ", ".join(ready[:6])
 
 
 def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, banner_url="") -> discord.Embed:
@@ -201,30 +201,29 @@ def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, 
     player_units = rs.get("player_units")
 
     embed = discord.Embed(
-        title=f"⚔️ {zone_name} — Round {rs['round']}/{battle_session.max_rounds}",
+        title=f"{zone_name} — Round {rs['round']}/{battle_session.max_rounds}",
         color=0xE67E22,
     )
 
     if enemy_units or player_units:
         # Unit bars are rendered in the generated battle image (attachment://battle.png).
         # Only show the event log as text here.
-        embed.add_field(name="📜 Recent Events", value=(recent_text or "—")[:1024], inline=False)
-        # Compact unit status line (alive count + downed count) so players have a quick glance
+        embed.add_field(name="Recent Events", value=(recent_text or "—")[:1024], inline=False)
         if enemy_units:
             alive_e = sum(1 for u in enemy_units if u.get("hp", 0) > 0)
-            embed.add_field(name="👹 Enemies", value=f"{alive_e}/{len(enemy_units)} alive", inline=True)
+            embed.add_field(name="Enemies", value=f"{alive_e}/{len(enemy_units)} alive", inline=True)
         if player_units:
             alive_p = sum(1 for u in player_units if u.get("hp", 0) > 0)
-            embed.add_field(name="⚔️ Team", value=f"{alive_p}/{len(player_units)} alive", inline=True)
+            embed.add_field(name="Team", value=f"{alive_p}/{len(player_units)} alive", inline=True)
     else:
         # Fallback for legacy snapshots without per-unit data.
         enemy_label = _enemy_label(battle_session)
         mana_line = _mana_ready_line(rs)
         desc_parts = [
-            f"🐲 **{enemy_label}**\n❤️ {hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
-            f"⚔️ **Your Team**\n❤️ {hp_display(rs['player_hp'], rs['player_hp_max'])}",
+            f"**{enemy_label}**\n{hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
+            f"**Your Team**\n{hp_display(rs['player_hp'], rs['player_hp_max'])}",
             DIVIDER,
-            f"📜 **Recent Events**\n{recent_text}",
+            f"**Recent Events**\n{recent_text}",
         ]
         if mana_line:
             desc_parts.append(DIVIDER)
@@ -257,20 +256,20 @@ def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_
     if winner == 0 and rewards:
         lines = []
         if rewards.get("gold"):
-            lines.append(f"🪙 **{rewards['gold']:,}** Gold")
+            lines.append(f"**{rewards['gold']:,}** Gold")
         if rewards.get("summon_tokens"):
-            lines.append(f"🎟️ **{rewards['summon_tokens']}** Summon Tokens")
+            lines.append(f"**{rewards['summon_tokens']}** Summon Tokens")
         if rewards.get("blacksmith_seals"):
-            lines.append(f"🔨 **{rewards['blacksmith_seals']}** Blacksmith Seals")
+            lines.append(f"**{rewards['blacksmith_seals']}** Blacksmith Seals")
         if rewards.get("rune_shards"):
-            lines.append(f"💎 **{rewards['rune_shards']}** Rune Shards")
+            lines.append(f"**{rewards['rune_shards']}** Rune Shards")
         if rewards.get("rune_fragments"):
-            lines.append(f"✨ **{rewards['rune_fragments']}** Rune Fragments")
+            lines.append(f"**{rewards['rune_fragments']}** Rune Fragments")
         if rewards.get("champion"):
             c = rewards["champion"]
-            lines.append(f"⚔️ **{c['name']}** [{c['rank']}] summoned!")
+            lines.append(f"**{c['name']}** [{c['rank']}] summoned!")
         if lines:
-            embed.add_field(name="🎁 Rewards", value="\n".join(lines), inline=False)
+            embed.add_field(name="Rewards", value="\n".join(lines), inline=False)
 
     embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
     return embed

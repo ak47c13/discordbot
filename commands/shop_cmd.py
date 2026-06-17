@@ -20,10 +20,10 @@ from utils.db_session import get_motor_client
 
 def _shop_main_embed(region_name: str, user_tokens: int, user_gold: int) -> discord.Embed:
     embed = discord.Embed(
-        title="🛒 Shop",
+        title="Shop",
         description=(
-            f"**Weekly Champion Region:** {region_name}\n\n"
-            f"💰 Gold: **{user_gold:,}** | 🎟️ Tokens: **{user_tokens}**\n\n"
+            f"**Weekly Region:** {region_name}\n\n"
+            f"Gold: **{user_gold:,}** | Tokens: **{user_tokens}**\n\n"
             "Select a category below to browse pulls or buy tokens."
         ),
         color=COLOR_GOLD,
@@ -51,10 +51,10 @@ def _shop_main_embed(region_name: str, user_tokens: int, user_gold: int) -> disc
 class ShopCategorySelect(discord.ui.Select):
     def __init__(self):
         options = [
-            discord.SelectOption(label="⚔️ Champions",  value="champion", description="Pull champion cards"),
-            discord.SelectOption(label="🎒 Items",      value="item",     description="Pull item cards"),
-            discord.SelectOption(label="🔮 Runes",      value="rune",     description="Pull rune cards"),
-            discord.SelectOption(label="🪙 Buy Tokens", value="tokens",   description="Exchange gold for summon tokens"),
+            discord.SelectOption(label="Champions",  value="champion", description="Pull champion cards"),
+            discord.SelectOption(label="Items",      value="item",     description="Pull item cards"),
+            discord.SelectOption(label="Runes",      value="rune",     description="Pull rune cards"),
+            discord.SelectOption(label="Buy Tokens", value="tokens",   description="Exchange gold for summon tokens"),
         ]
         super().__init__(placeholder="Choose a category…", options=options)
 
@@ -146,7 +146,7 @@ class TokenBundleView(discord.ui.View):
                         res = await buy_token_bundle(uid, index, session=session)
                         embed = success_embed(
                             f"Bought **{res['tokens_gained']} token(s)** for **{res['gold_spent']:,} gold**!",
-                            title="🪙 Purchase Complete",
+                            title="Purchase Complete",
                         )
                         await interaction.followup.send(embed=embed, ephemeral=True)
                     except ShopError as e:
@@ -171,7 +171,7 @@ class ShopView(discord.ui.View):
         return True
 
     async def show_pull_panel(self, interaction: discord.Interaction, pool_type: str):
-        label = {"champion": "⚔️ Champion", "item": "🎒 Item", "rune": "🔮 Rune"}.get(pool_type, pool_type.title())
+        label = {"champion": "Champion", "item": "Item", "rune": "Rune"}.get(pool_type, pool_type.title())
         embed = discord.Embed(
             title=f"{label} Pulls",
             description=(
@@ -187,7 +187,7 @@ class ShopView(discord.ui.View):
 
     async def show_token_bundles(self, interaction: discord.Interaction):
         embed = discord.Embed(
-            title="🪙 Buy Summon Tokens",
+            title="Buy Summon Tokens",
             description="\n".join(
                 f"`{i}` **{b['label']}** — {b['gold']:,} gold → {b['tokens']} token(s)"
                 for i, b in enumerate(TOKEN_BUNDLES)
