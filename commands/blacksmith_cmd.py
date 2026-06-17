@@ -283,13 +283,63 @@ class BlacksmithCog(commands.Cog):
         uid = str(interaction.user.id)
 
         if not item_name:
-            # Show category browser
+            from collections import Counter
+            from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES
+
+            # Fetch all available (unequipped, unlocked, not in trade/market) items
+            available_items = await ItemInstance.find(
+                ItemInstance.owner_id == uid,
+                ItemInstance.equipped_to == None,
+                ItemInstance.locked == False,
+                ItemInstance.in_trade == False,
+                ItemInstance.in_market == False,
+            ).to_list()
+
+            # Build {item_name: count} inventory dict
+            inventory: Counter = Counter(itm.name for itm in available_items)
+
+            # Check all recipes for craftability
+            all_recipes = {**COMPONENT_RECIPES, **COMPLETED_RECIPES}
+            craftable: dict[str, dict] = {}
+            for recipe_name, recipe in all_recipes.items():
+                needed = Counter(recipe["components"])
+                if all(inventory[comp] >= cnt for comp, cnt in needed.items()):
+                    craftable[recipe_name] = recipe
+
+            if not craftable:
+                await interaction.followup.send(
+                    embed=error_embed(
+                        "Nothing craftable yet.",
+                        "You don't have the components to craft anything yet. Earn items from dungeons and hunts.",
+                    ),
+                    ephemeral=True,
+                )
+                return
+
+            # Count craftable per category
+            component_craftable = {k: v for k, v in craftable.items() if k in COMPONENT_RECIPES}
+            category_counts: dict[str, int] = {}
+            for cat_key, (cat_label, item_set) in _BUILD_CATEGORIES.items():
+                if cat_key == "components":
+                    category_counts[cat_key] = len(component_craftable)
+                else:
+                    category_counts[cat_key] = len([k for k in craftable if k in item_set])
+
+            desc_lines = []
+            for cat_key, (cat_label, _) in _BUILD_CATEGORIES.items():
+                cnt = category_counts.get(cat_key, 0)
+                if cnt > 0:
+                    desc_lines.append(f"**{cat_label}:** {cnt} craftable")
+
             embed = discord.Embed(
                 title="Blacksmith — Craft Item",
-                description="Pick a category to browse craftable items.",
+                description=(
+                    "You can craft the following:\n\n" + "\n".join(desc_lines) +
+                    "\n\nPick a category to see your options."
+                ),
                 color=0xFFAA00,
             )
-            view = _BuildCategoryView(uid)
+            view = _BuildCategoryView(uid, craftable)
             await interaction.followup.send(embed=embed, view=view, ephemeral=True)
             return
 
@@ -431,9 +481,10 @@ _BUILD_CATEGORIES: dict[str, tuple[str, set[str]]] = {
 
 
 class _BuildCategoryView(discord.ui.View):
-    def __init__(self, uid: str):
+    def __init__(self, uid: str, craftable: dict):
         super().__init__(timeout=120)
         self.uid = uid
+        self.craftable = craftable  # pre-computed {item_name: recipe} the user can actually craft
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if str(interaction.user.id) != self.uid:
@@ -442,28 +493,35 @@ class _BuildCategoryView(discord.ui.View):
         return True
 
     async def _show_items(self, interaction: discord.Interaction, category_key: str):
-        from data.item_recipes import COMPLETED_RECIPES, COMPONENT_RECIPES
+        from data.item_recipes import COMPONENT_RECIPES
         label, item_set = _BUILD_CATEGORIES[category_key]
 
         if category_key == "components":
-            recipes = COMPONENT_RECIPES
+            recipes = {k: v for k, v in self.craftable.items() if k in COMPONENT_RECIPES}
         else:
-            recipes = {k: v for k, v in COMPLETED_RECIPES.items() if k in item_set}
+            recipes = {k: v for k, v in self.craftable.items() if k in item_set}
+
+        if not recipes:
+            await interaction.response.send_message(
+                f"You don't have the components to craft any **{label}** items yet.",
+                ephemeral=True,
+            )
+            return
 
         options = [
             discord.SelectOption(
                 label=name[:100],
                 value=name[:100],
-                description=(f"{' + '.join(r['components'][:3])}")[:100],
+                description=(", ".join(r["components"]))[:100],
             )
             for name, r in recipes.items()
         ]
         embed = discord.Embed(
             title=f"Craft — {label}",
-            description=f"Select an item to craft. {len(options)} recipes available.",
+            description=f"Select an item to craft. {len(options)} recipe(s) available.",
             color=0xFFAA00,
         )
-        view = _BuildItemSelectView(self.uid, options)
+        view = _BuildItemSelectView(self.uid, options, self.craftable)
         await interaction.response.edit_message(embed=embed, view=view)
 
     @discord.ui.button(label="Attack / Marksman", style=discord.ButtonStyle.primary,  custom_id="build_cat_attack")
@@ -488,9 +546,10 @@ class _BuildCategoryView(discord.ui.View):
 
 
 class _BuildItemSelectView(discord.ui.View):
-    def __init__(self, uid: str, options: list[discord.SelectOption]):
+    def __init__(self, uid: str, options: list[discord.SelectOption], craftable: dict):
         super().__init__(timeout=120)
         self.uid = uid
+        self.craftable = craftable
         select = discord.ui.Select(
             placeholder="Choose an item to craft...",
             options=options[:25],
@@ -510,19 +569,35 @@ class _BuildItemSelectView(discord.ui.View):
 
     async def _on_select(self, interaction: discord.Interaction):
         item_name = interaction.data["values"][0]
-        # Get the original message to pass to _do_build
         msg = interaction.message
-        # Acknowledge the interaction by deferring edit, then run craft logic
         await interaction.response.defer()
         await _do_build(interaction, self.uid, item_name, msg=msg)
 
     async def _on_back(self, interaction: discord.Interaction):
+        from data.item_recipes import COMPONENT_RECIPES
+        component_craftable = {k: v for k, v in self.craftable.items() if k in COMPONENT_RECIPES}
+        category_counts: dict[str, int] = {}
+        for cat_key, (cat_label, item_set) in _BUILD_CATEGORIES.items():
+            if cat_key == "components":
+                category_counts[cat_key] = len(component_craftable)
+            else:
+                category_counts[cat_key] = len([k for k in self.craftable if k in item_set])
+
+        desc_lines = []
+        for cat_key, (cat_label, _) in _BUILD_CATEGORIES.items():
+            cnt = category_counts.get(cat_key, 0)
+            if cnt > 0:
+                desc_lines.append(f"**{cat_label}:** {cnt} craftable")
+
         embed = discord.Embed(
             title="Blacksmith — Craft Item",
-            description="Pick a category to browse craftable items.",
+            description=(
+                "You can craft the following:\n\n" + "\n".join(desc_lines) +
+                "\n\nPick a category to see your options."
+            ),
             color=0xFFAA00,
         )
-        await interaction.response.edit_message(embed=embed, view=_BuildCategoryView(self.uid))
+        await interaction.response.edit_message(embed=embed, view=_BuildCategoryView(self.uid, self.craftable))
 
     @app_commands.command(name="recipes", description="Browse all craftable items by tier.")
     @app_commands.describe(tier="Which tier to show")
