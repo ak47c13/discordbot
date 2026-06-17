@@ -211,7 +211,7 @@ class TradeCog(commands.Cog):
             ),
             color=COLOR_WARNING,
         )
-        await interaction.channel.send(content=target.mention, embed=notify_embed)
+        await interaction.followup.send(content=target.mention, embed=notify_embed, ephemeral=False)
 
     @app_commands.command(name="trade-accept", description="Accept a trade offer.")
     @app_commands.describe(trade_id="Trade ID from the trade notification")
@@ -263,13 +263,13 @@ class TradeCog(commands.Cog):
                         return
 
         await interaction.followup.send(embed=success_embed("✅ Trade completed!"), ephemeral=True)
-        # Announce in channel
-        await interaction.channel.send(
+        await interaction.followup.send(
             embed=discord.Embed(
                 title="✅ Trade Completed",
                 description=f"<@{trade_doc.initiator_id}> and {interaction.user.mention} completed a trade.",
                 color=0x00CC44,
-            )
+            ),
+            ephemeral=False,
         )
 
     @app_commands.command(name="trade-cancel", description="Cancel or decline a trade.")
