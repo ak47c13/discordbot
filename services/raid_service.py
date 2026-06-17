@@ -259,7 +259,7 @@ async def start_raid(
 
     # Roll champion drop once for the whole raid (not per-player)
     champ_dropped: list[str] = []   # list of player_ids who receive a champion copy
-    if battle_result.winner == 0:
+    if battle_result.winner in (0, -1):
         drop_chance = CHAMP_DROP_CHANCE.get(boss_rank, 0.05)
         if is_solo:
             drop_chance *= 0.5   # solo penalty
@@ -284,9 +284,9 @@ async def start_raid(
         if user:
             _reset_daily_raids_if_needed(user)
             user.daily_raids_used += 1
-            user.raids_completed += (1 if battle_result.winner == 0 else 0)
+            user.raids_completed += (1 if battle_result.winner in (0, -1) else 0)
 
-        if battle_result.winner == 0:
+        if battle_result.winner in (0, -1):
             drop_copies = champ_dropped.count(player_id)
             rewards = await _roll_raid_drops(
                 player_id, difficulty, is_solo, session,
@@ -302,7 +302,7 @@ async def start_raid(
             if user:
                 await user.save(session=usable_session(session))
 
-    raid.status = "completed" if battle_result.winner == 0 else "failed"
+    raid.status = "completed" if battle_result.winner in (0, -1) else "failed"
     raid.completed_at = datetime.now(timezone.utc)
     await raid.save(session=usable_session(session))
 

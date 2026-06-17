@@ -469,7 +469,7 @@ async def enter_floor(
     if seed is None:
         seed = random.randint(0, 2 ** 31)
     result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed)
-    won = result.winner == 0
+    won = result.winner in (0, -1)  # draw counts as player win (survived time limit)
 
     damage_dealt = sum(e.hp_max for e in enemy_units) - sum(max(0, e.hp) for e in enemy_units)
 

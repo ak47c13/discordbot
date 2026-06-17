@@ -271,14 +271,16 @@ async def finalize(
     if bs is None or bs.status != "ACTIVE":
         return
 
-    bs.status = "VICTORY" if bs.winner == 0 else "DEFEAT"
+    # winner == 0: player win; winner == -1: draw (treat as player win — survived the time limit)
+    player_won = bs.winner in (0, -1)
+    bs.status = "VICTORY" if player_won else "DEFEAT"
     bs.reward_claimed = True
     bs.finished_at = datetime.now(timezone.utc)
     bs.last_updated_at = bs.finished_at
     await bs.save()
 
     granted = rewards or {}
-    if bs.winner == 0 and reward_fn is not None:
+    if player_won and reward_fn is not None:
         try:
             granted = await reward_fn()
         except Exception:
@@ -288,7 +290,7 @@ async def finalize(
 
     # Update battle message with final embed (rewards included inline)
     final_snap = bs.simulated_rounds[-1] if bs.simulated_rounds else None
-    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner, banner_url=bs.static_image_url, rewards=granted if bs.winner == 0 else None)
+    final_embed = build_final_embed(bs, final_snap, bs.zone, bs.winner, banner_url=bs.static_image_url, rewards=granted if player_won else None)
     edit_target = None
     if hasattr(discord_channel, "edit"):
         edit_target = discord_channel
