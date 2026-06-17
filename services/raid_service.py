@@ -58,8 +58,32 @@ def roll_raid_difficulty() -> str:
 # Boss generation
 # ---------------------------------------------------------------------------
 
-def _build_raid_boss(difficulty: str, n_players: int):
-    """Build a boss CombatUnit scaled to the raid difficulty and player count."""
+# Champion drop chance by rank (chance that boss drops its own champion card)
+CHAMP_DROP_CHANCE: dict[str, float] = {
+    "F": 0.15, "E": 0.12, "D": 0.10, "C": 0.07, "B": 0.05, "A": 0.03, "S": 0.015,
+}
+
+# Possible drop counts and their probabilities per rank
+CHAMP_DROP_COUNTS: dict[str, list[tuple[int, float]]] = {
+    "S": [(1, 1.00)],
+    "A": [(1, 0.97), (2, 0.03)],
+    "B": [(1, 0.90), (2, 0.10)],
+    "C": [(1, 0.80), (2, 0.20)],
+    "D": [(1, 0.70), (2, 0.25), (3, 0.05)],
+    "E": [(1, 0.60), (2, 0.30), (3, 0.10)],
+    "F": [(1, 0.50), (2, 0.35), (3, 0.15)],
+}
+
+
+def _pick_drop_count(rank: str) -> int:
+    options = CHAMP_DROP_COUNTS.get(rank, [(1, 1.0)])
+    counts = [o[0] for o in options]
+    weights = [o[1] for o in options]
+    return random.choices(counts, weights=weights, k=1)[0]
+
+
+def _build_raid_boss(difficulty: str, n_players: int, boss_name: str):
+    """Build a boss CombatUnit from a named champion scaled to raid difficulty."""
     from engine.combat import build_boss_unit
     cfg = RAID_DIFFICULTIES[difficulty]
     rank = cfg["boss_rank"]
@@ -72,18 +96,8 @@ def _build_raid_boss(difficulty: str, n_players: int):
     atk = int(base["atk"] * growth * cfg["boss_hp_mult"] ** 0.5)
     defense = int(base["def"] * growth)
 
-    boss_names = {
-        "F": "Corrupted Scout",
-        "E": "Void Marauder",
-        "D": "Iron Colossus",
-        "C": "Shadow Warlord",
-        "B": "Abyssal Titan",
-        "A": "Elder Dragon",
-        "S": "Ancient Rift Herald",
-    }
-
     return build_boss_unit({
-        "name": boss_names.get(difficulty, "Raid Boss"),
+        "name": boss_name,
         "rank": rank,
         "level": level,
         "hp": hp,
@@ -92,7 +106,7 @@ def _build_raid_boss(difficulty: str, n_players: int):
         "spd": 95,
         "is_boss": True,
         "mechanic": "",
-        "champion_name": "",
+        "champion_name": boss_name,
     }, position=1, team=1)
 
 
@@ -199,8 +213,14 @@ async def start_raid(
     n_players = len(raid.player_ids)
     is_solo = n_players == 1
 
+    # Pick a named champion as the raid boss
+    boss_rank = cfg["boss_rank"]
+    boss_name = random.choice(list(ALL_CHAMPION_NAMES))
+
     # Build player team BEFORE marking in_progress so a bad state can't get stuck
+    # Keep a map from unit_id -> player_id for contribution lookup
     player_units = []
+    unit_to_player: dict[str, str] = {}
     for idx, player_id in enumerate(raid.player_ids):
         champ_id = raid.player_champions.get(player_id)
         if not champ_id:
@@ -213,16 +233,45 @@ async def start_raid(
         ).to_list()
         unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
         player_units.append(unit)
+        unit_to_player[unit.unit_id] = player_id
 
     if not player_units:
         raise RaidError("No valid champions in raid.")
 
     raid.status = "in_progress"
     raid.started_at = datetime.now(timezone.utc)
+    raid.boss_champion_name = boss_name
+    raid.boss_rank = boss_rank
     await raid.save(session=usable_session(session))
 
-    boss = _build_raid_boss(difficulty, n_players)
+    boss = _build_raid_boss(difficulty, n_players, boss_name)
     battle_result = run_battle(player_units, [boss])
+
+    # Build per-player contribution scores from unit tracking
+    # score = 60% damage dealt + 40% damage taken (normalized)
+    raw_scores: dict[str, float] = {}
+    for unit in player_units:
+        pid = unit_to_player.get(unit.unit_id)
+        if pid:
+            raw_scores[pid] = unit.damage_dealt * 0.6 + unit.damage_taken * 0.4
+    total_score = sum(raw_scores.values()) or 1
+    contributions: dict[str, float] = {pid: s / total_score for pid, s in raw_scores.items()}
+
+    # Roll champion drop once for the whole raid (not per-player)
+    champ_dropped: list[str] = []   # list of player_ids who receive a champion copy
+    if battle_result.winner == 0:
+        drop_chance = CHAMP_DROP_CHANCE.get(boss_rank, 0.05)
+        if is_solo:
+            drop_chance *= 0.5   # solo penalty
+        if random.random() < drop_chance:
+            count = _pick_drop_count(boss_rank)
+            player_list = list(contributions.keys())
+            weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
+            for _ in range(count):
+                if not player_list:
+                    break
+                winner_pid = random.choices(player_list, weights=weights, k=1)[0]
+                champ_dropped.append(winner_pid)
 
     # Spend daily raid slots and distribute loot
     player_rewards = {}
@@ -238,7 +287,12 @@ async def start_raid(
             user.raids_completed += (1 if battle_result.winner == 0 else 0)
 
         if battle_result.winner == 0:
-            rewards = await _roll_raid_drops(player_id, difficulty, is_solo, session)
+            drop_copies = champ_dropped.count(player_id)
+            rewards = await _roll_raid_drops(
+                player_id, difficulty, is_solo, session,
+                boss_name=boss_name, boss_rank=boss_rank, champ_copies=drop_copies,
+                contribution=contributions.get(player_id, 0.0),
+            )
             raid.rewarded_player_ids.append(player_id)
             player_rewards[player_id] = rewards
             if user:
@@ -258,6 +312,9 @@ async def start_raid(
         "difficulty": difficulty,
         "is_solo": is_solo,
         "battle_log": battle_result.log,
+        "boss_name": boss_name,
+        "boss_rank": boss_rank,
+        "contributions": contributions,
     }
 
 
@@ -310,13 +367,17 @@ async def _roll_raid_drops(
     difficulty: str,
     is_solo: bool,
     session: AsyncIOMotorClientSession,
+    boss_name: str = "",
+    boss_rank: str = "",
+    champ_copies: int = 0,
+    contribution: float = 0.0,
 ) -> dict[str, Any]:
     cfg = RAID_DIFFICULTIES[difficulty]
     rewards: dict[str, Any] = {
         "gold": 0, "champions": [], "items": [], "seals": 0, "summon_tokens": 0
     }
 
-    # Solo penalty: 60% gold and tokens (risk vs reward, you don't die for free)
+    # Solo penalty: 60% gold and tokens
     solo_mult = 0.60 if is_solo else 1.0
 
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
@@ -331,12 +392,12 @@ async def _roll_raid_drops(
     user.summon_tokens += tokens
     rewards["summon_tokens"] = tokens
 
-    # Champion drop
-    if random.random() < cfg["champ_chance"]:
-        rank = random.choice(cfg["champ_ranks"])
-        name = random.choice(list(ALL_CHAMPION_NAMES))
+    # Boss champion drop (pre-rolled by start_raid, champ_copies already determined)
+    for _ in range(champ_copies):
+        rank = boss_rank or cfg["boss_rank"]
+        name = boss_name or random.choice(list(ALL_CHAMPION_NAMES))
         await grant_champion(owner_id, name, rank, session)
-        rewards["champions"].append({"name": name, "rank": rank})
+        rewards["champions"].append({"name": name, "rank": rank, "is_boss_drop": True})
 
     # Item drop — 5% chance of completed item, otherwise component
     if random.random() < cfg["item_chance"]:
@@ -354,5 +415,6 @@ async def _roll_raid_drops(
         user.blacksmith_seals = getattr(user, "blacksmith_seals", 0) + 1
         rewards["seals"] = 1
 
+    rewards["contribution_pct"] = round(contribution * 100, 1)
     await user.save(session=usable_session(session))
     return rewards

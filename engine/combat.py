@@ -66,6 +66,10 @@ class CombatUnit:
     darius_stacks: int = 0
     converted: bool = False   # mordekaiser: a defeated player champ now fights for the boss
 
+    # Contribution tracking (for raid drop attribution)
+    damage_dealt: int = 0
+    damage_taken: int = 0
+
     # Skill callables (set during build)
     basic_fn: Optional[callable] = field(default=None, repr=False)
     ultimate_fn: Optional[callable] = field(default=None, repr=False)
@@ -245,6 +249,8 @@ class BattleResult:
     log: list[str]
     player_survived: list[str]   # unit_ids of surviving player units
     enemy_survived: list[str]
+    # unit_id -> {"damage_dealt": int, "damage_taken": int} for all player units
+    contributions: dict = field(default_factory=dict)
 
 
 def _invoke_skill(fn, unit, enemies, allies) -> list[str]:
@@ -537,13 +543,18 @@ def run_battle_with_rounds(
                 unit.tick_effects_end()
                 continue
 
-            # Snapshot enemy HP for reflect mechanic.
+            # Snapshot enemy HP for reflect mechanic and contribution tracking.
             reflect_bosses = [b for b in enemies_of_unit if getattr(b, "mechanic", "") == "reflect"]
             hp_before = {id(b): b.hp for b in reflect_bosses}
 
             # Snapshot HP of dodging units (yasuo_passive) so a dodge negates damage.
             dodge_units = [b for b in enemies_of_unit if getattr(b, "dodge_chance", 0.0) > 0]
             dodge_hp_before = {id(b): b.hp for b in dodge_units}
+
+            # Snapshot all enemy HPs before action for damage_dealt tracking.
+            _enemy_hp_before = {id(e): e.hp for e in enemies_of_unit}
+            # Snapshot own HP for damage_taken tracking.
+            _self_hp_before = unit.hp
 
             # Choose skill
             silenced = unit.has_effect(Silence)
@@ -562,6 +573,11 @@ def run_battle_with_rounds(
                 unit.mana = min(MANA_MAX, unit.mana + 20)
 
             log.extend(skill_log)
+
+            # Attribute contribution stats.
+            for e in enemies_of_unit:
+                unit.damage_dealt += max(0, _enemy_hp_before.get(id(e), e.hp) - e.hp)
+            unit.damage_taken += max(0, _self_hp_before - unit.hp)
 
             # Dodge mechanic (yasuo_passive): roll per dodging unit; on success
             # restore the HP it lost this turn (damage negated).
@@ -654,12 +670,17 @@ def run_battle_with_rounds(
         winner = -1
         log.append(f"\n⏳ Battle ended after {MAX_ROUNDS} rounds — DRAW.")
 
+    contributions = {
+        u.unit_id: {"damage_dealt": u.damage_dealt, "damage_taken": u.damage_taken}
+        for u in player_units
+    }
     return BattleResult(
         winner=winner,
         rounds=rounds,
         log=log,
         player_survived=[u.unit_id for u in alive_players],
         enemy_survived=[u.unit_id for u in alive_enemies],
+        contributions=contributions,
     ), round_snapshots
 
 

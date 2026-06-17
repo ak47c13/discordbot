@@ -10,7 +10,7 @@ from utils.embeds import reward_embed, error_embed, success_embed, get_champion_
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
-from services.raid_service import create_raid_queue, join_raid, start_raid, raids_remaining, RaidError
+from services.raid_service import create_raid_queue, join_raid, start_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
 from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_DIFFICULTY_WEIGHTS
 
 
@@ -79,9 +79,11 @@ class RaidCog(commands.Cog):
 
         cfg = RAID_DIFFICULTIES[difficulty]
         lvl = cfg["boss_level"]
+        drop_pct = int(CHAMP_DROP_CHANCE.get(cfg["boss_rank"], 0.05) * 100 * (0.5 if True else 1))  # solo shown
         embed = discord.Embed(
-            title=f"Raid Rolled — {cfg['display']}",
+            title=f"⚔️ Raid Rolled — {cfg['display']}",
             description=(
+                f"**Boss Champion:** a mystery [{cfg['boss_rank']}] champion\n\n"
                 f"**Raid ID:** `{raid.id}`\n\n"
                 f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"
@@ -93,6 +95,11 @@ class RaidCog(commands.Cog):
         embed.add_field(name="Boss Level Range", value=f"Lv.{lvl[0]}–{lvl[1]}", inline=True)
         embed.add_field(name="Gold Payout",      value=f"{cfg['gold_min']:,}–{cfg['gold_max']:,}", inline=True)
         embed.add_field(name="Token Payout",     value=f"{cfg['token_min']}–{cfg['token_max']}", inline=True)
+        embed.add_field(
+            name="Champion Drop Chance",
+            value=f"{CHAMP_DROP_CHANCE.get(cfg['boss_rank'], 0.05) * 100:.1f}% (×0.5 solo)\nTop contributor has highest odds",
+            inline=False,
+        )
         await interaction.followup.send(embed=embed)
 
     # ------------------------------------------------------------------
@@ -202,21 +209,36 @@ class RaidCog(commands.Cog):
         result = outcome["battle_result"]
         difficulty = outcome["difficulty"]
         is_solo = outcome["is_solo"]
+        boss_name = outcome.get("boss_name", "Raid Boss")
+        boss_rank = outcome.get("boss_rank", "?")
+        contributions = outcome.get("contributions", {})
         cfg = RAID_DIFFICULTIES.get(difficulty, {})
         diff_display = cfg.get("display", difficulty)
 
         won = result.winner == 0
-        title = f"{'Victory' if won else 'Defeat'} — {diff_display}"
+        title = f"{'⚔️ Victory' if won else '💀 Defeat'} — {boss_name} [{boss_rank}]"
         if is_solo:
             title += " (Solo)"
 
         embed = discord.Embed(
             title=title,
-            description=f"Battle lasted {result.rounds} rounds.",
+            description=f"Difficulty: **{diff_display}** · {result.rounds} rounds",
             color=COLOR_SUCCESS if won else COLOR_DANGER,
         )
 
-        log_lines = [l for l in outcome["battle_log"] if l.strip()][-8:]
+        # Show contribution breakdown
+        if contributions:
+            contrib_lines = []
+            for pid, pct in sorted(contributions.items(), key=lambda x: -x[1]):
+                try:
+                    member = interaction.guild.get_member(int(pid)) if interaction.guild else None
+                    name = member.display_name if member else f"<@{pid}>"
+                except Exception:
+                    name = f"<@{pid}>"
+                contrib_lines.append(f"{name}: {pct * 100:.1f}%")
+            embed.add_field(name="Contribution", value="\n".join(contrib_lines), inline=True)
+
+        log_lines = [l for l in outcome["battle_log"] if l.strip()][-6:]
         if log_lines:
             embed.add_field(name="Battle Log", value="\n".join(log_lines)[:1000], inline=False)
 

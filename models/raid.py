@@ -5,7 +5,7 @@ from pydantic import Field
 
 
 class RaidQueue(Document):
-    zone: str
+    zone: str                          # difficulty key (F/E/D/C/B/A/S)
     leader_id: str
     player_ids: list[str] = []
     # champion chosen per player (discord_id -> champion instance id)
@@ -14,6 +14,9 @@ class RaidQueue(Document):
     status: str = "waiting"
     # Interaction IDs that already received rewards (idempotency)
     rewarded_player_ids: list[str] = []
+    # Boss identity (set when raid starts)
+    boss_champion_name: str = ""
+    boss_rank: str = ""
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     started_at: Optional[datetime] = None

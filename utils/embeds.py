@@ -163,7 +163,10 @@ def reward_embed(rewards: dict, title: str = "Rewards") -> discord.Embed:
     if rewards.get("summon_tokens"):
         embed.add_field(name="Summon Tokens", value=str(rewards["summon_tokens"]), inline=True)
     if rewards.get("champions"):
-        lines = [f"• {c['name']} [{c['rank']}]" for c in rewards["champions"]]
+        lines = [
+            f"• ⭐ {c['name']} [{c['rank']}] *(Boss Drop!)*" if c.get("is_boss_drop") else f"• {c['name']} [{c['rank']}]"
+            for c in rewards["champions"]
+        ]
         embed.add_field(name="Champions", value="\n".join(lines), inline=False)
     if rewards.get("items"):
         lines = [f"• {i['name']} [{i['rank']}]" for i in rewards["items"]]
