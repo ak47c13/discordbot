@@ -326,19 +326,6 @@ class DungeonCog(commands.Cog):
 
             runs += 1
 
-            # Between runs: show Continue/Stop prompt
-            view = _ContinueStopView(interaction.user.id)
-            between = discord.Embed(
-                title=f"Floor {floor_num} cleared × {runs}",
-                description="Continue farming this floor?",
-                color=0x00CC44,
-            )
-            await interaction.followup.send(embed=between, view=view)
-            await view.wait()
-            if view.stopped:
-                stop_reason = "stopped by user"
-                break
-
         embed = discord.Embed(
             title="Repeat Run Complete",
             description=f"**Floor {floor_num} runs:** {runs}\n**Stopped:** {stop_reason}",
@@ -386,20 +373,6 @@ class DungeonCog(commands.Cog):
 
             floors_cleared += 1
             floor_num += 1
-
-            if floor_num <= total_floors:
-                # Between floors: show Continue/Stop prompt
-                view = _ContinueStopView(interaction.user.id)
-                between = discord.Embed(
-                    title=f"Floor {floor_num - 1} Cleared — Next: Floor {floor_num}",
-                    description=f"Auto-continuing in {_ContinueStopView.TIMEOUT}s...",
-                    color=0x00CC44,
-                )
-                await interaction.followup.send(embed=between, view=view)
-                await view.wait()
-                if view.stopped:
-                    stop_reason = "stopped by user"
-                    break
 
         embed = discord.Embed(
             title="⏹ Continuous Run Complete",
@@ -573,41 +546,6 @@ class DungeonCog(commands.Cog):
     @dungeon_leaderboard.autocomplete("dungeon_name")
     async def _ac_lb(self, interaction, current: str):
         return await _all_dungeon_choices(interaction, current)
-
-
-class _ContinueStopView(discord.ui.View):
-    """Shown between floors in continuous runs. Auto-continues after timeout."""
-    TIMEOUT = 8
-
-    def __init__(self, user_id, timeout=TIMEOUT):
-        super().__init__(timeout=timeout)
-        self.user_id = user_id
-        self.stopped = False
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user_id:
-            await interaction.response.send_message("This run isn't yours.", ephemeral=True)
-            return False
-        return True
-
-    async def on_timeout(self):
-        # Auto-continue: just let the view expire without setting stopped
-        self.stop()
-
-    @discord.ui.button(label="Continue", style=discord.ButtonStyle.success)
-    async def continue_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        for c in self.children:
-            c.disabled = True
-        await interaction.response.edit_message(view=self)
-        self.stop()
-
-    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger)
-    async def stop_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        self.stopped = True
-        for c in self.children:
-            c.disabled = True
-        await interaction.response.edit_message(view=self)
-        self.stop()
 
 
 class _RepeatFloorView(discord.ui.View):
