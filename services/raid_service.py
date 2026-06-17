@@ -19,7 +19,7 @@ from engine.combat import build_unit_from_champion, run_battle
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
-from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_DIFFICULTIES, CHAMPION_BASE_STATS
+from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS
 
 
 class RaidError(Exception):
@@ -47,6 +47,13 @@ def raids_remaining(user: User) -> int:
     return max(0, RAID_DAILY_LIMIT - user.daily_raids_used)
 
 
+def roll_raid_difficulty() -> str:
+    """Roll a random difficulty tier weighted toward easier tiers."""
+    keys = list(RAID_DIFFICULTY_WEIGHTS.keys())
+    weights = [RAID_DIFFICULTY_WEIGHTS[k] for k in keys]
+    return random.choices(keys, weights=weights, k=1)[0]
+
+
 # ---------------------------------------------------------------------------
 # Boss generation
 # ---------------------------------------------------------------------------
@@ -56,7 +63,8 @@ def _build_raid_boss(difficulty: str, n_players: int):
     from engine.combat import build_boss_unit
     cfg = RAID_DIFFICULTIES[difficulty]
     rank = cfg["boss_rank"]
-    level = cfg["boss_level"]
+    level_range = cfg["boss_level"]
+    level = random.randint(level_range[0], level_range[1])
     base = CHAMPION_BASE_STATS.get(rank, CHAMPION_BASE_STATS["F"])
 
     growth = 1.05 ** (level - 1)
@@ -94,11 +102,15 @@ def _build_raid_boss(difficulty: str, n_players: int):
 
 async def create_raid_queue(
     leader_id: str,
-    difficulty: str,
     session: AsyncIOMotorClientSession,
-) -> RaidQueue:
+    difficulty: str | None = None,
+) -> tuple[RaidQueue, str]:
+    """Create a raid queue. Returns (raid, difficulty_key).
+    If difficulty is None, it is rolled randomly.
+    """
+    difficulty = difficulty or roll_raid_difficulty()
     if difficulty not in RAID_DIFFICULTIES:
-        raise RaidError(f"Invalid difficulty '{difficulty}'. Choose F–S.")
+        raise RaidError(f"Invalid difficulty '{difficulty}'.")
 
     user = await User.find_one(User.discord_id == leader_id, session=usable_session(session))
     if user is None:
@@ -122,7 +134,7 @@ async def create_raid_queue(
         status="waiting",
     )
     await raid.insert(session=usable_session(session))
-    return raid
+    return raid, difficulty
 
 
 async def join_raid(

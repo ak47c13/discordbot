@@ -11,7 +11,7 @@ from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
 from services.raid_service import create_raid_queue, join_raid, start_raid, raids_remaining, RaidError
-from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT
+from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_DIFFICULTY_WEIGHTS
 
 
 def _difficulty_overview_embed(user: User) -> discord.Embed:
@@ -19,23 +19,28 @@ def _difficulty_overview_embed(user: User) -> discord.Embed:
     embed = discord.Embed(
         title="Raid",
         description=(
-            f"Challenge a raid boss solo or with up to 5 players.\n"
             f"**{remaining}/{RAID_DAILY_LIMIT}** raids remaining today.\n\n"
-            "Bosses stay at full strength regardless of group size — solo is doable but brutal."
+            "Each raid rolls a random difficulty (F→S). Higher tiers are rarer but pay much more.\n"
+            "Boss level is also randomized within the tier's range.\n"
+            "Bosses stay at full strength for solo runs — 60% gold/token payout if you win alone."
         ),
         color=COLOR_INFO,
     )
     for key, cfg in RAID_DIFFICULTIES.items():
+        lvl = cfg["boss_level"]
+        weight = RAID_DIFFICULTY_WEIGHTS[key]
+        total_weight = sum(RAID_DIFFICULTY_WEIGHTS.values())
+        chance = int(weight / total_weight * 100)
         embed.add_field(
-            name=cfg["display"],
+            name=f"{cfg['display']}  ({chance}%)",
             value=(
+                f"Boss Lv.{lvl[0]}–{lvl[1]}\n"
                 f"Gold: {cfg['gold_min']:,}–{cfg['gold_max']:,}\n"
-                f"Tokens: {cfg['token_min']}–{cfg['token_max']}\n"
-                f"Champion: {int(cfg['champ_chance']*100)}%  Item: {int(cfg['item_chance']*100)}%"
+                f"Tokens: {cfg['token_min']}–{cfg['token_max']}"
             ),
             inline=True,
         )
-    embed.set_footer(text="Solo clears give 60% gold/tokens. Daily limit resets at midnight UTC.")
+    embed.set_footer(text="Daily limit resets at midnight UTC.")
     return embed
 
 
@@ -57,13 +62,8 @@ class RaidCog(commands.Cog):
     # /raid-create
     # ------------------------------------------------------------------
 
-    @app_commands.command(name="raid-create", description="Create a raid queue. Others can join before you start.")
-    @app_commands.describe(difficulty="Raid difficulty F (easy) through S (extreme)")
-    @app_commands.choices(difficulty=[
-        app_commands.Choice(name=cfg["display"], value=k)
-        for k, cfg in RAID_DIFFICULTIES.items()
-    ])
-    async def raid_create(self, interaction: discord.Interaction, difficulty: str):
+    @app_commands.command(name="raid-create", description="Roll a random raid difficulty and create a queue.")
+    async def raid_create(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
@@ -72,26 +72,27 @@ class RaidCog(commands.Cog):
             client = get_motor_client()
             async with await client.start_session() as session:
                 try:
-                    raid = await create_raid_queue(uid, difficulty, session)
+                    raid, difficulty = await create_raid_queue(uid, session)
                 except RaidError as e:
                     await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                     return
 
         cfg = RAID_DIFFICULTIES[difficulty]
+        lvl = cfg["boss_level"]
         embed = discord.Embed(
-            title=f"Raid Created — {cfg['display']}",
+            title=f"Raid Rolled — {cfg['display']}",
             description=(
                 f"**Raid ID:** `{raid.id}`\n\n"
                 f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"
-                f"You can also start immediately to solo.\n"
+                f"You can start immediately to solo (60% gold/token payout).\n"
                 f"Max 5 players."
             ),
             color=COLOR_INFO,
         )
-        embed.add_field(name="Gold Payout",  value=f"{cfg['gold_min']:,} – {cfg['gold_max']:,}", inline=True)
-        embed.add_field(name="Token Payout", value=f"{cfg['token_min']} – {cfg['token_max']}", inline=True)
-        embed.add_field(name="Solo Penalty", value="60% gold & tokens", inline=True)
+        embed.add_field(name="Boss Level Range", value=f"Lv.{lvl[0]}–{lvl[1]}", inline=True)
+        embed.add_field(name="Gold Payout",      value=f"{cfg['gold_min']:,}–{cfg['gold_max']:,}", inline=True)
+        embed.add_field(name="Token Payout",     value=f"{cfg['token_min']}–{cfg['token_max']}", inline=True)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     # ------------------------------------------------------------------

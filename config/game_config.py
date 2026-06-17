@@ -381,12 +381,18 @@ RAID_MAX_PLAYERS = 5
 RAID_QUEUE_TIMEOUT_SECONDS = 300   # 5 min to fill before auto-start
 RAID_DAILY_LIMIT = 5               # max raids per day per player
 
+# Raid difficulty weights for RNG roll (higher weight = more common)
+RAID_DIFFICULTY_WEIGHTS = {
+    "F": 35, "E": 25, "D": 18, "C": 11, "B": 6, "A": 3, "S": 2,
+}
+
 # F→S raid difficulties — boss stats scale exponentially
 # gold/token payouts multiply by ~2.5x per tier; champion/item drop quality rises
+# boss_level is [min, max] — actual level randomized within range
 RAID_DIFFICULTIES = {
     "F": {
         "display": "F — Skirmish",
-        "boss_rank": "E", "boss_level": 10, "boss_hp_mult": 1.0,
+        "boss_rank": "E", "boss_level": [5, 15], "boss_hp_mult": 1.0,
         "gold_min": 800,   "gold_max": 1500,
         "token_min": 5,    "token_max": 10,
         "champ_chance": 0.10, "champ_ranks": ["F", "E"],
@@ -395,7 +401,7 @@ RAID_DIFFICULTIES = {
     },
     "E": {
         "display": "E — Skirmish+",
-        "boss_rank": "D", "boss_level": 20, "boss_hp_mult": 1.5,
+        "boss_rank": "D", "boss_level": [15, 25], "boss_hp_mult": 1.5,
         "gold_min": 2000,  "gold_max": 3500,
         "token_min": 12,   "token_max": 22,
         "champ_chance": 0.12, "champ_ranks": ["E", "D"],
@@ -404,7 +410,7 @@ RAID_DIFFICULTIES = {
     },
     "D": {
         "display": "D — Incursion",
-        "boss_rank": "C", "boss_level": 35, "boss_hp_mult": 2.2,
+        "boss_rank": "C", "boss_level": [28, 45], "boss_hp_mult": 2.2,
         "gold_min": 5000,  "gold_max": 8500,
         "token_min": 28,   "token_max": 50,
         "champ_chance": 0.15, "champ_ranks": ["D", "C"],
@@ -413,7 +419,7 @@ RAID_DIFFICULTIES = {
     },
     "C": {
         "display": "C — Siege",
-        "boss_rank": "B", "boss_level": 55, "boss_hp_mult": 3.5,
+        "boss_rank": "B", "boss_level": [45, 65], "boss_hp_mult": 3.5,
         "gold_min": 12000, "gold_max": 20000,
         "token_min": 60,   "token_max": 110,
         "champ_chance": 0.18, "champ_ranks": ["C", "B"],
@@ -422,7 +428,7 @@ RAID_DIFFICULTIES = {
     },
     "B": {
         "display": "B — Assault",
-        "boss_rank": "A", "boss_level": 80, "boss_hp_mult": 5.5,
+        "boss_rank": "A", "boss_level": [65, 95], "boss_hp_mult": 5.5,
         "gold_min": 30000, "gold_max": 50000,
         "token_min": 130,  "token_max": 240,
         "champ_chance": 0.20, "champ_ranks": ["B", "A"],
@@ -431,7 +437,7 @@ RAID_DIFFICULTIES = {
     },
     "A": {
         "display": "A — Conquest",
-        "boss_rank": "S", "boss_level": 120, "boss_hp_mult": 9.0,
+        "boss_rank": "S", "boss_level": [100, 140], "boss_hp_mult": 9.0,
         "gold_min": 75000, "gold_max": 125000,
         "token_min": 280,  "token_max": 500,
         "champ_chance": 0.22, "champ_ranks": ["A", "S"],
@@ -440,7 +446,7 @@ RAID_DIFFICULTIES = {
     },
     "S": {
         "display": "S — Annihilation",
-        "boss_rank": "S", "boss_level": 200, "boss_hp_mult": 16.0,
+        "boss_rank": "S", "boss_level": [170, 230], "boss_hp_mult": 16.0,
         "gold_min": 200000, "gold_max": 350000,
         "token_min": 600,   "token_max": 1000,
         "champ_chance": 0.25, "champ_ranks": ["A", "S"],

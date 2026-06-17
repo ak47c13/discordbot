@@ -237,5 +237,51 @@ class ItemsCog(commands.Cog):
         await interaction.followup.send(embed=success_embed(f"Sold {res['sold']} item(s) for {res['gold']} gold."), ephemeral=True)
 
 
+    @app_commands.command(name="items-equipped", description="Show all items currently equipped on your champions.")
+    async def items_equipped(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        equipped = await ItemInstance.find(
+            ItemInstance.owner_id == uid,
+            ItemInstance.equipped_to != None,
+        ).to_list()
+        if not equipped:
+            await interaction.followup.send(
+                embed=error_embed("No items are equipped. Use `/equip <item_number> <champion_number> <slot>` to equip one."),
+                ephemeral=True,
+            )
+            return
+
+        # Group by champion
+        from models.champion import ChampionInstance
+        champ_ids = list({i.equipped_to for i in equipped if i.equipped_to})
+        champ_map = {}
+        for cid in champ_ids:
+            from beanie import PydanticObjectId
+            c = await ChampionInstance.get(PydanticObjectId(cid))
+            if c:
+                champ_map[cid] = c
+
+        embed = discord.Embed(
+            title="Equipped Items",
+            description=f"**{len(equipped)}** item(s) equipped across **{len(champ_map)}** champion(s).\n\nUse `/equip` to equip · `/unequip` to remove",
+            color=0x5865F2,
+        )
+        for champ in champ_map.values():
+            champ_items = [i for i in equipped if i.equipped_to == str(champ.id)]
+            champ_items.sort(key=lambda i: i.equipment_slot or 0)
+            lines = []
+            for itm in champ_items:
+                slot = itm.equipment_slot or "?"
+                stat = int(itm.main_stat_base * (1 + (itm.enhancement * 0.1)))
+                lines.append(f"Slot {slot}: **{itm.name}** [{itm.rank}] +{itm.enhancement} ({itm.main_stat_type.upper()} {stat})")
+            embed.add_field(
+                name=f"{champ.name} [{champ.rank}] Lv.{champ.level}  #{champ.display_id}",
+                value="\n".join(lines) if lines else "—",
+                inline=False,
+            )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(ItemsCog(bot))
