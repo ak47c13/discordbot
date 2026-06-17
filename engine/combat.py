@@ -22,6 +22,28 @@ from engine.status_effects import (
 )
 from engine.skills import CHAMPION_SKILLS
 
+_DEFAULT_WEIGHTS = {"hp": 1.0, "atk": 1.0, "def": 1.0, "spd": 1.0}
+
+
+def _stat_weights_for(champ_name: str) -> dict:
+    """Return per-champion stat multipliers from the roster, defaulting to 1.0."""
+    try:
+        from data.champion_roster import CHAMPION_ROSTER
+    except Exception:
+        return dict(_DEFAULT_WEIGHTS)
+    entry = CHAMPION_ROSTER.get(champ_name)
+    if not entry:
+        return dict(_DEFAULT_WEIGHTS)
+    w = entry.get("stat_weights")
+    if not w:
+        return dict(_DEFAULT_WEIGHTS)
+    return {
+        "hp": w.get("hp", 1.0),
+        "atk": w.get("atk", 1.0),
+        "def": w.get("def", 1.0),
+        "spd": w.get("spd", 1.0),
+    }
+
 
 # ---------------------------------------------------------------------------
 # CombatUnit — runtime champion state
@@ -132,10 +154,12 @@ def build_unit_from_champion(
     base = CHAMPION_BASE_STATS[rank]
     growth = CHAMPION_GROWTH_STATS[rank]
 
-    hp  = base["hp"]  + growth["hp"]  * (lvl - 1)
-    atk = base["atk"] + growth["atk"] * (lvl - 1)
-    dfn = base["def"] + growth["def"] * (lvl - 1)
-    spd = base["spd"]
+    weights = _stat_weights_for(champ_doc.name)
+
+    hp  = (base["hp"]  + growth["hp"]  * (lvl - 1)) * weights["hp"]
+    atk = (base["atk"] + growth["atk"] * (lvl - 1)) * weights["atk"]
+    dfn = (base["def"] + growth["def"] * (lvl - 1)) * weights["def"]
+    spd = base["spd"] * weights["spd"]
 
     # Accumulate item main stats and secondary stats
     item_atk_bonus = 0
@@ -303,6 +327,14 @@ def build_unit_from_champion(
 def build_boss_unit(boss_cfg: dict, position: int, team: int) -> CombatUnit:
     """Build an enemy CombatUnit from a boss config dict."""
     skills = CHAMPION_SKILLS.get(boss_cfg.get("champion_name", ""), {})
+
+    # Apply per-champion stat weights if the boss matches a real champion.
+    w = _stat_weights_for(boss_cfg.get("champion_name") or boss_cfg.get("name", ""))
+    hp = int(boss_cfg["hp"] * w["hp"])
+    atk = boss_cfg["atk"] * w["atk"]
+    dfn = boss_cfg["def"] * w["def"]
+    spd = int(boss_cfg.get("spd", 90) * w["spd"])
+
     unit = CombatUnit(
         unit_id=f"boss_{position}",
         name=boss_cfg["name"],
@@ -310,11 +342,11 @@ def build_boss_unit(boss_cfg: dict, position: int, team: int) -> CombatUnit:
         level=boss_cfg.get("level", 20),
         position=position,
         team=team,
-        hp=boss_cfg["hp"],
-        hp_max=boss_cfg["hp"],
-        atk=boss_cfg["atk"],
-        def_stat=boss_cfg["def"],
-        spd=boss_cfg.get("spd", 90),
+        hp=hp,
+        hp_max=hp,
+        atk=atk,
+        def_stat=dfn,
+        spd=spd,
         mana=0,
         is_boss=boss_cfg.get("is_boss", True),
         mechanic=boss_cfg.get("mechanic", ""),
@@ -934,6 +966,7 @@ def generate_boss_unit_for_zone(zone: str) -> CombatUnit:
     mech_cfg = BOSS_MECHANICS.get(zone, {})
     boss_cfg = {
         "name": zone_cfg["boss_name"],
+        "champion_name": zone_cfg.get("boss_champion", zone_cfg["boss_name"]),
         "rank": rank,
         "level": level,
         "hp": hp,
