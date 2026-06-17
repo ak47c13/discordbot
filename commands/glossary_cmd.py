@@ -150,56 +150,82 @@ def _rune_list_embed(color_filter: str = "all") -> discord.Embed:
 
 
 # ---------------------------------------------------------------------------
-# Item glossary
+# Item glossary — paginated (Discord hard limit: 25 fields per embed)
 # ---------------------------------------------------------------------------
 
-def _item_glossary_embed(category: str = "completed") -> discord.Embed:
-    from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES, BASIC_COMPONENTS, ADVANCED_COMPONENTS
+ITEMS_PER_PAGE = 10
 
-    if category == "completed":
-        embed = discord.Embed(
-            title="Item Glossary — Completed Items (37)",
-            description="Craft at `/build <name>`. Output rank = lowest component rank. Very rare drops.",
-            color=0xFFAA00,
-        )
-        for name, recipe in COMPLETED_RECIPES.items():
-            comps = " + ".join(recipe["components"])
-            embed.add_field(
-                name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
-                value=f"{comps}\n*{recipe['description']}*",
-                inline=False,
-            )
-    elif category == "component_recipes":
-        embed = discord.Embed(
-            title="Item Glossary — Component Recipes (19)",
-            description="Build advanced components from basics at `/build <name>`.",
-            color=0x4488FF,
-        )
-        for name, recipe in COMPONENT_RECIPES.items():
-            comps = " + ".join(recipe["components"])
-            embed.add_field(
-                name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
-                value=f"{comps}\n*{recipe['description']}*",
-                inline=False,
-            )
-    elif category == "basic":
-        embed = discord.Embed(
-            title="Item Glossary — Basic Components (10)",
-            description="Most common drops from dungeons, raids, and shop. Use these as building blocks.",
-            color=0x888888,
-        )
-        lines = [f"**{n}** — {d['desc']}" for n, d in BASIC_COMPONENTS.items()]
-        embed.description += "\n\n" + "\n".join(lines)
-    else:  # advanced
-        embed = discord.Embed(
-            title="Item Glossary — Advanced Components (21)",
-            description="Crafted from basics or drop mid-tier. Used as inputs for completed items.",
-            color=0x44AAFF,
-        )
-        lines = [f"**{n}** — {d['desc']}" for n, d in ADVANCED_COMPONENTS.items()]
-        embed.description += "\n\n" + "\n".join(lines)
 
+def _item_recipe_embed(items: list[tuple[str, dict]], page: int, title: str, description: str, color: int) -> discord.Embed:
+    total = len(items)
+    pages = max(1, (total + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    page = max(0, min(page, pages - 1))
+    chunk = items[page * ITEMS_PER_PAGE:(page + 1) * ITEMS_PER_PAGE]
+
+    embed = discord.Embed(
+        title=f"{title} ({total})",
+        description=description,
+        color=color,
+    )
+    for name, recipe in chunk:
+        comps = " + ".join(recipe["components"])
+        embed.add_field(
+            name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
+            value=f"{comps}\n*{recipe['description']}*",
+            inline=False,
+        )
+    embed.set_footer(text=f"Page {page + 1}/{pages}")
     return embed
+
+
+def _item_flat_embed(items: dict[str, dict], title: str, description: str, color: int) -> discord.Embed:
+    """For basic/advanced component lists that use description text (no fields)."""
+    embed = discord.Embed(title=f"{title} ({len(items)})", description=description, color=color)
+    lines = [f"**{n}** — {d['desc']}" for n, d in items.items()]
+    embed.description += "\n\n" + "\n".join(lines)
+    return embed
+
+
+class _ItemRecipeView(discord.ui.View):
+    def __init__(self, items: list[tuple[str, dict]], user_id: int, title: str, description: str, color: int):
+        super().__init__(timeout=120)
+        self.items = items
+        self.user_id = user_id
+        self.title = title
+        self.description = description
+        self.color = color
+        self.page = 0
+        self.total_pages = max(1, (len(items) + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+        self._refresh()
+
+    def _refresh(self):
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                if child.custom_id == "item_prev":
+                    child.disabled = self.page == 0
+                elif child.custom_id == "item_next":
+                    child.disabled = self.page >= self.total_pages - 1
+
+    def current_embed(self):
+        return _item_recipe_embed(self.items, self.page, self.title, self.description, self.color)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your glossary.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, custom_id="item_prev")
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = max(0, self.page - 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="item_next")
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = min(self.total_pages - 1, self.page + 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
 
 
 # ---------------------------------------------------------------------------
@@ -422,8 +448,45 @@ class GlossaryCog(commands.Cog):
     ])
     async def glossary_items(self, interaction: discord.Interaction, category: str = "completed"):
         await interaction.response.defer(ephemeral=True)
-        embed = _item_glossary_embed(category)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES, BASIC_COMPONENTS, ADVANCED_COMPONENTS
+
+        if category == "completed":
+            items = list(COMPLETED_RECIPES.items())
+            view = _ItemRecipeView(
+                items, interaction.user.id,
+                title="Item Glossary — Completed Items",
+                description="Craft at `/build <name>`. Output rank = lowest component rank. Very rare drops.",
+                color=0xFFAA00,
+            )
+            await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
+
+        elif category == "component_recipes":
+            items = list(COMPONENT_RECIPES.items())
+            view = _ItemRecipeView(
+                items, interaction.user.id,
+                title="Item Glossary — Component Recipes",
+                description="Build advanced components from basics at `/build <name>`.",
+                color=0x4488FF,
+            )
+            await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
+
+        elif category == "basic":
+            embed = _item_flat_embed(
+                BASIC_COMPONENTS,
+                title="Item Glossary — Basic Components",
+                description="Most common drops from dungeons, raids, and shop. Use these as building blocks.",
+                color=0x888888,
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
+
+        else:  # advanced
+            embed = _item_flat_embed(
+                ADVANCED_COMPONENTS,
+                title="Item Glossary — Advanced Components",
+                description="Crafted from basics or drop mid-tier. Used as inputs for completed items.",
+                color=0x44AAFF,
+            )
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
