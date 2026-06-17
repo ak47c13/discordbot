@@ -17,8 +17,9 @@ from models.champion import ChampionInstance
 async def migrate():
     await init_db()
 
+    # Find champions where display_id is missing or 0 (raw query covers both cases)
     champs = await ChampionInstance.find(
-        ChampionInstance.display_id == 0
+        {"$or": [{"display_id": {"$exists": False}}, {"display_id": 0}]}
     ).sort("created_at").to_list()
 
     if not champs:
