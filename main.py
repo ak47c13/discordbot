@@ -36,7 +36,6 @@ COGS = [
     "commands.raid_cmd",
     "commands.market_cmd",
     "commands.trade_cmd",
-    "commands.summon_cmd",
     "commands.help_cmd",
     "commands.shop_cmd",
 ]

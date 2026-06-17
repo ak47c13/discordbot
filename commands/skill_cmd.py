@@ -50,36 +50,96 @@ class SkillCog(commands.Cog):
             embed.add_field(name=name_line, value=f"{desc}\n*{detail}*", inline=False)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @skill_group.command(name="set", description="Set which basic skill (Q/W/E) is active.")
-    @app_commands.describe(skill="Which skill to activate: q, w, or e")
-    @app_commands.choices(skill=[
-        app_commands.Choice(name="Q", value="q"),
-        app_commands.Choice(name="W", value="w"),
-        app_commands.Choice(name="E", value="e"),
-    ])
-    async def skill_set(self, interaction: discord.Interaction, skill: str):
+    @skill_group.command(name="set", description="Choose which basic skill (Q/W/E) your champion uses each round.")
+    async def skill_set(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        async with get_user_lock(uid):
-            user = await User.find_one(User.discord_id == uid)
-            if not user or not user.active_champion_id:
-                await interaction.followup.send(embed=error_embed("No active champion. Use `/champion-select` first."), ephemeral=True)
-                return
+        user = await User.find_one(User.discord_id == uid)
+        if not user or not user.active_champion_id:
+            await interaction.followup.send(embed=error_embed("No active champion. Use `/champion-select` first."), ephemeral=True)
+            return
+        champ = await ChampionInstance.get(user.active_champion_id)
+        if not champ:
+            await interaction.followup.send(embed=error_embed("Active champion not found."), ephemeral=True)
+            return
+        skills = CHAMPION_SKILLS.get(champ.name, {})
+
+        options = []
+        for key in ("q", "w", "e"):
+            s = skills.get(key, {})
+            name = s.get("name", key.upper())
+            desc = s.get("description", "")
+            coeff = s.get("coeff", 0)
+            dmg = s.get("damage_type", "none")
+            hits = s.get("hits", 1)
+            detail = f"{coeff*100:.0f}% ATK {dmg}"
+            if hits > 1:
+                detail += f" ×{hits}"
+            label = f"{key.upper()}: {name}"
+            option_desc = f"{desc[:80]}{'…' if len(desc) > 80 else ''} [{detail}]"
+            options.append(discord.SelectOption(
+                label=label,
+                value=key,
+                description=option_desc[:100],
+                default=(key == user.active_skill),
+            ))
+
+        embed = discord.Embed(
+            title=f"{champ.name} — Set Active Skill",
+            description="Your basic skill fires every round when mana < 100. Pick which one to use:",
+            color=0x5865F2,
+        )
+        for key in ("q", "w", "e"):
+            s = skills.get(key, {})
+            coeff = s.get("coeff", 0)
+            dmg = s.get("damage_type", "none")
+            hits = s.get("hits", 1)
+            mana = s.get("mana_gain", 0)
+            detail = f"{coeff*100:.0f}% ATK {dmg}"
+            if hits > 1:
+                detail += f" ×{hits} hits"
+            if mana:
+                detail += f" • +{mana} mana"
+            active = " ← active" if key == user.active_skill else ""
+            embed.add_field(
+                name=f"**{key.upper()}: {s.get('name', '?')}**{active}",
+                value=f"{s.get('description', '')}\n*{detail}*",
+                inline=False,
+            )
+        embed.set_footer(text="R (Ultimate) always fires automatically at 100 mana — it cannot be changed.")
+
+        view = _SkillSetView(uid, champ.id, options)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+
+
+class _SkillSetView(discord.ui.View):
+    def __init__(self, uid: str, champ_id, options: list[discord.SelectOption]):
+        super().__init__(timeout=60)
+        self.uid = uid
+        select = discord.ui.Select(placeholder="Pick a skill…", options=options)
+        select.callback = self._on_select
+        self.add_item(select)
+        self._select = select
+
+    async def _on_select(self, interaction: discord.Interaction):
+        if str(interaction.user.id) != self.uid:
+            await interaction.response.send_message("This isn't your menu.", ephemeral=True)
+            return
+        skill = self._select.values[0]
+        async with get_user_lock(self.uid):
+            user = await User.find_one(User.discord_id == self.uid)
             champ = await ChampionInstance.get(user.active_champion_id)
-            if not champ:
-                await interaction.followup.send(embed=error_embed("Active champion not found."), ephemeral=True)
-                return
             skills = CHAMPION_SKILLS.get(champ.name, {})
             s = skills.get(skill, {})
             user.active_skill = skill
             await user.save()
         embed = discord.Embed(
-            title=f"✅ Active skill set to {SKILL_LABELS[skill]}",
-            description=f"**{s.get('name', '?')}** — {s.get('description', '')}",
+            title=f"Active skill set to {SKILL_LABELS[skill]}: {s.get('name', '?')}",
+            description=s.get("description", ""),
             color=0x00CC44,
         )
-        embed.set_footer(text="This skill fires each round. R (ultimate) always fires at 100 mana.")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        embed.set_footer(text="This skill fires each round when mana < 100.")
+        await interaction.response.edit_message(embed=embed, view=None)
 
 
 async def setup(bot):

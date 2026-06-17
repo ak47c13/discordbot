@@ -132,6 +132,40 @@ def get_weekly_rune_category() -> tuple[str, dict]:
     return RUNE_CATEGORIES[key]["display"], RUNE_CATEGORIES[key]
 
 
+# Maps weekly rune category → catalog rune IDs that match each stat theme
+_RUNE_CATEGORY_POOLS: dict[str, list[str]] = {
+    "precision":  [
+        "mark-crit-t1", "mark-crit-t2", "mark-aspd-t1", "mark-aspd-t2",
+        "glyph-critdmg-t1", "glyph-critdmg-t2", "mark-atk-t1", "mark-atk-t2",
+    ],
+    "domination": [
+        "mark-arpen-t1", "mark-arpen-t2", "quint-lifesteal-t1", "quint-lifesteal-t2",
+        "mark-atk-t1", "mark-atk-t2", "mark-crit-t1",
+    ],
+    "resolve": [
+        "seal-hp-t1", "seal-hp-t2", "seal-def-t1", "seal-def-t2",
+        "seal-dodge-t1", "glyph-def-t1", "glyph-def-t2", "seal-hpregen-t1",
+    ],
+    "sorcery": [
+        "mark-mpen-t1", "mark-mpen-t2", "glyph-mana-t1", "glyph-mana-t2",
+        "glyph-critdmg-t1", "mark-aspd-t1", "mark-atk-t1",
+    ],
+}
+
+# Tier weights for rune pulls (tier 1 = common, tier 2 = uncommon, tier 3 = rare)
+_RUNE_TIER_WEIGHTS = [0.65, 0.28, 0.07]
+
+
+def _get_weekly_rune_pool() -> list[str]:
+    """Return list of rune IDs for the current week's category."""
+    import time
+    ANCHOR_UTC = 1703959200
+    WEEK_SECS = 604800
+    week_index = int((time.time() - ANCHOR_UTC) // WEEK_SECS) + 2
+    key = RUNE_CATEGORY_ROTATION[week_index % len(RUNE_CATEGORY_ROTATION)]
+    return _RUNE_CATEGORY_POOLS.get(key, list(_RUNE_CATEGORY_POOLS["precision"]))
+
+
 class SummonError(Exception):
     pass
 
@@ -203,6 +237,10 @@ async def _roll_summon(
     drawn from the current week's region pool; the remaining 20 % are drawn
     from the full champion list.
     """
+    if pool_type == "rune":
+        # Rune pool uses its own tier-weighted logic — bypass SUMMON_RATES
+        return await _apply_summon_result("rune", owner_id, session)
+
     if pool_type == "champion":
         filtered = {k: v for k, v in SUMMON_RATES.items() if k.startswith("champion_")}
     elif pool_type == "item":
@@ -291,5 +329,25 @@ async def _apply_summon_result(
         user.blacksmith_seals = getattr(user, "blacksmith_seals", 0) + 1
         await user.save(session=usable_session(session))
         return {"type": "seal", "amount": 1}
+
+    elif key == "rune":
+        from data.rune_catalog import RUNE_CATALOG
+        pool = _get_weekly_rune_pool()
+        # tier-weighted pick: tier determined by -t1/-t2/-t3 suffix
+        tiers = [1, 2, 3]
+        tier = random.choices(tiers, weights=_RUNE_TIER_WEIGHTS, k=1)[0]
+        tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
+        if not tier_pool:
+            tier_pool = [rid for rid in pool if rid.endswith("-t1")]
+        rune_id = random.choice(tier_pool)
+        rune = RUNE_CATALOG.get(rune_id, {})
+        return {
+            "type": "rune",
+            "rune_id": rune_id,
+            "name": rune.get("name", rune_id),
+            "description": rune.get("description", ""),
+            "color": rune.get("color", "red"),
+            "tier": tier,
+        }
 
     return {"type": "nothing", "amount": 0}

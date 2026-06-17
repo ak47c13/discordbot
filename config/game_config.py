@@ -204,7 +204,7 @@ SUMMON_TOKEN_COST = 1            # per single pull
 SUMMON_MULTI_COST = 10           # 10-pull (gives 11 results — 1 bonus)
 
 # Starter rewards granted on /start registration
-STARTER_SUMMON_TOKENS = 950   # enough for 1x10 pull
+STARTER_SUMMON_TOKENS = 10   # enough for 1x10 pull
 STARTER_GOLD = 5000
 
 SUMMON_RATES = {
