@@ -101,8 +101,14 @@ async def start_presentation(
     player_team_names: list[str],
     enemy_name: str,
     followup=None,
+    reuse_message=None,
 ) -> "object":
-    # Generate the loading-screen banner for the player's team and attach it.
+    """Send (or reuse) the battle message and mark the session ACTIVE.
+
+    If *reuse_message* is provided the existing Discord message is edited in
+    place rather than a new message being sent — used by continuous dungeon runs
+    so every floor updates the same embed.
+    """
     banner_file = None
     banner_url = ""
     try:
@@ -131,10 +137,14 @@ async def start_presentation(
     )
     view = CancelBattleView(str(battle_session.id), battle_session.owner_id)
 
-    # Sending the initial battle message as the interaction followup resolves the
-    # deferred "Bot is thinking..." state immediately while keeping the message
-    # editable for the round-by-round reveal.
-    if followup is not None:
+    if reuse_message is not None:
+        # Edit the existing message in place — clears old attachments then adds banner
+        if banner_file is not None:
+            await reuse_message.edit(embed=embed, view=view, attachments=[banner_file])
+        else:
+            await reuse_message.edit(embed=embed, view=view, attachments=[])
+        message = reuse_message
+    elif followup is not None:
         if banner_file is not None:
             message = await followup.send(embed=embed, view=view, file=banner_file)
         else:
