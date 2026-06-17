@@ -38,6 +38,7 @@ COGS = [
     "commands.market_cmd",
     "commands.trade_cmd",
     "commands.help_cmd",
+    "commands.glossary_cmd",
     "commands.shop_cmd",
 ]
 
