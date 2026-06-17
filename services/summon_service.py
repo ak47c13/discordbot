@@ -44,27 +44,30 @@ def get_weekly_champion_pool() -> tuple[str, list[str]]:
 # ---------------------------------------------------------------------------
 # Weekly item category pools
 # ---------------------------------------------------------------------------
+# Item pools are all components (common). Completed items are crafted at /build.
+# A "completed" item can drop from summons at very low chance via SUMMON_RATES item_S entry.
 ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
     "weapons": [
-        ("Infinity Edge",   "atk", "crit_damage_passive"),
-        ("Recurve Bow",     "atk", "attack_speed_passive"),
-        ("Long Sword",      "atk", "atk_passive"),
-        ("Pickaxe",         "atk", "atk_passive"),
-        ("B.F. Sword",      "atk", "atk_passive"),
+        ("B.F. Sword",         "atk", "atk_passive"),
+        ("Pickaxe",            "atk", "atk_passive"),
+        ("Long Sword",         "atk", "atk_passive"),
+        ("Recurve Bow",        "atk", "attack_speed_passive"),
+        ("Vampiric Scepter",   "atk", "lifesteal_passive"),
+        ("Cloak of Agility",   "atk", "crit_damage_passive"),
+        ("Zeal",               "atk", "attack_speed_passive"),
     ],
     "armor": [
-        ("Chain Vest",      "def", "armor_passive"),
-        ("Cloak",           "def", "dodge_passive"),
-        ("Warden's Mail",   "def", "armor_passive"),
-        ("Cloth Armor",     "def", "armor_passive"),
-        ("Bramble Vest",    "def", "armor_passive"),
+        ("Chain Vest",         "def", "armor_passive"),
+        ("Cloth Armor",        "def", "armor_passive"),
+        ("Warden's Mail",      "def", "armor_passive"),
+        ("Bramble Vest",       "def", "armor_passive"),
     ],
     "accessories": [
-        ("Ruby Crystal",    "hp",  "fortify_passive"),
-        ("Giant's Belt",    "hp",  "fortify_passive"),
-        ("Warmog's Armor",  "hp",  "fortify_passive"),
-        ("Spectre's Cowl",  "hp",  "fortify_passive"),
-        ("Hexdrinker",      "hp",  "fortify_passive"),
+        ("Ruby Crystal",       "hp",  "fortify_passive"),
+        ("Giant's Belt",       "hp",  "fortify_passive"),
+        ("Spectre's Cowl",     "hp",  "fortify_passive"),
+        ("Hexdrinker",         "hp",  "fortify_passive"),
+        ("Phage",              "hp",  "fortify_passive"),
     ],
     "magic": [
         ("Needlessly Large Rod", "atk", "crit_damage_passive"),
@@ -72,6 +75,7 @@ ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
         ("Amplifying Tome",      "atk", "atk_passive"),
         ("Lost Chapter",         "atk", "crit_damage_passive"),
         ("Fiendish Codex",       "atk", "attack_speed_passive"),
+        ("Sheen",                "atk", "atk_passive"),
     ],
 }
 ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic"]

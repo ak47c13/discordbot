@@ -276,5 +276,138 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"), ephemeral=True)
 
 
+    @app_commands.command(name="build", description="Craft a completed item from its components.")
+    @app_commands.describe(item_name="Name of the completed item to craft (e.g. Infinity Edge)")
+    async def build(self, interaction: discord.Interaction, item_name: str):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+
+        from data.item_recipes import ITEM_RECIPES
+        # Case-insensitive match
+        matched = next((k for k in ITEM_RECIPES if k.lower() == item_name.lower()), None)
+        if matched is None:
+            craftable = "\n".join(f"• {k}" for k in sorted(ITEM_RECIPES))
+            await interaction.followup.send(
+                embed=error_embed(
+                    f"No recipe for **{item_name}**.",
+                    f"Craftable items:\n{craftable}",
+                ),
+                ephemeral=True,
+            )
+            return
+
+        recipe = ITEM_RECIPES[matched]
+        components_needed = recipe["components"]
+
+        # Find one unequipped, unlocked, non-traded copy of each component
+        async with get_user_lock(uid):
+            items_to_consume = []
+            missing = []
+            for comp_name in components_needed:
+                found = await ItemInstance.find_one(
+                    ItemInstance.owner_id == uid,
+                    ItemInstance.name == comp_name,
+                    ItemInstance.equipped_to == None,
+                    ItemInstance.locked == False,
+                    ItemInstance.in_trade == False,
+                    ItemInstance.in_market == False,
+                )
+                if found:
+                    items_to_consume.append(found)
+                else:
+                    missing.append(comp_name)
+
+            if missing:
+                have_lines = [f"✅ {c}" for c in components_needed if c not in missing]
+                miss_lines = [f"❌ {c}" for c in missing]
+                all_lines = "\n".join(have_lines + miss_lines)
+                await interaction.followup.send(
+                    embed=error_embed(
+                        f"Missing components for **{matched}**.",
+                        all_lines,
+                    ),
+                    ephemeral=True,
+                )
+                return
+
+            # Determine output rank — use the lowest rank among components
+            rank_order = ["F", "E", "D", "C", "B", "A", "S"]
+            comp_ranks = [itm.rank for itm in items_to_consume]
+            output_rank = min(comp_ranks, key=lambda r: rank_order.index(r))
+
+            # Confirm embed before consuming
+            from utils.embeds import ConfirmView
+            gold_cost = recipe.get("gold_cost", 0)
+
+            from models.user import User
+            user = await User.find_one(User.discord_id == uid)
+            if user.gold < gold_cost:
+                await interaction.followup.send(
+                    embed=error_embed(f"Need {gold_cost:,} gold to craft. You have {user.gold:,}."),
+                    ephemeral=True,
+                )
+                return
+
+            comp_list = "\n".join(f"• {itm.name} [{itm.rank}]" for itm in items_to_consume)
+            confirm_embed = discord.Embed(
+                title=f"Craft: {matched} [{output_rank}]",
+                description=(
+                    f"**Components consumed:**\n{comp_list}\n\n"
+                    f"**Gold cost:** {gold_cost:,}\n"
+                    f"**Output rank:** [{output_rank}] (lowest component rank)\n\n"
+                    "This cannot be undone."
+                ),
+                color=0xFFAA00,
+            )
+            view = ConfirmView()
+            msg = await interaction.followup.send(embed=confirm_embed, view=view, ephemeral=True, wait=True)
+            view.message = msg
+            await view.wait()
+
+            if not view.confirmed:
+                await msg.edit(embed=error_embed("Craft cancelled."), view=None)
+                return
+
+            # Consume components and charge gold
+            for itm in items_to_consume:
+                await itm.delete()
+            user.gold -= gold_cost
+            await user.save()
+
+            # Grant the crafted item
+            from services.item_service import grant_item
+            crafted = await grant_item(
+                uid,
+                matched,
+                output_rank,
+                recipe["stat_type"],
+                recipe["passive"],
+            )
+
+        from utils.embeds import item_embed
+        embed = item_embed(crafted, f"Crafted: {matched}")
+        embed.description = recipe["description"]
+        await msg.edit(embed=embed, view=None)
+
+    @app_commands.command(name="recipes", description="Browse all craftable items and their components.")
+    async def recipes(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        from data.item_recipes import ITEM_RECIPES
+        embed = discord.Embed(
+            title="Blacksmith Recipes",
+            description="Craft completed items from components. Output rank = lowest component rank.\nComponents drop commonly from dungeons and raids.",
+            color=0xFFAA00,
+        )
+        for name, recipe in ITEM_RECIPES.items():
+            comps = " + ".join(recipe["components"])
+            embed.add_field(
+                name=f"{name}  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
+                value=f"{comps}\n*{recipe['description']}*",
+                inline=False,
+            )
+        embed.set_footer(text="Use /build <item_name> to craft")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 async def setup(bot: commands.Bot):
     await bot.add_cog(BlacksmithCog(bot))

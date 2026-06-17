@@ -257,15 +257,27 @@ async def start_raid(
 # Loot rolling
 # ---------------------------------------------------------------------------
 
+# Raids drop components (common) or completed items (rare ~5% of item drops)
 RAID_ITEM_POOL = [
-    ("Infinity Edge",        "atk", "crit_damage_passive"),
-    ("Chain Vest",           "def", "armor_passive"),
-    ("Ruby Crystal",         "hp",  "fortify_passive"),
-    ("Recurve Bow",          "atk", "attack_speed_passive"),
+    ("B.F. Sword",         "atk", "atk_passive"),
+    ("Pickaxe",            "atk", "atk_passive"),
+    ("Recurve Bow",        "atk", "attack_speed_passive"),
+    ("Chain Vest",         "def", "armor_passive"),
+    ("Warden's Mail",      "def", "armor_passive"),
+    ("Ruby Crystal",       "hp",  "fortify_passive"),
+    ("Giant's Belt",       "hp",  "fortify_passive"),
     ("Needlessly Large Rod", "atk", "crit_damage_passive"),
-    ("Warmog's Armor",       "hp",  "fortify_passive"),
-    ("Warden's Mail",        "def", "armor_passive"),
+    ("Vampiric Scepter",   "atk", "lifesteal_passive"),
 ]
+# Completed items that can rarely drop from high-difficulty raids
+RAID_COMPLETED_ITEM_POOL = [
+    ("Infinity Edge",        "atk", "crit_damage_passive"),
+    ("Blade of the Ruined King", "atk", "lifesteal_passive"),
+    ("Sunfire Aegis",        "def", "armor_passive"),
+    ("Warmog's Armor",       "hp",  "fortify_passive"),
+    ("Rabadon's Deathcap",   "atk", "crit_damage_passive"),
+]
+RAID_COMPLETED_DROP_CHANCE = 0.05  # 5% chance the item drop is a completed item
 
 
 async def _roll_raid_drops(
@@ -301,10 +313,14 @@ async def _roll_raid_drops(
         await grant_champion(owner_id, name, rank, session)
         rewards["champions"].append({"name": name, "rank": rank})
 
-    # Item drop
+    # Item drop — 5% chance of completed item, otherwise component
     if random.random() < cfg["item_chance"]:
         rank = random.choice(cfg["item_ranks"])
-        name, stat, passive = random.choice(RAID_ITEM_POOL)
+        if random.random() < RAID_COMPLETED_DROP_CHANCE:
+            pool = RAID_COMPLETED_ITEM_POOL
+        else:
+            pool = RAID_ITEM_POOL
+        name, stat, passive = random.choice(pool)
         await grant_item(owner_id, name, rank, stat, passive, session)
         rewards["items"].append({"name": name, "rank": rank})
 
