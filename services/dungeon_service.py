@@ -105,15 +105,7 @@ async def _check_unlock(owner_id: str, dungeon: Dungeon, session=None) -> tuple[
         return True, ""
 
     progresses = await _completed_dungeons(owner_id, session)
-    completed_slugs = {p.dungeon_slug: p for p in progresses if p.completions > 0}
-
-    if req in ("ANY_20", "ANY_40"):
-        target_len = 20 if req == "ANY_20" else 40
-        for slug in completed_slugs:
-            d = await Dungeon.find_one(Dungeon.slug == slug, session=usable_session(session))
-            if d and d.total_floors == target_len:
-                return True, ""
-        return False, f"Locked. Clear any {target_len}F dungeon first."
+    completed_slugs = {p.dungeon_slug for p in progresses if p.completions > 0}
 
     if req in completed_slugs:
         return True, ""

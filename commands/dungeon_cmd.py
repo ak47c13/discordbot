@@ -50,6 +50,7 @@ async def _active_champion_ids(owner_id: str) -> list[str]:
 
 
 async def _dungeon_choices(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    """Autocomplete for commands that require an accessible dungeon (enter, status, flee)."""
     uid = str(interaction.user.id)
     dungeons = await Dungeon.find(Dungeon.is_active == True).to_list()  # noqa: E712
     dungeons.sort(key=lambda d: d.total_floors)
@@ -60,13 +61,28 @@ async def _dungeon_choices(interaction: discord.Interaction, current: str) -> li
     cur = (current or "").lower()
     out = []
     for d in dungeons:
-        # Show map if: no unlock requirement (map 1), OR the required map is completed
+        # Only show maps the player has unlocked
         if d.unlock_req and d.unlock_req not in completed_slugs:
             continue
-        if cur in d.name.lower() or cur in d.slug.lower():
+        if not cur or cur in d.name.lower() or cur in d.slug.lower():
             prog = next((p for p in progresses if p.dungeon_slug == d.slug), None)
             hf = prog.highest_floor if prog else 0
             label = f"{d.emoji} {d.name} [{hf}/{d.total_floors}F]"
+            out.append(app_commands.Choice(name=label[:100], value=d.slug))
+        if len(out) >= 25:
+            break
+    return out
+
+
+async def _all_dungeon_choices(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    """Autocomplete for read-only commands (info, leaderboard) — shows ALL maps."""
+    dungeons = await Dungeon.find(Dungeon.is_active == True).to_list()  # noqa: E712
+    dungeons.sort(key=lambda d: d.total_floors)
+    cur = (current or "").lower()
+    out = []
+    for d in dungeons:
+        if not cur or cur in d.name.lower() or cur in d.slug.lower():
+            label = f"{d.emoji} {d.name} [{d.total_floors}F] [Rec. {d.recommended_rank}]"
             out.append(app_commands.Choice(name=label[:100], value=d.slug))
         if len(out) >= 25:
             break
@@ -151,9 +167,6 @@ class DungeonCog(commands.Cog):
             )
 
         await interaction.followup.send(embed=embed)
-
-    def _is_locked(self, d: Dungeon, completed_slugs: set) -> bool:
-        return bool(d.unlock_req and d.unlock_req not in completed_slugs)
 
     # ---------------------------------------------------------------
     @app_commands.command(name="dungeon-enter", description="Enter a dungeon and fight floor by floor.")
@@ -374,18 +387,20 @@ class DungeonCog(commands.Cog):
         progresses = await DungeonProgress.find(DungeonProgress.owner_id == uid).to_list()
         embed = discord.Embed(title="Dungeon Progress", color=0x5865F2)
         embed.description = f"Stamina: {user.stamina}/{user.max_stamina}" if user else ""
-        if not progresses:
-            embed.add_field(name="No progress yet", value="Use /dungeon-enter to begin.", inline=False)
+        has_any = False
         for p in progresses:
             d = await Dungeon.find_one(Dungeon.slug == p.dungeon_slug)
             if d is None:
-                continue
+                continue  # orphaned progress from an old dungeon slug — skip silently
+            has_any = True
             mark = "✅" if p.completions > 0 else "⭐"
             embed.add_field(
                 name=f"{d.emoji} {d.name}",
-                value=f"{mark} Floor {p.highest_floor}/{d.total_floors} | Checkpoint {p.checkpoint_floor} | x{p.completions}",
+                value=f"{mark} Floor {p.highest_floor}/{d.total_floors} | Checkpoint {p.checkpoint_floor} | ×{p.completions}",
                 inline=False,
             )
+        if not has_any:
+            embed.add_field(name="No progress yet", value="Use /dungeon-enter to begin.", inline=False)
         await interaction.followup.send(embed=embed)
 
     # ---------------------------------------------------------------
@@ -497,11 +512,11 @@ class DungeonCog(commands.Cog):
 
     @dungeon_info.autocomplete("dungeon_name")
     async def _ac_info(self, interaction, current: str):
-        return await _dungeon_choices(interaction, current)
+        return await _all_dungeon_choices(interaction, current)
 
     @dungeon_leaderboard.autocomplete("dungeon_name")
     async def _ac_lb(self, interaction, current: str):
-        return await _dungeon_choices(interaction, current)
+        return await _all_dungeon_choices(interaction, current)
 
 
 class _RepeatFloorView(discord.ui.View):
