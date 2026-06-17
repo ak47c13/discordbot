@@ -64,7 +64,7 @@ class RaidCog(commands.Cog):
 
     @app_commands.command(name="raid-create", description="Roll a random raid difficulty and create a queue.")
     async def raid_create(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -93,7 +93,7 @@ class RaidCog(commands.Cog):
         embed.add_field(name="Boss Level Range", value=f"Lv.{lvl[0]}–{lvl[1]}", inline=True)
         embed.add_field(name="Gold Payout",      value=f"{cfg['gold_min']:,}–{cfg['gold_max']:,}", inline=True)
         embed.add_field(name="Token Payout",     value=f"{cfg['token_min']}–{cfg['token_max']}", inline=True)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
     # ------------------------------------------------------------------
     # /raid-list
@@ -135,7 +135,7 @@ class RaidCog(commands.Cog):
     @app_commands.command(name="raid-join", description="Join an open raid queue.")
     @app_commands.describe(raid_id="Raid ID from /raid-list", champion_number="Your champion number (see /champions)")
     async def raid_join(self, interaction: discord.Interaction, raid_id: str, champion_number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -162,7 +162,6 @@ class RaidCog(commands.Cog):
                 f"Joined **{diff}** raid with **{champ.name} [{champ.rank}]**!\n"
                 f"Players: {len(raid.player_ids)}/5"
             ),
-            ephemeral=True,
         )
 
     # ------------------------------------------------------------------

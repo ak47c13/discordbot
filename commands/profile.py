@@ -98,7 +98,7 @@ class ProfileCog(commands.Cog):
     @app_commands.command(name="profile", description="View your profile and resources.")
     @app_commands.describe(user="Player whose profile to view (defaults to you)")
     async def profile(self, interaction: discord.Interaction, user: discord.Member | None = None):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         target = user or interaction.user
         is_self = target.id == interaction.user.id
 
@@ -107,7 +107,7 @@ class ProfileCog(commands.Cog):
             await profile_user.save()
 
         embed = await _build_profile_embed(target, profile_user)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="stamina", description="Check your stamina and regeneration.")
     async def stamina(self, interaction: discord.Interaction):
@@ -137,7 +137,7 @@ class ProfileCog(commands.Cog):
         app_commands.Choice(name="raids", value="raids"),
     ])
     async def leaderboard(self, interaction: discord.Interaction, type: str = "gold"):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
 
         if type == "gold":
             users = await User.find(User.registered == True).sort(-User.gold).limit(10).to_list()
@@ -162,12 +162,12 @@ class ProfileCog(commands.Cog):
             return
 
         embed = discord.Embed(title=title, description="\n".join(rows), color=COLOR_GOLD)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="daily", description="Claim your daily summon token reward.")
     async def daily(self, interaction: discord.Interaction):
         from datetime import datetime, timezone, timedelta
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         user = await User.get_or_create(
             str(interaction.user.id), interaction.user.display_name
         )
@@ -190,7 +190,7 @@ class ProfileCog(commands.Cog):
             description=f"+{DAILY_SUMMON_TOKENS} Summon Tokens",
             color=COLOR_GOLD,
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot: commands.Bot):

@@ -23,7 +23,7 @@ class SummonCog(commands.Cog):
     @app_commands.command(name="summon", description="Summon a champion or item using summon tokens.")
     @app_commands.describe(multi="Do 10 summons at once (costs 950 tokens instead of 1000)")
     async def summon(self, interaction: discord.Interaction, multi: bool = False):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         iid = str(interaction.id)
@@ -50,13 +50,13 @@ class SummonCog(commands.Cog):
 
         if multi:
             view = SummonRevealView(results, interaction.user.id)
-            await interaction.followup.send(embed=view.build_page_embed(), view=view, ephemeral=True)
+            await interaction.followup.send(embed=view.build_page_embed(), view=view)
         else:
             embed = build_summon_result_embed(
                 results[0],
                 footer=f"Cost: {SUMMON_TOKEN_COST} summon tokens",
             )
-            await interaction.followup.send(embed=embed, ephemeral=True)
+            await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="summon-rates", description="View summon pull rates.")
     async def summon_rates(self, interaction: discord.Interaction):
