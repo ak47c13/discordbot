@@ -212,14 +212,21 @@ class DungeonCog(commands.Cog):
             return
         await mark_processed(iid, f"dungeon:{dungeon_name}:{floor_num}")
 
-    async def _run_floor(self, interaction, uid, slug, floor_num, champ_ids):
+    async def _run_floor(self, interaction, uid, slug, floor_num, champ_ids, existing_message=None, continuous=False):
+        """Run one dungeon floor.
+
+        Returns the battle message on success, None if the session was cancelled mid-fight.
+        When *continuous* is True, skips the post-floor prompt (caller handles flow control).
+        """
         from services.battle_presentation_service import (
             simulate_and_store, start_presentation, advance_and_display,
         )
+        from models.battle_session import BattleSession
+        from beanie import PydanticObjectId
+
         units = await dungeon_service.build_floor_units(uid, slug, floor_num, champ_ids, None)
         player_units = units["player_units"]
         enemy_units = units["enemy_units"]
-        seed = random.randint(0, 2 ** 31)
 
         battle_type = "boss" if units["boss_floor"] else "hunt"
         zone_label = f"{units['dungeon_name']} — Floor {floor_num}"
@@ -234,76 +241,103 @@ class DungeonCog(commands.Cog):
         won = bs.winner == 0
 
         async def _reward_fn():
-            r = await dungeon_service.grant_floor_rewards(
+            return await dungeon_service.grant_floor_rewards(
                 uid, slug, floor_num, champ_ids, won, bs.battle_seed, None)
-            return r
 
         message = await start_presentation(
             bs, interaction.channel, [u.name for u in player_units], enemy_name,
-            followup=interaction.followup,
+            followup=interaction.followup if existing_message is None else None,
+            reuse_message=existing_message,
         )
         await advance_and_display(str(bs.id), message, reward_fn=_reward_fn)
 
-        # On loss, the presentation pipeline does NOT call reward_fn (it only
-        # fires on victory), so grant the loss outcome (checkpoint reset) here.
+        # Check if user hit Cancel during the fight
+        bs_fresh = await BattleSession.get(bs.id)
+        if bs_fresh and bs_fresh.status.startswith("CANCELLED"):
+            return None
+
+        # On loss, grant the loss outcome (checkpoint reset) here — reward_fn only fires on victory.
         if not won:
             await dungeon_service.grant_floor_rewards(
                 uid, slug, floor_num, champ_ids, won, bs.battle_seed, None)
 
-        if won:
-            res = await DungeonProgress.find_one(
-                DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
-            next_floor = floor_num + 1 if floor_num < units["total_floors"] else None
-            title = f"Floor {floor_num} Cleared"
-            if next_floor is None:
-                title = f"{units['dungeon_name']} Conquered!"
-            embed = discord.Embed(title=title, color=0x00CC44)
-            embed.description = f"Checkpoint: Floor {res.checkpoint_floor}"
-            if next_floor:
-                view = _NextFloorView(self, uid, slug, floor_num, next_floor, champ_ids, interaction.user.id)
-                await interaction.followup.send(embed=embed, view=view)
+        if not continuous:
+            # Single-floor mode: show result prompt with navigation buttons
+            if won:
+                res = await DungeonProgress.find_one(
+                    DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
+                next_floor = floor_num + 1 if floor_num < units["total_floors"] else None
+                title = f"Floor {floor_num} Cleared"
+                if next_floor is None:
+                    title = f"{units['dungeon_name']} Conquered!"
+                embed = discord.Embed(title=title, color=0x00CC44)
+                embed.description = f"Checkpoint: Floor {res.checkpoint_floor}"
+                if next_floor:
+                    view = _NextFloorView(self, uid, slug, floor_num, next_floor, champ_ids, interaction.user.id)
+                    await interaction.followup.send(embed=embed, view=view)
+                else:
+                    view = _RepeatFloorView(self, uid, slug, floor_num, None, champ_ids, interaction.user.id)
+                    await interaction.followup.send(embed=embed, view=view)
             else:
-                # Dungeon complete — only offer repeat on final floor
-                view = _RepeatFloorView(self, uid, slug, floor_num, None, champ_ids, interaction.user.id)
+                res = await DungeonProgress.find_one(
+                    DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
+                embed = discord.Embed(
+                    title="Defeated",
+                    description=f"You fell on Floor {floor_num}. Checkpoint: Floor {res.checkpoint_floor}.",
+                    color=0xFF3333,
+                )
+                view = _RepeatFloorView(self, uid, slug, floor_num, res.checkpoint_floor, champ_ids, interaction.user.id)
                 await interaction.followup.send(embed=embed, view=view)
-        else:
-            res = await DungeonProgress.find_one(
-                DungeonProgress.owner_id == uid, DungeonProgress.dungeon_slug == slug)
-            embed = discord.Embed(
-                title="Defeated",
-                description=f"You fell on Floor {floor_num}. Checkpoint: Floor {res.checkpoint_floor}.",
-                color=0xFF3333,
-            )
-            view = _RepeatFloorView(self, uid, slug, floor_num, res.checkpoint_floor, champ_ids, interaction.user.id)
-            await interaction.followup.send(embed=embed, view=view)
+
+        return message
 
     async def _run_repeat_continuous(self, interaction, uid, slug, floor_num, champ_ids):
-        """Farm the same floor repeatedly until death or stamina runs out."""
+        """Farm the same floor repeatedly until death, stamina runs out, or user stops."""
         runs = 0
         stop_reason = "out of stamina"
+        battle_message = None
 
         while True:
             ok, reason = await dungeon_service.can_enter_dungeon(uid, slug, None)
             if not ok:
-                stop_reason = f"out of stamina"
+                stop_reason = "out of stamina"
                 break
 
             try:
-                await self._run_floor(interaction, uid, slug, floor_num, champ_ids)
+                result = await self._run_floor(
+                    interaction, uid, slug, floor_num, champ_ids,
+                    existing_message=battle_message, continuous=True,
+                )
             except DungeonError as e:
                 stop_reason = str(e)
                 break
 
-            prog = await dungeon_service.get_or_create_progress(uid, slug, None)
-            if prog.highest_floor < floor_num and runs == 0:
-                # Lost on first attempt and floor was never cleared — can't farm it
-                stop_reason = f"defeated on floor {floor_num}"
+            if result is None:
+                # User cancelled via Cancel button during the fight
+                stop_reason = "cancelled"
                 break
+
+            battle_message = result
+
+            prog = await dungeon_service.get_or_create_progress(uid, slug, None)
             if prog.highest_floor < floor_num:
                 stop_reason = f"defeated on floor {floor_num}"
                 break
 
             runs += 1
+
+            # Between runs: show Continue/Stop prompt
+            view = _ContinueStopView(interaction.user.id)
+            between = discord.Embed(
+                title=f"Floor {floor_num} cleared × {runs}",
+                description="Continue farming this floor?",
+                color=0x00CC44,
+            )
+            await interaction.followup.send(embed=between, view=view)
+            await view.wait()
+            if view.stopped:
+                stop_reason = "stopped by user"
+                break
 
         embed = discord.Embed(
             title="Repeat Run Complete",
@@ -313,30 +347,38 @@ class DungeonCog(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     async def _run_continuous(self, interaction, uid, slug, start_floor, champ_ids):
-        """Run floors back-to-back until death, stamina depletion, or map clear."""
+        """Run floors back-to-back until death, stamina depletion, map clear, or user stops."""
         from models.dungeon import Dungeon
         dungeon = await Dungeon.find_one(Dungeon.slug == slug)
         total_floors = dungeon.total_floors if dungeon else 999
 
         floor_num = start_floor
         floors_cleared = 0
-        total_gold = 0
-        total_xp = 0
         stop_reason = "map cleared"
+        battle_message = None
 
         while floor_num <= total_floors:
             ok, reason = await dungeon_service.can_enter_dungeon(uid, slug, None)
             if not ok:
-                stop_reason = f"out of stamina ({reason})"
+                stop_reason = f"out of stamina"
                 break
 
             try:
-                await self._run_floor(interaction, uid, slug, floor_num, champ_ids)
+                result = await self._run_floor(
+                    interaction, uid, slug, floor_num, champ_ids,
+                    existing_message=battle_message, continuous=True,
+                )
             except DungeonError as e:
                 stop_reason = str(e)
                 break
 
-            # Check if we won the floor just run by looking at progress
+            if result is None:
+                # User cancelled via Cancel button during the fight
+                stop_reason = "cancelled"
+                break
+
+            battle_message = result
+
             prog = await dungeon_service.get_or_create_progress(uid, slug, None)
             if prog.highest_floor < floor_num:
                 stop_reason = f"defeated on floor {floor_num}"
@@ -344,6 +386,20 @@ class DungeonCog(commands.Cog):
 
             floors_cleared += 1
             floor_num += 1
+
+            if floor_num <= total_floors:
+                # Between floors: show Continue/Stop prompt
+                view = _ContinueStopView(interaction.user.id)
+                between = discord.Embed(
+                    title=f"Floor {floor_num - 1} Cleared — Next: Floor {floor_num}",
+                    description=f"Auto-continuing in {_ContinueStopView.TIMEOUT}s...",
+                    color=0x00CC44,
+                )
+                await interaction.followup.send(embed=between, view=view)
+                await view.wait()
+                if view.stopped:
+                    stop_reason = "stopped by user"
+                    break
 
         embed = discord.Embed(
             title="⏹ Continuous Run Complete",
@@ -519,6 +575,41 @@ class DungeonCog(commands.Cog):
         return await _all_dungeon_choices(interaction, current)
 
 
+class _ContinueStopView(discord.ui.View):
+    """Shown between floors in continuous runs. Auto-continues after timeout."""
+    TIMEOUT = 8
+
+    def __init__(self, user_id, timeout=TIMEOUT):
+        super().__init__(timeout=timeout)
+        self.user_id = user_id
+        self.stopped = False
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This run isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    async def on_timeout(self):
+        # Auto-continue: just let the view expire without setting stopped
+        self.stop()
+
+    @discord.ui.button(label="Continue", style=discord.ButtonStyle.success)
+    async def continue_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+    @discord.ui.button(label="Stop", style=discord.ButtonStyle.danger)
+    async def stop_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.stopped = True
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+
 class _RepeatFloorView(discord.ui.View):
     """View shown after defeat or dungeon clear — retry same floor or return to checkpoint."""
     def __init__(self, cog, uid, slug, floor_num, checkpoint_floor, champ_ids, user_id, timeout=120.0):
@@ -550,7 +641,7 @@ class _RepeatFloorView(discord.ui.View):
         from utils.locks import get_user_lock
         try:
             async with get_user_lock(self.uid):
-                await self.cog._run_floor(interaction, self.uid, self.slug, floor, self.champ_ids)
+                await self.cog._run_floor(interaction, self.uid, self.slug, floor, self.champ_ids, continuous=False)
         except DungeonError as e:
             await interaction.followup.send(embed=error_embed(str(e)))
 
@@ -607,7 +698,7 @@ class _NextFloorView(discord.ui.View):
         from utils.locks import get_user_lock
         try:
             async with get_user_lock(self.uid):
-                await self.cog._run_floor(interaction, self.uid, self.slug, floor, self.champ_ids)
+                await self.cog._run_floor(interaction, self.uid, self.slug, floor, self.champ_ids, continuous=False)
         except DungeonError as e:
             await interaction.followup.send(embed=error_embed(str(e)))
 
