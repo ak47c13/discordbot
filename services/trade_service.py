@@ -33,7 +33,10 @@ async def create_trade(
 ) -> TradeOffer:
     # Account age check
     initiator_user = await User.find_one(User.discord_id == initiator_id, session=usable_session(session))
-    age = (datetime.now(timezone.utc) - initiator_user.created_at).total_seconds() / 3600
+    created = initiator_user.created_at
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - created).total_seconds() / 3600
     if age < TRADING_MIN_ACCOUNT_AGE_HOURS:
         raise TradeError(f"Account must be at least {TRADING_MIN_ACCOUNT_AGE_HOURS}h old to trade.")
 
