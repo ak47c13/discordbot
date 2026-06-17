@@ -43,6 +43,7 @@ ADVANCED_COMPONENTS: dict[str, dict] = {
     "Recurve Bow":             {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+25% Attack Speed"},
     "Cloak of Agility":        {"stat_type": "atk", "passive": "crit_damage_passive",   "desc": "+10% Crit Chance"},
     "Zeal":                    {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+15% Crit · +10% Attack Speed"},
+    "Hearthbound Axe":         {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+15 ATK · +15% AS · builds into Trinity Force"},
     "Phage":                   {"stat_type": "atk", "passive": "atk_passive",          "desc": "+20 ATK · +200 HP · slowing hit"},
     "Sheen":                   {"stat_type": "atk", "passive": "sheen_passive",         "desc": "After using a skill, next attack deals 150% ATK"},
     "Kindlegem":               {"stat_type": "hp",  "passive": "fortify_passive",       "desc": "+200 HP"},
@@ -95,6 +96,7 @@ COMPONENT_RECIPES: dict[str, dict] = {
     "Fiendish Codex":       {"components": ["Amplifying Tome", "Faerie Charm"],     "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "AP + ability haste. Builds into Nashor's and morello."},
     "Tear of the Goddess":  {"components": ["Faerie Charm", "Sapphire Crystal"],    "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 200,  "description": "Stacks ATK through casting. Builds into Manamune and Archangel's."},
     "Vampiric Scepter":     {"components": ["Long Sword", "Faerie Charm"],          "stat_type": "atk", "passive": "lifesteal_passive",     "gold_cost": 200,  "description": "+10% Lifesteal. Builds into Blade of the Ruined King and Ravenous Hydra."},
+    "Hearthbound Axe":      {"components": ["Long Sword", "Dagger"],               "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "+15 ATK · +15% AS. Builds into Trinity Force."},
 }
 
 # ---------------------------------------------------------------------------
@@ -133,9 +135,9 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "description": "Every third attack deals true damage, ignoring all defenses.",
     },
     "Trinity Force": {
-        "components": ["Sheen", "Phage", "Zeal"],
+        "components": ["Sheen", "Phage", "Hearthbound Axe"],
         "stat_type": "atk", "passive": "sheen_passive", "gold_cost": 1400,
-        "description": "Spellblade empowers next attack after casting. HP, AS, and crit.",
+        "description": "Spellblade empowers next attack after casting. ATK, HP, and attack speed.",
     },
     "Blade of the Ruined King": {
         "components": ["Vampiric Scepter", "Recurve Bow", "Long Sword"],
@@ -280,11 +282,6 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "components": ["Giant's Belt", "Long Sword", "Kindlegem"],
         "stat_type": "hp", "passive": "fortify_passive", "gold_cost": 1000,
         "description": "Grants a shield equal to 75% base HP when dropping to low health.",
-    },
-    "Titanic Hydra": {
-        "components": ["Long Sword", "Ruby Crystal", "Giant's Belt"],
-        "stat_type": "atk", "passive": "atk_passive", "gold_cost": 1200,
-        "description": "Attacks deal bonus damage based on max HP. Tank with damage.",
     },
     "Spirit Visage": {
         "components": ["Spectre's Cowl", "Negatron Cloak", "Kindlegem"],

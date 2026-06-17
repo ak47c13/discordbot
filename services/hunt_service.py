@@ -45,14 +45,34 @@ from config.game_config import (
 from engine.skills import ALL_CHAMPION_NAMES
 
 
-ITEM_POOL = [
-    ("Infinity Edge", "atk", "crit_damage_passive"),
-    ("Chain Vest",    "def", "armor_passive"),
-    ("Ruby Crystal",  "hp",  "fortify_passive"),
-    ("Recurve Bow",   "atk", "attack_speed_passive"),
-    ("Cloak",         "def", "dodge_passive"),
-    ("Giant's Belt",  "hp",  "hp_boost_passive"),
-    ("B.F. Sword",    "atk", "atk_boost_passive"),
+BASIC_ITEM_POOL = [
+    ("Long Sword",       "atk", "atk_passive"),
+    ("Pickaxe",          "atk", "atk_passive"),
+    ("Dagger",           "atk", "attack_speed_passive"),
+    ("Vampiric Scepter", "atk", "lifesteal_passive"),
+    ("Cloth Armor",      "def", "armor_passive"),
+    ("Null-Magic Mantle","def", "magic_resist_passive"),
+    ("Ruby Crystal",     "hp",  "fortify_passive"),
+    ("Faerie Charm",     "hp",  "fortify_passive"),
+    ("Amplifying Tome",  "atk", "atk_passive"),
+    ("Sapphire Crystal", "atk", "atk_passive"),
+]
+
+ADVANCED_ITEM_POOL = [
+    ("B.F. Sword",           "atk", "atk_passive"),
+    ("Recurve Bow",          "atk", "attack_speed_passive"),
+    ("Cloak of Agility",     "atk", "crit_damage_passive"),
+    ("Zeal",                 "atk", "attack_speed_passive"),
+    ("Phage",                "atk", "atk_passive"),
+    ("Chain Vest",           "def", "armor_passive"),
+    ("Negatron Cloak",       "def", "magic_resist_passive"),
+    ("Warden's Mail",        "def", "armor_passive"),
+    ("Spectre's Cowl",       "def", "magic_resist_passive"),
+    ("Giant's Belt",         "hp",  "fortify_passive"),
+    ("Blasting Wand",        "atk", "atk_passive"),
+    ("Needlessly Large Rod", "atk", "crit_damage_passive"),
+    ("Hearthbound Axe",      "atk", "attack_speed_passive"),
+    ("Kindlegem",            "hp",  "fortify_passive"),
 ]
 
 
@@ -295,7 +315,7 @@ async def _roll_drops(
             c = await grant_champion(owner_id, name, rank, session)
             rewards["champions"].append({"name": name, "rank": rank, "id": str(c.id)})
 
-        elif drop_key in ("item_F", "item", "item_FE"):
+        elif drop_key in ("item_F", "item", "item_FE", "item_basic", "item_advanced"):
             ranks = cfg.get("ranks")
             if ranks:
                 rank = random.choice(ranks)
@@ -303,7 +323,11 @@ async def _roll_drops(
                 rank = "F"
             else:
                 rank = random.choice(["F", "E"])
-            name, stat, passive = random.choice(ITEM_POOL)
+            if drop_key == "item_advanced":
+                pool = ADVANCED_ITEM_POOL
+            else:
+                pool = BASIC_ITEM_POOL
+            name, stat, passive = random.choice(pool)
             itm = await grant_item(owner_id, name, rank, stat, passive, session)
             rewards["items"].append({"name": name, "rank": rank, "id": str(itm.id)})
 

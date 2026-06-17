@@ -236,33 +236,36 @@ RAID_COMPLETE_TOKENS = (50, 100)
 # Drop tables
 # ---------------------------------------------------------------------------
 NORMAL_MOB_DROPS = {
-    "gold":         {"min": 10,  "max": 50,  "chance": 1.00},
-    "champion_F":   {"chance": 0.02},
-    "item_F":       {"chance": 0.05},
-    "enhance_mat":  {"min": 1, "max": 2, "chance": 0.15},
-    "reroll_mat":   {"min": 1, "max": 1, "chance": 0.08},
-    "seal":         {"chance": 0.0005},
+    "gold":          {"min": 10,  "max": 50,  "chance": 1.00},
+    "champion_F":    {"chance": 0.02},
+    "item_basic":    {"chance": 0.20, "ranks": ["F", "E"]},
+    "item_advanced": {"chance": 0.03, "ranks": ["F"]},
+    "enhance_mat":   {"min": 1, "max": 2, "chance": 0.15},
+    "reroll_mat":    {"min": 1, "max": 1, "chance": 0.08},
+    "seal":          {"chance": 0.0005},
 }
 
 # Elite mob config
 ELITE_MOB_STAT_MULTIPLIER = 2.5   # elite HP/ATK vs normal
 ELITE_MOB_DROPS = {
-    "gold":        {"chance": 1.0, "min": 200,  "max": 600},
-    "champion":    {"chance": 0.25, "ranks": ["F", "E"]},
-    "item":        {"chance": 0.30, "ranks": ["F", "E"]},
-    "seal":        {"chance": 0.005},
-    "enhance_mat": {"chance": 0.60, "min": 3, "max": 8},
-    "reroll_mat":  {"chance": 0.40, "min": 1, "max": 3},
+    "gold":          {"chance": 1.0, "min": 200,  "max": 600},
+    "champion":      {"chance": 0.25, "ranks": ["F", "E"]},
+    "item_basic":    {"chance": 0.30, "ranks": ["F", "E"]},
+    "item_advanced": {"chance": 0.15, "ranks": ["F", "E"]},
+    "seal":          {"chance": 0.005},
+    "enhance_mat":   {"chance": 0.60, "min": 3, "max": 8},
+    "reroll_mat":    {"chance": 0.40, "min": 1, "max": 3},
 }
 
 BOSS_DROPS = {
-    "gold":         {"min": 200, "max": 500, "chance": 1.00},
-    "champion":     {"chance": 0.10},   # rank determined by boss config
-    "item":         {"chance": 0.15},
-    "enhance_mat":  {"min": 5, "max": 15, "chance": 0.40},
-    "reroll_mat":   {"min": 2, "max": 5, "chance": 0.20},
-    "seal":         {"chance": 0.01},
-    "summon_token": {"min": 10, "max": 30, "chance": 0.60},
+    "gold":          {"min": 200, "max": 500, "chance": 1.00},
+    "champion":      {"chance": 0.10},   # rank determined by boss config
+    "item_basic":    {"chance": 0.10, "ranks": ["F", "E"]},
+    "item_advanced": {"chance": 0.25, "ranks": ["F", "E", "D"]},
+    "enhance_mat":   {"min": 5, "max": 15, "chance": 0.40},
+    "reroll_mat":    {"min": 2, "max": 5, "chance": 0.20},
+    "seal":          {"chance": 0.01},
+    "summon_token":  {"min": 10, "max": 30, "chance": 0.60},
 }
 
 RAID_DROPS = {
