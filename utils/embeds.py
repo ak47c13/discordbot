@@ -20,8 +20,8 @@ COLOR_RANK = {
 }
 
 
-def build_champion_stat_block(champ, rune_page=None) -> str:
-    """Return a formatted string of all champion stats (base + rune bonuses)."""
+def _build_stat_unit(champ, rune_page=None):
+    """Return a CombatUnit with full stats computed (base + rune bonuses)."""
     from config.game_config import CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS
     from engine.combat import CombatUnit
 
@@ -33,7 +33,6 @@ def build_champion_stat_block(champ, rune_page=None) -> str:
     dfn = int(base.get("def", 0) + growth.get("def", 0) * (lvl - 1))
     spd = int(base.get("spd", 0))
 
-    # Dummy unit to accumulate rune bonuses
     unit = CombatUnit(
         unit_id="preview", name=champ.name, rank=rank, level=lvl,
         position=1, team=0,
@@ -42,13 +41,59 @@ def build_champion_stat_block(champ, rune_page=None) -> str:
     if rune_page:
         from services.rune_service import apply_rune_bonuses
         apply_rune_bonuses(unit, rune_page, lvl)
+    return unit
 
+
+def build_champion_stat_block(champ, rune_page=None) -> str:
+    """Single-string fallback — prefer add_champion_stat_fields for embeds."""
+    unit = _build_stat_unit(champ, rune_page)
     lines = [
         f"HP {int(unit.hp_max):,}   ATK {int(unit.atk):,}   Armor {int(unit.def_stat):,}   SPD {unit.spd}",
         f"Crit {unit.crit_chance:.1f}%   Crit DMG {unit.crit_dmg:.0f}%   Lifesteal {unit.lifesteal:.1f}%   Dodge {unit.dodge_chance:.1f}%",
         f"Arm Pen {unit.armor_pen:.0f}   Mag Pen {unit.magic_pen:.0f}   Mag Res {unit.magic_resist:.0f}   Atk Spd {unit.attack_speed:.2f}×",
     ]
     return "\n".join(lines)
+
+
+def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None) -> None:
+    """Add structured, grouped stat fields to an embed in-place."""
+    unit = _build_stat_unit(champ, rune_page)
+
+    # Row 1: base combat stats (full width)
+    embed.add_field(
+        name="Base",
+        value=(
+            f"**HP** {int(unit.hp_max):,}\n"
+            f"**ATK** {int(unit.atk):,}\n"
+            f"**Armor** {int(unit.def_stat):,}\n"
+            f"**SPD** {unit.spd}"
+        ),
+        inline=True,
+    )
+
+    # Row 1 col 2: crit / sustain
+    embed.add_field(
+        name="Offense",
+        value=(
+            f"**Crit** {unit.crit_chance:.1f}%\n"
+            f"**Crit DMG** {unit.crit_dmg:.0f}%\n"
+            f"**Lifesteal** {unit.lifesteal:.1f}%\n"
+            f"**Dodge** {unit.dodge_chance:.1f}%"
+        ),
+        inline=True,
+    )
+
+    # Row 1 col 3: penetration / resistances
+    embed.add_field(
+        name="Pen / Res",
+        value=(
+            f"**Arm Pen** {unit.armor_pen:.0f}\n"
+            f"**Mag Pen** {unit.magic_pen:.0f}\n"
+            f"**Mag Res** {unit.magic_resist:.0f}\n"
+            f"**Atk Spd** {unit.attack_speed:.2f}×"
+        ),
+        inline=True,
+    )
 
 
 def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Embed:
@@ -59,11 +104,7 @@ def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Em
         color=color,
     )
 
-    embed.add_field(
-        name="Stats",
-        value=build_champion_stat_block(champ, rune_page),
-        inline=False,
-    )
+    add_champion_stat_fields(embed, champ, rune_page)
 
     flags = []
     if champ.locked:                        flags.append("🔒 Locked")

@@ -7,7 +7,7 @@ from models.champion import ChampionInstance
 from models.item import ItemInstance
 from utils.embeds import (
     error_embed, progress_bar, apply_stamina_regen, stamina_full_in,
-    COLOR_INFO, COLOR_GOLD, AURA_COLOR_BY_RANK, build_champion_stat_block,
+    COLOR_INFO, COLOR_GOLD, AURA_COLOR_BY_RANK, add_champion_stat_fields,
 )
 from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
 from config.game_config import STAMINA_REGEN_SECONDS
@@ -52,9 +52,10 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
 
         embed.add_field(
             name=f"{champ.name} [{champ.rank}] Lv.{champ.level}  •  #{champ.display_id}",
-            value=build_champion_stat_block(champ, rp),
+            value="​",
             inline=False,
         )
+        add_champion_stat_fields(embed, champ, rp)
 
         # Rune page slots
         if rp:
