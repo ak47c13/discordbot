@@ -44,6 +44,9 @@ ADVANCED_COMPONENTS: dict[str, dict] = {
     "Cloak of Agility":        {"stat_type": "atk", "passive": "crit_damage_passive",   "desc": "+10% Crit Chance"},
     "Zeal":                    {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+15% Crit · +10% Attack Speed"},
     "Hearthbound Axe":         {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+15 ATK · +15% AS · builds into Trinity Force"},
+    "Noonquiver":              {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+30 ATK · +15% AS · builds into Shieldbow, Kraken Slayer"},
+    "Tiamat":                  {"stat_type": "atk", "passive": "atk_passive",          "desc": "+25 ATK · splash damage · builds into Hydras"},
+    "Caulfield's Warhammer":   {"stat_type": "atk", "passive": "atk_passive",          "desc": "+25 ATK · ability haste · builds into Death's Dance, Ravenous Hydra"},
     "Phage":                   {"stat_type": "atk", "passive": "atk_passive",          "desc": "+20 ATK · +200 HP · slowing hit"},
     "Sheen":                   {"stat_type": "atk", "passive": "sheen_passive",         "desc": "After using a skill, next attack deals 150% ATK"},
     "Kindlegem":               {"stat_type": "hp",  "passive": "fortify_passive",       "desc": "+200 HP"},
@@ -97,6 +100,9 @@ COMPONENT_RECIPES: dict[str, dict] = {
     "Tear of the Goddess":  {"components": ["Faerie Charm", "Sapphire Crystal"],    "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 200,  "description": "Stacks ATK through casting. Builds into Manamune and Archangel's."},
     "Vampiric Scepter":     {"components": ["Long Sword", "Faerie Charm"],          "stat_type": "atk", "passive": "lifesteal_passive",     "gold_cost": 200,  "description": "+10% Lifesteal. Builds into Blade of the Ruined King and Ravenous Hydra."},
     "Hearthbound Axe":      {"components": ["Long Sword", "Dagger"],               "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "+15 ATK · +15% AS. Builds into Trinity Force."},
+    "Noonquiver":           {"components": ["Long Sword", "Cloak of Agility"],    "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 250,  "description": "ATK + crit chance. Builds into Immortal Shieldbow and Kraken Slayer."},
+    "Tiamat":               {"components": ["Long Sword", "Long Sword"],          "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 350,  "description": "ATK with splash. Builds into Ravenous Hydra and Titanic Hydra."},
+    "Caulfield's Warhammer":{"components": ["Pickaxe", "Long Sword"],             "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 300,  "description": "ATK + ability haste. Builds into Death's Dance and Ravenous Hydra."},
 }
 
 # ---------------------------------------------------------------------------
@@ -109,13 +115,8 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1200,
         "description": "Crit strikes deal 235% instead of 175% damage. Massive crit power spike.",
     },
-    "Galeforce": {
-        "components": ["B.F. Sword", "Cloak of Agility", "Zeal"],
-        "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1300,
-        "description": "Dash to a target and fire bolts at nearby enemies. High burst + mobility.",
-    },
     "Immortal Shieldbow": {
-        "components": ["B.F. Sword", "Recurve Bow", "Cloak of Agility"],
+        "components": ["Noonquiver", "B.F. Sword", "Cloak of Agility"],
         "stat_type": "atk", "passive": "lifesteal_passive", "gold_cost": 1200,
         "description": "Saves you from a lethal hit with a shield. Lifeline for marksmen.",
     },
@@ -130,7 +131,7 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "description": "Attacks fire bolts that hit two additional nearby enemies.",
     },
     "Kraken Slayer": {
-        "components": ["Recurve Bow", "Long Sword", "Long Sword"],
+        "components": ["Noonquiver", "Recurve Bow", "Long Sword"],
         "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 1000,
         "description": "Every third attack deals true damage, ignoring all defenses.",
     },
@@ -145,12 +146,12 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "description": "Attacks deal % current HP bonus damage and steal 10% move speed.",
     },
     "Ravenous Hydra": {
-        "components": ["Vampiric Scepter", "B.F. Sword", "Long Sword"],
+        "components": ["Tiamat", "Vampiric Scepter", "Caulfield's Warhammer"],
         "stat_type": "atk", "passive": "lifesteal_passive", "gold_cost": 1200,
         "description": "Attacks splash to nearby enemies. Massive omnivamp.",
     },
     "Death's Dance": {
-        "components": ["Pickaxe", "Long Sword", "Kindlegem"],
+        "components": ["Caulfield's Warhammer", "Pickaxe", "Kindlegem"],
         "stat_type": "atk", "passive": "lifesteal_passive", "gold_cost": 1100,
         "description": "Stores 30% of damage taken, then bleeds it out over time. Defer burst.",
     },
@@ -160,7 +161,7 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "description": "Stacks armor shred on each hit. Shreds up to 24% armor over 6 hits.",
     },
     "Titanic Hydra": {
-        "components": ["Long Sword", "Ruby Crystal", "Giant's Belt"],
+        "components": ["Tiamat", "Giant's Belt", "Ruby Crystal"],
         "stat_type": "atk", "passive": "atk_passive", "gold_cost": 1200,
         "description": "Attacks deal bonus damage based on max HP. Tank with damage.",
     },
@@ -181,7 +182,7 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1400,
         "description": "Amplifies all AP by 35%. Biggest AP item in the game.",
     },
-    "Luden's Tempest": {
+    "Luden's Companion": {
         "components": ["Lost Chapter", "Blasting Wand", "Amplifying Tome"],
         "stat_type": "atk", "passive": "attack_speed_passive", "gold_cost": 1200,
         "description": "First skill hit fires an echo that bounces to 3 nearby enemies.",

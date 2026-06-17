@@ -73,6 +73,9 @@ ADVANCED_ITEM_POOL = [
     ("Needlessly Large Rod", "atk", "crit_damage_passive"),
     ("Hearthbound Axe",      "atk", "attack_speed_passive"),
     ("Kindlegem",            "hp",  "fortify_passive"),
+    ("Noonquiver",           "atk", "attack_speed_passive"),
+    ("Tiamat",               "atk", "atk_passive"),
+    ("Caulfield's Warhammer","atk", "atk_passive"),
 ]
 
 
