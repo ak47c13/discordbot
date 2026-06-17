@@ -59,9 +59,19 @@ def _unit_defense(t) -> float:
     return max(0.0, defense)
 
 
-def _apply_damage(target, damage: int):
-    """Apply damage through shields first, then HP."""
+def _apply_damage(target, damage: int, damage_type: str = "physical"):
+    """Apply damage through shields first, then HP.
+
+    Banshee's Veil blocks the first magic hit; Guardian Angel revive is
+    handled in the main combat loop after all actions resolve.
+    """
     from engine.status_effects import Shield
+
+    # Banshee's Veil: block the first magic-damage hit
+    if damage_type == "magic" and getattr(target, "banshee_ready", False):
+        target.banshee_ready = False
+        return target.hp  # damage fully absorbed
+
     for eff in list(target.status_effects):
         if isinstance(eff, Shield) and eff.absorb > 0:
             _absorbed, damage = eff.absorb_damage(damage)
@@ -88,6 +98,7 @@ def make_skill(
     status_duration: int = 1,
     status_chance: float = 1.0,
     boss_cc_cap: bool = True,         # if True, bosses get 1-turn CC max
+    self_buff: dict | None = None,    # {"stat": str, "value": float, "duration": int}
 ):
     """Return a skill function from a declarative definition dict."""
 
@@ -126,7 +137,9 @@ def make_skill(
                 elif damage_type == "magic" and coeff > 0:
                     raw = caster.atk * coeff * 1.1
                     pen_bonus = min(magic_pen, 50)
-                    dmg = max(1, int(raw * (1 - (15 - pen_bonus) / 100)))
+                    target_mr = max(0.0, getattr(t, "magic_resist", 0.0) - pen_bonus)
+                    mr_mitigation = target_mr / (target_mr + 200)
+                    dmg = max(1, int(raw * (1 - mr_mitigation)))
                 elif damage_type == "true" and coeff > 0:
                     dmg = max(1, int(caster.atk * coeff))
 
@@ -135,11 +148,11 @@ def make_skill(
                     dmg = int(dmg * (crit_dmg_mult / 100.0))
 
                 if dmg > 0:
-                    _apply_damage(t, dmg)
+                    _apply_damage(t, dmg, damage_type)
                     crit_label = " 💥CRIT!" if is_crit else ""
                     log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.{crit_label}")
                     if lifesteal > 0 and damage_type == "physical":
-                        heal = int(dmg * lifesteal)
+                        heal = int(dmg * lifesteal / 100.0)
                         if heal > 0:
                             caster.hp = min(caster.hp_max, caster.hp + heal)
                             log.append(f"  🩸 {caster.name} leeches {heal} HP.")
@@ -189,6 +202,24 @@ def make_skill(
                 t.status_effects.append(Shield(absorb=shield_amount, duration=3))
                 log.append(f"  🛡️ {t.name} gains a {shield_amount:,} HP shield.")
 
+        # Self-buff (temporary stat increase; applied immediately, no expiry mechanic yet)
+        # Value is applied as a flat additive boost. Not reversed — intentional simplification.
+        if self_buff:
+            _stat = self_buff.get("stat", "")
+            _val = self_buff.get("value", 0)
+            _dur = self_buff.get("duration", 1)
+            if _stat == "atk":
+                caster.atk += _val
+                log.append(f"  ⬆️ {caster.name} gains +{_val} ATK ({name}) for {_dur} rounds.")
+            elif _stat == "def_stat":
+                # value is a multiplier (e.g. 0.20 = +20% DEF)
+                bonus = int(caster.def_stat * _val)
+                caster.def_stat += bonus
+                log.append(f"  🛡️ {caster.name} gains +{bonus} DEF ({name}) for {_dur} rounds.")
+            elif _stat == "spd":
+                caster.spd = int(caster.spd + _val)
+                log.append(f"  💨 {caster.name} gains +{int(_val)} SPD ({name}) for {_dur} rounds.")
+
         # Mana: mutate caster directly for the combat engine, and report via return value.
         if mana_gain:
             caster.mana = min(100, caster.mana + mana_gain)
@@ -222,4 +253,5 @@ def skill_from_def(d: dict):
         status_duration=d.get("status_duration", 1),
         status_chance=d.get("status_chance", 1.0),
         boss_cc_cap=d.get("boss_cc_cap", True),
+        self_buff=d.get("self_buff"),
     )

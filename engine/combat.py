@@ -55,9 +55,10 @@ class CombatUnit:
     attack_speed: float = 1.0     # multiplier
 
     # Item passive state
-    has_sheen: bool = False           # True if unit has a Sheen item equipped
+    has_sheen: bool = False           # True if unit has a Sheen/Trinity Force item equipped
     guardian_angel_ready: bool = False  # True if Guardian Angel has not yet triggered
-    sterak_triggered: bool = False    # True once Sterak's Gage shield has fired
+    has_sterak: bool = False          # True if unit has Sterak's Gage
+    sterak_triggered: bool = False    # True once Sterak's Gage shield has already fired
     banshee_ready: bool = False       # True if Banshee's Veil spell shield is active
     reflect_damage_pct: float = 0.0   # % of damage to return to attacker (Thornmail)
     sunfire_burn: bool = False        # True if unit has Sunfire Aegis (burns nearby enemies)
@@ -278,6 +279,7 @@ def build_unit_from_champion(
     if has_guardian_angel:
         unit.guardian_angel_ready = True
     if has_sterak:
+        unit.has_sterak = True
         unit.sterak_triggered = False
     if has_banshee:
         unit.banshee_ready = True
@@ -736,7 +738,7 @@ def run_battle_with_rounds(
             # The blocking itself is in _apply_damage_with_banshee called from skill resolution.
 
             # Sterak's Gage: grant shield when HP drops below 30% for first time
-            if not unit.sterak_triggered and unit.sterak_triggered is not None:
+            if unit.has_sterak and not unit.sterak_triggered:
                 if unit.hp_max > 0 and unit.hp <= int(unit.hp_max * 0.30) and unit.is_alive:
                     shield_amt = int(unit.hp_max * 0.75)
                     from engine.status_effects import Shield
