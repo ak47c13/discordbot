@@ -219,18 +219,18 @@ class TokenBundleView(discord.ui.View):
                 return
             await interaction.response.defer(ephemeral=True)
             uid = str(interaction.user.id)
-            async with get_user_lock(uid):
-                client = get_motor_client()
-                async with await client.start_session() as session:
-                    try:
-                        res = await buy_token_bundle(uid, index, session=session)
-                        embed = success_embed(
-                            f"Bought **{res['tokens_gained']} token(s)** for **{res['gold_spent']:,} gold**!",
-                            title="Purchase Complete",
-                        )
-                        await interaction.followup.send(embed=embed, ephemeral=True)
-                    except ShopError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            try:
+                async with get_user_lock(uid):
+                    res = await buy_token_bundle(uid, index)
+                embed = success_embed(
+                    f"Bought **{res['tokens_gained']} token(s)** for **{res['gold_spent']:,} gold**!",
+                    title="Purchase Complete",
+                )
+                await interaction.followup.send(embed=embed, ephemeral=True)
+            except ShopError as e:
+                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+            except Exception as e:
+                await interaction.followup.send(embed=error_embed(f"Purchase failed: {e}"), ephemeral=True)
         return callback
 
 

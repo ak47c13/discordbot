@@ -31,12 +31,12 @@ async def buy_token_bundle(owner_id: str, bundle_index: int, session=None) -> di
     if bundle_index < 0 or bundle_index >= len(TOKEN_BUNDLES):
         raise ShopError("Invalid bundle.")
     bundle = TOKEN_BUNDLES[bundle_index]
-    user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
+    user = await User.find_one(User.discord_id == owner_id)
     if user is None:
-        raise ShopError("User not found.")
+        raise ShopError("User not found. Use /start to register.")
     if user.gold < bundle["gold"]:
         raise ShopError(f"Need {bundle['gold']:,} gold. You have {user.gold:,}.")
     user.gold -= bundle["gold"]
     user.summon_tokens += bundle["tokens"]
-    await user.save(session=usable_session(session))
+    await user.save()
     return {"tokens_gained": bundle["tokens"], "gold_spent": bundle["gold"]}
