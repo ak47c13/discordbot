@@ -114,7 +114,7 @@ def make_skill(
                 # General dodge check for physical hits
                 if damage_type == "physical":
                     dodge = getattr(t, "dodge_chance", 0.0)
-                    if dodge > 0 and random.random() < dodge:
+                    if dodge > 0 and random.random() < (dodge / 100.0):
                         log.append(f"  {t.name} dodges {caster.name}'s attack!")
                         continue
 
@@ -130,9 +130,9 @@ def make_skill(
                 elif damage_type == "true" and coeff > 0:
                     dmg = max(1, int(caster.atk * coeff))
 
-                is_crit = crit_chance > 0 and random.random() < crit_chance
+                is_crit = crit_chance > 0 and random.random() < (crit_chance / 100.0)
                 if is_crit:
-                    dmg = int(dmg * crit_dmg_mult)
+                    dmg = int(dmg * (crit_dmg_mult / 100.0))
 
                 if dmg > 0:
                     _apply_damage(t, dmg)

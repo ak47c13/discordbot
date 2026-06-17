@@ -20,31 +20,57 @@ COLOR_RANK = {
 }
 
 
-def champion_embed(champ, title: str = "Champion") -> discord.Embed:
-    from config.game_config import CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS, RANK_INDEX
-    rank = champ.rank
-    lvl = champ.level
-    base = CHAMPION_BASE_STATS[rank]
-    growth = CHAMPION_GROWTH_STATS[rank]
-    hp  = base["hp"]  + growth["hp"]  * (lvl - 1)
-    atk = base["atk"] + growth["atk"] * (lvl - 1)
-    dfn = base["def"] + growth["def"] * (lvl - 1)
+def build_champion_stat_block(champ, rune_page=None) -> str:
+    """Return a formatted string of all champion stats (base + rune bonuses)."""
+    from config.game_config import CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS
+    from engine.combat import CombatUnit
 
+    rank, lvl = champ.rank, champ.level
+    base   = CHAMPION_BASE_STATS.get(rank, {})
+    growth = CHAMPION_GROWTH_STATS.get(rank, {})
+    hp  = int(base.get("hp",  0) + growth.get("hp",  0) * (lvl - 1))
+    atk = int(base.get("atk", 0) + growth.get("atk", 0) * (lvl - 1))
+    dfn = int(base.get("def", 0) + growth.get("def", 0) * (lvl - 1))
+    spd = int(base.get("spd", 0))
+
+    # Dummy unit to accumulate rune bonuses
+    unit = CombatUnit(
+        unit_id="preview", name=champ.name, rank=rank, level=lvl,
+        position=1, team=0,
+        hp=hp, hp_max=hp, atk=float(atk), def_stat=float(dfn), spd=spd,
+    )
+    if rune_page:
+        from services.rune_service import apply_rune_bonuses
+        apply_rune_bonuses(unit, rune_page, lvl)
+
+    lines = [
+        f"❤️ **HP** {int(unit.hp_max):,}　⚔️ **ATK** {int(unit.atk):,}　🛡️ **Armor** {int(unit.def_stat):,}　💨 **SPD** {unit.spd}",
+        f"🎯 **Crit** {unit.crit_chance:.1f}%　💥 **Crit DMG** {unit.crit_dmg:.0f}%　🩸 **Lifesteal** {unit.lifesteal:.1f}%　💨 **Dodge** {unit.dodge_chance:.1f}%",
+        f"🔱 **Arm Pen** {unit.armor_pen:.0f}　🔮 **Mag Pen** {unit.magic_pen:.0f}　🧲 **Mag Res** {unit.magic_resist:.0f}　⚡ **Atk Spd** {unit.attack_speed:.2f}×",
+    ]
+    return "\n".join(lines)
+
+
+def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Embed:
+    rank = champ.rank
     color = AURA_COLOR_BY_RANK.get(rank, 0xFFFFFF)
     embed = discord.Embed(
-        title=f"{title}: {champ.name} [{rank}]",
+        title=f"{title}: {champ.name} [{rank}] Lv.{champ.level}  •  #{getattr(champ, 'display_id', '?')}",
         color=color,
     )
-    embed.add_field(name="Level", value=str(lvl), inline=True)
-    embed.add_field(name="HP",    value=str(int(hp)),  inline=True)
-    embed.add_field(name="ATK",   value=str(int(atk)), inline=True)
-    embed.add_field(name="DEF",   value=str(int(dfn)), inline=True)
+
+    embed.add_field(
+        name="📊 Stats",
+        value=build_champion_stat_block(champ, rune_page),
+        inline=False,
+    )
 
     flags = []
-    if champ.locked:         flags.append("🔒 Locked")
-    if champ.in_trade:       flags.append("🤝 In Trade")
-    if champ.in_market:      flags.append("🏪 Listed")
-    if getattr(champ, "is_active", False): flags.append("⚔️ Active")
+    if champ.locked:                        flags.append("🔒 Locked")
+    if champ.in_trade:                      flags.append("🤝 In Trade")
+    if champ.in_market:                     flags.append("🏪 Listed")
+    if getattr(champ, "is_active", False):  flags.append("⚔️ Active")
+    if getattr(champ, "favorite", False):   flags.append("⭐ Fav")
     if flags:
         embed.add_field(name="Status", value=" | ".join(flags), inline=False)
 

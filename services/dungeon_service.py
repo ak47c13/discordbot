@@ -170,7 +170,7 @@ def _apply_boss_passive(boss: CombatUnit, passive: str) -> None:
     boss.is_boss = True
 
     if passive == "yasuo_passive":
-        boss.dodge_chance = 0.5
+        boss.dodge_chance = 50.0
     elif passive == "tryndamere_passive":
         boss.undying = True
     elif passive == "chogath_passive":

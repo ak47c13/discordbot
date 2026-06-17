@@ -45,12 +45,14 @@ class CombatUnit:
     status_effects: list[StatusEffect] = field(default_factory=list)
 
     # Extended stats
-    crit_chance: float = 0.0      # 0.0–1.0 probability
-    crit_dmg: float = 1.75        # damage multiplier on crit
+    crit_chance: float = 0.0      # percent (0–100)
+    crit_dmg: float = 175.0       # percent (175 = 1.75× multiplier)
     armor_pen: float = 0.0        # flat armor penetration
     magic_pen: float = 0.0        # flat magic penetration
-    lifesteal: float = 0.0        # fraction of physical dmg healed
-    attack_speed: float = 1.0     # >1.0 grants extra basic attack turns
+    magic_resist: float = 0.0     # flat magic resistance
+    lifesteal: float = 0.0        # percent (0–100)
+    dodge_chance: float = 0.0     # percent (0–100)
+    attack_speed: float = 1.0     # multiplier
 
     # Boss mechanic state
     is_boss: bool = False
@@ -58,7 +60,6 @@ class CombatUnit:
     mechanic_triggered: bool = False
 
     # Dungeon boss passive state
-    dodge_chance: float = 0.0
     undying: bool = False
     undying_rounds: int = 0
     feast_stacks: int = 0
@@ -566,7 +567,7 @@ def run_battle_with_rounds(
             # restore the HP it lost this turn (damage negated).
             for db in dodge_units:
                 lost = dodge_hp_before[id(db)] - db.hp
-                if lost > 0 and random.random() < db.dodge_chance:
+                if lost > 0 and random.random() < (db.dodge_chance / 100.0):
                     db.hp = dodge_hp_before[id(db)]
                     log.append(f"  {db.name} blocks the strike (Way of the Wanderer)!")
 

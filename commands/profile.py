@@ -7,27 +7,11 @@ from models.champion import ChampionInstance
 from models.item import ItemInstance
 from utils.embeds import (
     error_embed, progress_bar, apply_stamina_regen, stamina_full_in,
-    COLOR_INFO, COLOR_GOLD,
+    COLOR_INFO, COLOR_GOLD, AURA_COLOR_BY_RANK, build_champion_stat_block,
 )
 from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
-from config.game_config import (
-    STAMINA_REGEN_SECONDS,
-    CHAMPION_BASE_STATS,
-    CHAMPION_GROWTH_STATS,
-    AURA_COLOR_BY_RANK,
-)
+from config.game_config import STAMINA_REGEN_SECONDS
 
-
-def _champ_stats(champ) -> dict:
-    rank, level = champ.rank, champ.level
-    base = CHAMPION_BASE_STATS.get(rank, {})
-    growth = CHAMPION_GROWTH_STATS.get(rank, {})
-    return {
-        "hp":  int(base.get("hp",  0) + growth.get("hp",  0) * (level - 1)),
-        "atk": int(base.get("atk", 0) + growth.get("atk", 0) * (level - 1)),
-        "def": int(base.get("def", 0) + growth.get("def", 0) * (level - 1)),
-        "spd": int(base.get("spd", 0)),
-    }
 
 
 async def _build_profile_embed(target: discord.User | discord.Member, profile_user: User) -> discord.Embed:
@@ -64,50 +48,13 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
         riot_id = champ.riot_id or _riot_id_from_name(champ.name)
         embed.set_thumbnail(url=DDRAGON_LOADING.format(riot_id=riot_id))
 
-        stats = _champ_stats(champ)
+        rp = getattr(profile_user, "rune_page", None)
 
         embed.add_field(
             name=f"⚔️ {champ.name} [{champ.rank}] Lv.{champ.level}  •  #{champ.display_id}",
-            value=(
-                f"❤️ **HP** {stats['hp']:,}　"
-                f"⚔️ **ATK** {stats['atk']:,}　"
-                f"🛡️ **DEF** {stats['def']:,}　"
-                f"💨 **SPD** {stats['spd']}"
-            ),
+            value=build_champion_stat_block(champ, rp),
             inline=False,
         )
-
-        # Extended stats from runes (if any are non-default)
-        rp = getattr(profile_user, "rune_page", None)
-        ext_lines = []
-        if rp:
-            from services.rune_service import apply_rune_bonuses
-            from engine.combat import CombatUnit
-            # Build a dummy unit to compute rune bonuses
-            dummy = CombatUnit(
-                unit_id="preview", name=champ.name, rank=champ.rank, level=champ.level,
-                position=1, team=0,
-                hp=stats["hp"], hp_max=stats["hp"],
-                atk=float(stats["atk"]), def_stat=float(stats["def"]),
-                spd=stats["spd"],
-            )
-            apply_rune_bonuses(dummy, rp, champ.level)
-            if dummy.crit_chance > 0:
-                ext_lines.append(f"🎯 **Crit** {dummy.crit_chance:.1f}%")
-            if getattr(dummy, "crit_dmg", 1.75) != 1.75:
-                ext_lines.append(f"💥 **Crit DMG** {dummy.crit_dmg:.2f}×")
-            if dummy.armor_pen > 0:
-                ext_lines.append(f"🔱 **Arm Pen** {int(dummy.armor_pen)}")
-            if dummy.magic_pen > 0:
-                ext_lines.append(f"🔮 **Mag Pen** {int(dummy.magic_pen)}")
-            if dummy.lifesteal > 0:
-                ext_lines.append(f"🩸 **Lifesteal** {dummy.lifesteal*100:.1f}%")
-            if getattr(dummy, "dodge_chance", 0) > 0:
-                ext_lines.append(f"💨 **Dodge** {dummy.dodge_chance*100:.1f}%")
-            if getattr(dummy, "attack_speed", 1.0) != 1.0:
-                ext_lines.append(f"⚡ **Atk Spd** {dummy.attack_speed:.2f}×")
-        if ext_lines:
-            embed.add_field(name="✨ Rune Bonuses", value="  ".join(ext_lines), inline=False)
 
         # Rune page slots
         if rp:
@@ -117,9 +64,7 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
             quints  = sum(1 for s in rp.quints  if s.rune_id)
             embed.add_field(
                 name="💎 Rune Page",
-                value=(
-                    f"🔴 {reds}/9　🟡 {yellows}/9　🔵 {blues}/9　⚪ {quints}/3"
-                ),
+                value=f"🔴 {reds}/9　🟡 {yellows}/9　🔵 {blues}/9　⚪ {quints}/3",
                 inline=False,
             )
 
