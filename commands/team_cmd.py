@@ -232,11 +232,11 @@ class TeamCog(commands.Cog):
         )
 
     @app_commands.command(name="equip", description="Equip an item to a champion.")
-    @app_commands.describe(item_number="Item list number (see /items)", champion_number="Champion list number (see /champions)", slot="Equipment slot 1-5")
+    @app_commands.describe(item_number="Item list number (see /items)", champion_number="Champion list number (see /champions)", slot="Equipment slot 1-6")
     async def equip(self, interaction: discord.Interaction, item_number: int, champion_number: int, slot: int):
         await interaction.response.defer(ephemeral=True)
-        if not 1 <= slot <= 5:
-            await interaction.followup.send(embed=error_embed("Equipment slot must be 1–5."), ephemeral=True)
+        if not 1 <= slot <= 6:
+            await interaction.followup.send(embed=error_embed("Equipment slot must be 1–6."), ephemeral=True)
             return
 
         uid = str(interaction.user.id)
@@ -255,7 +255,7 @@ class TeamCog(commands.Cog):
                 return
             champion_id = str(champ.id)
 
-            # Check champion doesn't already have 5 items in that slot
+            # Check champion doesn't already have 6 items equipped
             existing_in_slot = await ItemInstance.find_one(
                 ItemInstance.equipped_to == champion_id,
                 ItemInstance.equipment_slot == slot,
@@ -270,8 +270,8 @@ class TeamCog(commands.Cog):
             item_count = await ItemInstance.find(
                 ItemInstance.equipped_to == champion_id
             ).count()
-            if item_count >= 5 and not existing_in_slot:
-                await interaction.followup.send(embed=error_embed("Champion already has 5 items equipped."), ephemeral=True)
+            if item_count >= 6 and not existing_in_slot:
+                await interaction.followup.send(embed=error_embed("Champion already has 6 items equipped."), ephemeral=True)
                 return
 
             # Unequip item from previous champion if needed

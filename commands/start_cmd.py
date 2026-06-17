@@ -95,7 +95,7 @@ def build_tutorial_pages() -> list[discord.Embed]:
             "Gear & Runes",
             "• Gear (items) and Runes both come in ranks F → S\n"
             "• Pull gear and runes from /shop\n"
-            "• Equip up to 5 items per champion with /items equip\n"
+            "• Equip up to 6 items per champion with /equip\n"
             "• Equip runes with /runes set (check /runes catalog for IDs)\n"
             "• Enhance items +0 → +15 at /blacksmith enhance\n"
             "• +0 to +7: Safe  |  +8 to +15: RISKY — fails destroy the item!\n"
