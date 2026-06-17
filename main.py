@@ -31,6 +31,7 @@ COGS = [
     "commands.rune_cmd",
     "commands.champions_cmd",
     "commands.items_cmd",
+    "commands.team_cmd",
     "commands.blacksmith_cmd",
     "commands.dungeon_cmd",
     "commands.raid_cmd",
