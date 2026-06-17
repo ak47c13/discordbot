@@ -72,13 +72,15 @@
 - All champions remain obtainable (rotation only affects the standard summon pool; boss drops and event banners are separate).
 
 ### 3.2 Shop — `/shop`
+**Summon Tokens are the universal pull currency.** All pulls — champions, items, and runes — cost tokens. Gold is used only to buy tokens.
+
 Subcommands:
 
 | Subcommand | Description |
 |---|---|
-| `/shop champions` | Buy champion summon pulls using Summon Tokens |
-| `/shop items` | Buy item pulls or specific items using Gold |
-| `/shop runes` | Buy individual runes or rune pages using Gold |
+| `/shop champions` | Pull champions using Summon Tokens |
+| `/shop items` | Pull items using Summon Tokens |
+| `/shop runes` | Pull runes using Summon Tokens |
 | `/shop pulls` | Buy **Summon Tokens** using Gold |
 
 #### `/shop pulls` — Gold → Summon Tokens
@@ -89,20 +91,15 @@ Subcommands:
 | 11 Tokens | 4,500g | 11 | ~18% discount (1 free) |
 | 22 Tokens | 8,500g | 22 | ~23% discount (2 free) |
 
-#### `/shop items` — Sample pricing
-| Item | Cost |
+#### Pull Costs (Tokens)
+| Pull Type | Cost |
 |---|---|
-| Common item pull | 300g |
-| Rare item pull | 800g |
-| Specific item (by name) | 1,200–3,000g depending on tier |
-
-#### `/shop runes` — Sample pricing
-| Rune | Cost |
-|---|---|
-| Tier 1 rune | 150g |
-| Tier 2 rune | 400g |
-| Tier 3 rune | 1,000g |
-| Full rune page reset | 100g |
+| Champion pull (weekly region pool) | 1 token |
+| Item pull (random tier-weighted) | 1 token |
+| Rune pull (random tier-weighted) | 1 token |
+| 10× Champion pull | 10 tokens |
+| 10× Item pull | 10 tokens |
+| 10× Rune pull | 10 tokens |
 
 ---
 
