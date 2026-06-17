@@ -38,6 +38,7 @@ COGS = [
     "commands.trade_cmd",
     "commands.summon_cmd",
     "commands.help_cmd",
+    "commands.shop_cmd",
 ]
 
 

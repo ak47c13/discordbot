@@ -105,19 +105,44 @@ def make_skill(
                 if t.hp <= 0:
                     break
                 dmg = 0
+                crit_chance = getattr(caster, "crit_chance", 0.0)
+                crit_dmg_mult = getattr(caster, "crit_dmg", 1.75)
+                armor_pen = getattr(caster, "armor_pen", 0.0)
+                magic_pen = getattr(caster, "magic_pen", 0.0)
+                lifesteal = getattr(caster, "lifesteal", 0.0)
+
+                # General dodge check for physical hits
+                if damage_type == "physical":
+                    dodge = getattr(t, "dodge_chance", 0.0)
+                    if dodge > 0 and random.random() < dodge:
+                        log.append(f"  {t.name} dodges {caster.name}'s attack!")
+                        continue
+
                 if damage_type == "physical" and coeff > 0:
                     raw = caster.atk * coeff
-                    df = _unit_defense(t)
+                    df = max(0.0, _unit_defense(t) - armor_pen)
                     mitigation = df / (df + 200)
                     dmg = max(1, int(raw * (1 - mitigation)))
                 elif damage_type == "magic" and coeff > 0:
                     raw = caster.atk * coeff * 1.1
-                    dmg = max(1, int(raw * 0.85))  # magic pen: ignores ~15% def
+                    pen_bonus = min(magic_pen, 50)
+                    dmg = max(1, int(raw * (1 - (15 - pen_bonus) / 100)))
                 elif damage_type == "true" and coeff > 0:
                     dmg = max(1, int(caster.atk * coeff))
+
+                is_crit = crit_chance > 0 and random.random() < crit_chance
+                if is_crit:
+                    dmg = int(dmg * crit_dmg_mult)
+
                 if dmg > 0:
                     _apply_damage(t, dmg)
-                    log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.")
+                    crit_label = " 💥CRIT!" if is_crit else ""
+                    log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.{crit_label}")
+                    if lifesteal > 0 and damage_type == "physical":
+                        heal = int(dmg * lifesteal)
+                        if heal > 0:
+                            caster.hp = min(caster.hp_max, caster.hp + heal)
+                            log.append(f"  🩸 {caster.name} leeches {heal} HP.")
                     if t.hp <= 0:
                         log.append(f"  💀 {t.name} is defeated!")
 

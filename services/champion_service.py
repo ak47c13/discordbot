@@ -32,7 +32,10 @@ from config.game_config import (
     LEVEL_UP_GOLD_COST,
     CHAMPION_BASE_STATS,
     CHAMPION_GROWTH_STATS,
+    levelup_cost,
+    levelup_cost_range,
 )
+from utils.counters import next_display_id
 
 
 class FusionError(Exception):
@@ -101,12 +104,14 @@ async def fuse_champions(
         await c.delete(session=usable_session(session))
 
     # Create the result champion
+    did = await next_display_id("champion_display_id")
     result = ChampionInstance(
         owner_id=owner_id,
         name=champs[0].name,
         rank=next_rank,
         level=1,
         exp=0,
+        display_id=did,
         **_roster_fields(champs[0].name),
     )
     await result.insert(session=usable_session(session))
@@ -179,24 +184,29 @@ async def level_up_champion(
     owner_id: str,
     champion_id: str,
     session: AsyncIOMotorClientSession,
-) -> ChampionInstance:
+    times: int = 1,
+) -> tuple[ChampionInstance, int]:
+    """Level up a champion by `times` levels. Returns (champion, gold_spent)."""
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != owner_id:
         raise ValueError("Champion not found or not owned by you.")
 
-    max_lvl = CHAMPION_MAX_LEVEL[c.rank]
+    max_lvl = CHAMPION_MAX_LEVEL.get(c.rank, 20)
     if c.level >= max_lvl:
-        raise ValueError(f"Champion is already at max level ({max_lvl}) for rank {c.rank}.")
+        raise ValueError(f"{c.name} is already at max level ({max_lvl}) for rank {c.rank}.")
+
+    actual_times = min(times, max_lvl - c.level)
+    total_cost = levelup_cost_range(c.rank, c.level, c.level + actual_times)
 
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
-    if user.gold < LEVEL_UP_GOLD_COST:
-        raise ValueError(f"Need {LEVEL_UP_GOLD_COST} gold to level up.")
+    if user.gold < total_cost:
+        raise ValueError(f"Need {total_cost:,} gold. You have {user.gold:,}.")
 
-    user.gold -= LEVEL_UP_GOLD_COST
-    c.level += 1
+    user.gold -= total_cost
+    c.level += actual_times
     await user.save(session=usable_session(session))
     await c.save(session=usable_session(session))
-    return c
+    return c, total_cost
 
 
 async def grant_champion(
@@ -206,7 +216,8 @@ async def grant_champion(
     session: Optional[AsyncIOMotorClientSession] = None,
 ) -> ChampionInstance:
     """Create and give a champion to a player (from drops, events, etc.)."""
-    c = ChampionInstance(owner_id=owner_id, name=name, rank=rank, **_roster_fields(name))
+    did = await next_display_id("champion_display_id")
+    c = ChampionInstance(owner_id=owner_id, name=name, rank=rank, display_id=did, **_roster_fields(name))
     if session:
         await c.insert(session=usable_session(session))
     else:

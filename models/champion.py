@@ -17,6 +17,9 @@ class ChampionInstance(Document):
     in_trade: bool = False
     in_market: bool = False
 
+    # Stable numeric display ID (assigned at creation, never changes)
+    display_id: int = 0
+
     # Collection / metadata flags
     favorite: bool = False
     enabled: bool = True
@@ -33,6 +36,7 @@ class ChampionInstance(Document):
         name = "champions"
         indexes = [
             "owner_id",
+            "display_id",
             [("owner_id", 1), ("name", 1), ("rank", 1)],
         ]
 

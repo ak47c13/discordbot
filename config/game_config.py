@@ -136,8 +136,23 @@ CHAMPION_MAX_LEVEL = {
     "F": 20, "E": 30, "D": 40, "C": 50, "B": 60, "A": 70, "S": 80,
 }
 
-# Gold cost to level up (per level)
-LEVEL_UP_GOLD_COST = 20
+# Exponential gold cost per level: base * growth^(level-1)
+RANK_LEVELUP_BASE = {
+    "F": 50, "E": 120, "D": 280, "C": 600, "B": 1200, "A": 2500, "S": 5000,
+}
+RANK_LEVELUP_GROWTH = 1.18
+LEVEL_UP_GOLD_COST = 20  # legacy fallback; use levelup_cost() instead
+
+
+def levelup_cost(rank: str, current_level: int) -> int:
+    """Gold cost to go from current_level to current_level+1."""
+    base = RANK_LEVELUP_BASE.get(rank, 50)
+    return max(1, int(base * (RANK_LEVELUP_GROWTH ** (current_level - 1))))
+
+
+def levelup_cost_range(rank: str, from_level: int, to_level: int) -> int:
+    """Total gold cost to level from from_level to to_level (exclusive end)."""
+    return sum(levelup_cost(rank, lvl) for lvl in range(from_level, to_level))
 
 # ---------------------------------------------------------------------------
 # Item base stats by rank

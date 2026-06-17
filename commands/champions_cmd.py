@@ -15,7 +15,7 @@ from services.champion_service import (
     fuse_champions, bulk_fuse_champions, level_up_champion, FusionError,
 )
 from services.bulk_service import bulk_sell_champions, BulkSellError
-from config.game_config import CHAMPION_FUSION_COST, RANKS, SELL_PRICE_CHAMPION
+from config.game_config import CHAMPION_FUSION_COST, RANKS, SELL_PRICE_CHAMPION, CHAMPION_MAX_LEVEL, levelup_cost, levelup_cost_range
 from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
 
 
@@ -246,30 +246,42 @@ class ChampionsCog(commands.Cog):
         await interaction.followup.send(embed=success_embed(f"{c.name} [{c.rank}] is now {state}."), ephemeral=True)
 
     @app_commands.command(name="levelup", description="Level up a champion (costs gold).")
-    @app_commands.describe(number="Champion list number (see /champions)")
-    async def levelup(self, interaction: discord.Interaction, number: int):
+    @app_commands.describe(number="Champion display ID (see /champions)", times="1, 10, or max")
+    @app_commands.choices(times=[
+        app_commands.Choice(name="×1 (one level)", value=1),
+        app_commands.Choice(name="×10 (ten levels)", value=10),
+        app_commands.Choice(name="Max (to rank cap)", value=9999),
+    ])
+    async def levelup(self, interaction: discord.Interaction, number: int, times: int = 1):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
-        from config.game_config import LEVEL_UP_GOLD_COST
 
         champ = await get_champion_by_number(uid, number)
         if champ is None or champ.owner_id != uid:
             await interaction.followup.send(
-                embed=error_embed(
-                    "Champion not found.",
-                    "Use `/champions` to see your list and find the right number.",
-                ),
+                embed=error_embed("Champion not found.", "Use `/champions` to see IDs."),
                 ephemeral=True,
             )
             return
-        champion_id = str(champ.id)
+
+        max_lvl = CHAMPION_MAX_LEVEL.get(champ.rank, 20)
+        if champ.level >= max_lvl:
+            await interaction.followup.send(
+                embed=error_embed(f"{champ.name} is already at max level {max_lvl} for rank {champ.rank}."),
+                ephemeral=True,
+            )
+            return
+
+        actual = min(times, max_lvl - champ.level)
+        total_cost = levelup_cost_range(champ.rank, champ.level, champ.level + actual)
+        target_lvl = champ.level + actual
 
         embed = discord.Embed(
             title="⬆️ Confirm Level Up",
             description=(
                 f"Level up **{champ.name} [{champ.rank}]** "
-                f"Lv.{champ.level} → Lv.{champ.level + 1}?\n"
-                f"Cost: **{LEVEL_UP_GOLD_COST} gold**"
+                f"Lv.{champ.level} → Lv.{target_lvl}?\n"
+                f"Cost: **{total_cost:,} gold**"
             ),
             color=COLOR_WARNING,
         )
@@ -280,18 +292,20 @@ class ChampionsCog(commands.Cog):
             await interaction.followup.send(embed=discord.Embed(title="Level up cancelled.", color=COLOR_INFO), ephemeral=True)
             return
 
+        champion_id = str(champ.id)
         async with get_user_lock(uid):
             client = get_motor_client()
             async with await client.start_session() as session:
                 async with session.start_transaction():
                     try:
-                        c = await level_up_champion(uid, champion_id, session)
+                        c, spent = await level_up_champion(uid, champion_id, session, times=actual)
                     except ValueError as e:
                         await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
 
+        at_cap = " (rank cap reached!)" if c.level >= max_lvl else ""
         await interaction.followup.send(
-            embed=success_embed(f"{c.name} [{c.rank}] is now Level {c.level}! (-{LEVEL_UP_GOLD_COST} gold)"),
+            embed=success_embed(f"{c.name} [{c.rank}] is now Level {c.level}{at_cap}! (-{spent:,} gold)"),
             ephemeral=True,
         )
 

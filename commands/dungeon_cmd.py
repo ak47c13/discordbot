@@ -49,11 +49,29 @@ async def _active_champion_ids(owner_id: str) -> list[str]:
     return [user.active_champion_id]
 
 
-async def _dungeon_choices(current: str) -> list[app_commands.Choice[str]]:
+async def _dungeon_choices(interaction: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    uid = str(interaction.user.id)
     dungeons = await Dungeon.find(Dungeon.is_active == True).to_list()  # noqa: E712
+    progresses = await dungeon_service.get_all_progress(uid)
+    completed_slugs = {p.dungeon_slug for p in progresses if p.completions > 0}
+    # Map completed slugs to total_floors for ANY_N unlock checks
+    completed_lens: set[int] = set()
+    for slug in completed_slugs:
+        d = await Dungeon.find_one(Dungeon.slug == slug)
+        if d:
+            completed_lens.add(d.total_floors)
+
     cur = (current or "").lower()
     out = []
     for d in sorted(dungeons, key=lambda x: x.total_floors):
+        req = d.unlock_req
+        if req:
+            if req == "ANY_20" and 20 not in completed_lens:
+                continue
+            if req == "ANY_40" and 40 not in completed_lens:
+                continue
+            if req not in ("ANY_20", "ANY_40") and req not in completed_slugs:
+                continue
         if cur in d.name.lower() or cur in d.slug.lower():
             out.append(app_commands.Choice(name=f"{d.emoji} {d.name} [{d.total_floors}F]", value=d.slug))
         if len(out) >= 25:
@@ -250,6 +268,49 @@ class DungeonCog(commands.Cog):
             )
             await interaction.followup.send(embed=embed)
 
+    async def _run_continuous(self, interaction, uid, slug, start_floor, champ_ids):
+        """Run floors back-to-back until death, stamina depletion, or map clear."""
+        from models.dungeon import Dungeon
+        dungeon = await Dungeon.find_one(Dungeon.slug == slug)
+        total_floors = dungeon.total_floors if dungeon else 999
+
+        floor_num = start_floor
+        floors_cleared = 0
+        total_gold = 0
+        total_xp = 0
+        stop_reason = "map cleared"
+
+        while floor_num <= total_floors:
+            ok, reason = await dungeon_service.can_enter_dungeon(uid, slug, None)
+            if not ok:
+                stop_reason = f"out of stamina ({reason})"
+                break
+
+            try:
+                await self._run_floor(interaction, uid, slug, floor_num, champ_ids)
+            except DungeonError as e:
+                stop_reason = str(e)
+                break
+
+            # Check if we won the floor just run by looking at progress
+            prog = await dungeon_service.get_or_create_progress(uid, slug, None)
+            if prog.highest_floor < floor_num:
+                stop_reason = f"defeated on floor {floor_num}"
+                break
+
+            floors_cleared += 1
+            floor_num += 1
+
+        embed = discord.Embed(
+            title="⏹ Continuous Run Complete",
+            description=(
+                f"**Floors cleared:** {floors_cleared}\n"
+                f"**Stopped:** {stop_reason}"
+            ),
+            color=0x5865F2,
+        )
+        await interaction.followup.send(embed=embed)
+
     # ---------------------------------------------------------------
     @app_commands.command(name="dungeon-status", description="View your dungeon progress.")
     @app_commands.describe(dungeon_name="Optional: a specific dungeon")
@@ -393,23 +454,23 @@ class DungeonCog(commands.Cog):
     # Autocompletes
     @dungeon_enter.autocomplete("dungeon_name")
     async def _ac_enter(self, interaction, current: str):
-        return await _dungeon_choices(current)
+        return await _dungeon_choices(interaction, current)
 
     @dungeon_status.autocomplete("dungeon_name")
     async def _ac_status(self, interaction, current: str):
-        return await _dungeon_choices(current)
+        return await _dungeon_choices(interaction, current)
 
     @dungeon_flee.autocomplete("dungeon_name")
     async def _ac_flee(self, interaction, current: str):
-        return await _dungeon_choices(current)
+        return await _dungeon_choices(interaction, current)
 
     @dungeon_info.autocomplete("dungeon_name")
     async def _ac_info(self, interaction, current: str):
-        return await _dungeon_choices(current)
+        return await _dungeon_choices(interaction, current)
 
     @dungeon_leaderboard.autocomplete("dungeon_name")
     async def _ac_lb(self, interaction, current: str):
-        return await _dungeon_choices(current)
+        return await _dungeon_choices(interaction, current)
 
 
 class _NextFloorView(discord.ui.View):
@@ -441,6 +502,18 @@ class _NextFloorView(discord.ui.View):
         try:
             async with get_user_lock(self.uid):
                 await self.cog._run_floor(interaction, self.uid, self.slug, self.next_floor, self.champ_ids)
+        except DungeonError as e:
+            await interaction.followup.send(embed=error_embed(str(e)))
+
+    @discord.ui.button(label="▶▶ Run Continuously", style=discord.ButtonStyle.success)
+    async def run_continuous_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        from utils.locks import get_user_lock
+        try:
+            async with get_user_lock(self.uid):
+                await self.cog._run_continuous(interaction, self.uid, self.slug, self.next_floor, self.champ_ids)
         except DungeonError as e:
             await interaction.followup.send(embed=error_embed(str(e)))
 

@@ -9,7 +9,96 @@ from utils.embeds import (
     COLOR_INFO, COLOR_GOLD,
 )
 from utils.image_gen import generate_team_banner
-from config.game_config import STAMINA_REGEN_SECONDS
+from config.game_config import (
+    STAMINA_REGEN_SECONDS,
+    CHAMPION_BASE_STATS,
+    CHAMPION_GROWTH_STATS,
+)
+
+
+# ---------------------------------------------------------------------------
+# Champion Stats button view
+# ---------------------------------------------------------------------------
+
+class ProfileView(discord.ui.View):
+    """Attached to the profile message; offers a '📋 Stats' button."""
+
+    def __init__(self, active_champ_id: str | None, owner_id: int, timeout: float = 120.0):
+        super().__init__(timeout=timeout)
+        self.active_champ_id = active_champ_id
+        self.owner_id = owner_id
+        # Disable the button if there's no active champion
+        self.stats_btn.disabled = active_champ_id is None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.owner_id:
+            await interaction.response.send_message("This profile isn't yours.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="📋 Champion Stats", style=discord.ButtonStyle.secondary)
+    async def stats_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.defer(ephemeral=True)
+
+        champ = await ChampionInstance.get(self.active_champ_id)
+        if champ is None:
+            await interaction.followup.send(
+                embed=error_embed("Active champion not found."), ephemeral=True
+            )
+            return
+
+        rank = champ.rank
+        level = champ.level
+        base = CHAMPION_BASE_STATS.get(rank, {})
+        growth = CHAMPION_GROWTH_STATS.get(rank, {})
+        atk = base.get("atk", 0) + growth.get("atk", 0) * (level - 1)
+        hp = base.get("hp", 0) + growth.get("hp", 0) * (level - 1)
+        def_val = base.get("def", 0) + growth.get("def", 0) * (level - 1)
+        spd = base.get("spd", 0)
+
+        from config.game_config import AURA_COLOR_BY_RANK
+        color = AURA_COLOR_BY_RANK.get(rank, COLOR_INFO)
+
+        embed = discord.Embed(
+            title=f"📋 {champ.name} [{rank}] — Champion Stats",
+            color=color,
+        )
+        embed.add_field(name="Level", value=str(level), inline=True)
+        embed.add_field(name="Display ID", value=f"#{champ.display_id}", inline=True)
+        embed.add_field(name="​", value="​", inline=True)
+        embed.add_field(name="❤️ HP",  value=str(int(hp)),      inline=True)
+        embed.add_field(name="⚔️ ATK", value=str(int(atk)),     inline=True)
+        embed.add_field(name="🛡️ DEF", value=str(int(def_val)), inline=True)
+        embed.add_field(name="💨 SPD", value=str(spd),          inline=True)
+
+        # Equipped items
+        from models.item import ItemInstance
+        items = await ItemInstance.find(
+            ItemInstance.equipped_to == str(champ.id)
+        ).to_list()
+        if items:
+            item_lines = [f"Slot {itm.equipment_slot}: **{itm.name}** [{itm.rank}] +{itm.enhancement}" for itm in items]
+            embed.add_field(name="🎒 Equipped Items", value="\n".join(item_lines), inline=False)
+        else:
+            embed.add_field(name="🎒 Equipped Items", value="None", inline=False)
+
+        # Rune page summary — fetch from user
+        owner_user = await User.find_one(User.discord_id == str(self.owner_id))
+        if owner_user and owner_user.rune_page:
+            rp = owner_user.rune_page
+            reds_filled    = sum(1 for s in rp.reds    if s.rune_id)
+            yellows_filled = sum(1 for s in rp.yellows if s.rune_id)
+            blues_filled   = sum(1 for s in rp.blues   if s.rune_id)
+            quints_filled  = sum(1 for s in rp.quints  if s.rune_id)
+            rune_summary = (
+                f"🔴 Reds: {reds_filled}/9\n"
+                f"🟡 Yellows: {yellows_filled}/9\n"
+                f"🔵 Blues: {blues_filled}/9\n"
+                f"⚪ Quints: {quints_filled}/3"
+            )
+            embed.add_field(name="💎 Rune Page", value=rune_summary, inline=False)
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 class ProfileCog(commands.Cog):
@@ -64,16 +153,19 @@ class ProfileCog(commands.Cog):
                     "riot_id": champ.riot_id or "",
                 })
 
+        active_champ_id = profile_user_data.active_champion_id if profile_user_data else None
+        view = ProfileView(active_champ_id, interaction.user.id) if is_self else None
+
         if team_champs:
             try:
                 buf = await generate_team_banner(team_champs)
                 file = discord.File(buf, filename="team.png")
                 embed.set_image(url="attachment://team.png")
-                await interaction.followup.send(embed=embed, file=file, ephemeral=True)
+                await interaction.followup.send(embed=embed, file=file, view=view, ephemeral=True)
                 return
             except Exception:
                 pass
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
 
     @app_commands.command(name="stamina", description="Check your stamina and regeneration.")
     async def stamina(self, interaction: discord.Interaction):

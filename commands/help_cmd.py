@@ -11,9 +11,9 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         [
             "Welcome! Here's the core gameplay loop:\n\n"
             "1. **/start** — register and claim starter rewards\n"
-            "2. **/summon** — spend tokens to pull champions and items\n"
-            "3. **/team-add** — build a team of up to 5 champions\n"
-            "4. **/hunt** — send your team to fight and earn loot\n"
+            "2. **/summon** — spend tokens to pull champions, items, and runes\n"
+            "3. **/champion-select** — set your active champion for battle\n"
+            "4. **/dungeon-enter** — fight through floors and earn loot\n"
             "5. **/fuse-champions** — combine duplicates into stronger ranks\n\n"
             "Use **/daily** every day for free summon tokens.\n"
             "Use **/profile** to see your resources and **/stamina** to track energy.",
@@ -61,11 +61,13 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
     "combat": (
         "🛡️ Combat",
         [
-            "Battles are fully automatic. You build the team; the engine fights.\n\n"
-            "**Formation:** Slots 1-2 are the front row (+10% DEF), slots 3-5 are the "
-            "back row (+5% ATK). Use `/team-add` and `/formation set`.\n\n"
-            "**Skills:** Each champion has a Basic skill (used under 100 mana) and an "
-            "Ultimate (auto-cast at 100 mana).\n\n"
+            "Battles are fully automatic. You select your champion; the engine fights.\n\n"
+            "**Champion:** Use `/champion-select <id>` to set your active champion.\n"
+            "Use `/skill set q/w/e` to choose which skill they use in battle.\n\n"
+            "**Skills:** Each champion has Q/W/E basics and an R ultimate "
+            "(auto-cast at 100 mana).\n\n"
+            "**Dungeons:** Use `/dungeon-enter` to fight floor by floor. "
+            "Progress is saved at checkpoints each floor.\n\n"
             "Battles play out round-by-round in a live message. Watch HP and mana update!",
         ],
     ),
@@ -101,7 +103,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
             "/levelup, /lock-champion, /champion-favorite\n"
             "**Items:** /items, /item-info, /fuse-items, /items-bulk-fuse, "
             "/items-bulk-sell, /lock-item, /favorite-item\n"
-            "**Team:** /team, /team-add, /team-remove, /formation, /equip, /unequip\n"
+            "**Champion:** /champion-select, /skill, /runes, /champions, /champion-info\n"
             "**Blacksmith:** /enhance, /clear, /reroll, /refine\n"
             "**Combat:** /hunt, /raid-create, /raid-list, /raid-join, /raid-start\n"
             "**Economy:** /market-* , /trade-* , /summon, /summon-rates\n"

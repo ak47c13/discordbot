@@ -44,6 +44,14 @@ class CombatUnit:
 
     status_effects: list[StatusEffect] = field(default_factory=list)
 
+    # Extended stats
+    crit_chance: float = 0.0      # 0.0–1.0 probability
+    crit_dmg: float = 1.75        # damage multiplier on crit
+    armor_pen: float = 0.0        # flat armor penetration
+    magic_pen: float = 0.0        # flat magic penetration
+    lifesteal: float = 0.0        # fraction of physical dmg healed
+    attack_speed: float = 1.0     # >1.0 grants extra basic attack turns
+
     # Boss mechanic state
     is_boss: bool = False
     mechanic: str = ""

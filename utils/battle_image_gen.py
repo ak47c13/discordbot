@@ -244,18 +244,18 @@ async def generate_battle_image(
                 x = x_start + i * (card_w + CARD_GAP)
                 canvas.paste(card_img, (x, y))
 
-        # Enemy row (top)
-        enemy_pairs = list(zip(enemy_units, portraits[:n_enemy]))
-        paste_row(enemy_pairs, CANVAS_PADDING, "⚔  ENEMIES", (210, 80, 80), is_enemy=True)
+        # Player row (top)
+        player_pairs = list(zip(player_units, portraits[n_enemy:]))
+        paste_row(player_pairs, CANVAS_PADDING, "🛡  YOUR TEAM", (80, 210, 120), is_enemy=False)
 
         # Separator
         sep_y = CANVAS_PADDING + ROW_LABEL_H + card_h_total + SECTION_GAP // 2
         draw.rectangle([CANVAS_PADDING, sep_y, canvas_w - CANVAS_PADDING, sep_y + 1], fill=(50, 55, 70))
 
-        # Player row (bottom)
-        player_y = CANVAS_PADDING + ROW_LABEL_H + card_h_total + SECTION_GAP
-        player_pairs = list(zip(player_units, portraits[n_enemy:]))
-        paste_row(player_pairs, player_y, "🛡  YOUR TEAM", (80, 210, 120), is_enemy=False)
+        # Enemy row (bottom)
+        enemy_y = CANVAS_PADDING + ROW_LABEL_H + card_h_total + SECTION_GAP
+        enemy_pairs = list(zip(enemy_units, portraits[:n_enemy]))
+        paste_row(enemy_pairs, enemy_y, "⚔  ENEMIES", (210, 80, 80), is_enemy=True)
 
         buf = io.BytesIO()
         canvas.save(buf, format="PNG", optimize=True)

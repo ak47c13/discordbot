@@ -116,13 +116,12 @@ def sort_items(items):
 
 
 async def get_champion_by_number(owner_id: str, number: int):
-    """Get a champion by its 1-based position in the sorted list."""
+    """Get a champion by its stable display_id."""
     from models.champion import ChampionInstance
-    all_champs = await ChampionInstance.find(ChampionInstance.owner_id == owner_id).to_list()
-    sorted_champs = sort_champions(all_champs)
-    if 1 <= number <= len(sorted_champs):
-        return sorted_champs[number - 1]
-    return None
+    return await ChampionInstance.find_one(
+        ChampionInstance.owner_id == owner_id,
+        ChampionInstance.display_id == number,
+    )
 
 
 async def get_item_by_number(owner_id: str, number: int):
@@ -146,20 +145,21 @@ def _champion_page_embed(champs, page: int) -> discord.Embed:
     chunk = champs[start:start + PAGE_SIZE]
 
     lines = []
-    for i, c in enumerate(chunk, start=start + 1):
+    for c in chunk:
         flags = []
         if c.locked:                flags.append("🔒")
         if getattr(c, "favorite", False): flags.append("⭐")
-        if getattr(c, "is_active", False): flags.append("⚔️")
+        if getattr(c, "is_active", False): flags.append("⚔️ Active")
         if c.in_market:             flags.append("🏪")
         if c.in_trade:              flags.append("🤝")
         suffix = ("  " + " ".join(flags)) if flags else ""
-        lines.append(f"#{i:<3} {c.name}  [{c.rank}] Lv.{c.level}{suffix}")
+        did = c.display_id or "?"
+        lines.append(f"#{did:<4} {c.name}  [{c.rank}] Lv.{c.level}{suffix}")
 
     desc = "\n".join(lines) if lines else "*No champions.*"
     desc += (
-        "\n\nUse `/champion-info <number>` to view details."
-        "\nUse `/team-add <number> <slot>` to add to team."
+        "\n\nUse `/champion-info <id>` to view details."
+        "\nUse `/champion-select <id>` to set as your active champion."
     )
     embed = discord.Embed(
         title=f"🏆 Your Champions ({total} total) — Page {page + 1}/{total_pages}",

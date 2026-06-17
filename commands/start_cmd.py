@@ -58,12 +58,11 @@ def build_tutorial_pages() -> list[discord.Embed]:
             "[2/5]",
         ),
         (
-            "🛡️ Teams & Combat",
-            "• Use /team-add to build a team of up to 5 champions\n"
-            "• Use /formation set to arrange front row (positions 1-2) and back row (3-5)\n"
-            "• Front row gets +10% Defense, back row gets +5% Attack\n"
-            "• Use /hunt to send your team to fight and earn rewards\n\n"
-            "Each hunt costs stamina (5-40 depending on zone). Stamina refills over time "
+            "🛡️ Champion & Combat",
+            "• Use /champion-select <id> to set your active champion\n"
+            "• Use /skill set to choose which skill (Q/W/E) your champion uses in battle\n"
+            "• Use /dungeon-enter to fight through dungeon floors and earn rewards\n\n"
+            "Each floor costs stamina. Stamina refills over time "
             "(1 every 6 minutes). Check it with /stamina.\n\n"
             "Combat is fully automatic — no input needed during battle!\n\n"
             "[3/5]",

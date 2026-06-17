@@ -51,6 +51,13 @@ class DungeonError(Exception):
 # ---------------------------------------------------------------------------
 # Progress helpers
 # ---------------------------------------------------------------------------
+async def get_all_progress(owner_id: str, session=None) -> list[DungeonProgress]:
+    return await DungeonProgress.find(
+        DungeonProgress.owner_id == owner_id,
+        session=usable_session(session),
+    ).to_list()
+
+
 async def get_or_create_progress(owner_id: str, dungeon_slug: str, session=None) -> DungeonProgress:
     prog = await DungeonProgress.find_one(
         DungeonProgress.owner_id == owner_id,
@@ -379,7 +386,7 @@ async def grant_floor_rewards(
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
-        if floor.checkpoint_floor and floor_num > prog.checkpoint_floor:
+        if floor_num > prog.checkpoint_floor:
             prog.checkpoint_floor = floor_num
         await user.save(session=usable_session(session))
         await prog.save(session=usable_session(session))
@@ -503,7 +510,7 @@ async def enter_floor(
 
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
-        if floor.checkpoint_floor and floor_num > prog.checkpoint_floor:
+        if floor_num > prog.checkpoint_floor:
             prog.checkpoint_floor = floor_num
 
         await user.save(session=usable_session(session))
