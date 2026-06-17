@@ -41,14 +41,95 @@ def get_weekly_champion_pool() -> tuple[str, list[str]]:
     return REGION_DISPLAY_NAMES.get(region_key, region_key), valid
 
 
-# Item pool for summons
-SUMMON_ITEM_POOL = [
-    ("Infinity Edge", "atk", "crit_damage_passive"),
-    ("Chain Vest",    "def", "armor_passive"),
-    ("Ruby Crystal",  "hp",  "fortify_passive"),
-    ("Recurve Bow",   "atk", "attack_speed_passive"),
-    ("Cloak",         "def", "dodge_passive"),
-]
+# ---------------------------------------------------------------------------
+# Weekly item category pools
+# ---------------------------------------------------------------------------
+ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
+    "weapons": [
+        ("Infinity Edge",   "atk", "crit_damage_passive"),
+        ("Recurve Bow",     "atk", "attack_speed_passive"),
+        ("Long Sword",      "atk", "atk_passive"),
+        ("Pickaxe",         "atk", "atk_passive"),
+        ("B.F. Sword",      "atk", "atk_passive"),
+    ],
+    "armor": [
+        ("Chain Vest",      "def", "armor_passive"),
+        ("Cloak",           "def", "dodge_passive"),
+        ("Warden's Mail",   "def", "armor_passive"),
+        ("Cloth Armor",     "def", "armor_passive"),
+        ("Bramble Vest",    "def", "armor_passive"),
+    ],
+    "accessories": [
+        ("Ruby Crystal",    "hp",  "fortify_passive"),
+        ("Giant's Belt",    "hp",  "fortify_passive"),
+        ("Warmog's Armor",  "hp",  "fortify_passive"),
+        ("Spectre's Cowl",  "hp",  "fortify_passive"),
+        ("Hexdrinker",      "hp",  "fortify_passive"),
+    ],
+    "magic": [
+        ("Needlessly Large Rod", "atk", "crit_damage_passive"),
+        ("Blasting Wand",        "atk", "atk_passive"),
+        ("Amplifying Tome",      "atk", "atk_passive"),
+        ("Lost Chapter",         "atk", "crit_damage_passive"),
+        ("Fiendish Codex",       "atk", "attack_speed_passive"),
+    ],
+}
+ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic"]
+ITEM_CATEGORY_DISPLAY = {
+    "weapons":     "Weapons",
+    "armor":       "Armor",
+    "accessories": "Accessories",
+    "magic":       "Magic Items",
+}
+
+# ---------------------------------------------------------------------------
+# Weekly rune category pools
+# ---------------------------------------------------------------------------
+RUNE_CATEGORIES: dict[str, dict] = {
+    "precision": {
+        "display": "Precision",
+        "description": "Enhance attacks and abilities. Boosts crit, attack speed, and damage.",
+        "stats": ["crit_chance", "crit_dmg", "attack_speed", "atk_pct"],
+    },
+    "domination": {
+        "display": "Domination",
+        "description": "Burst damage and target access. Boosts armor penetration and lifesteal.",
+        "stats": ["armor_pen", "lifesteal", "atk_pct", "crit_chance"],
+    },
+    "resolve": {
+        "display": "Resolve",
+        "description": "Durability and crowd control resistance. Boosts HP and armor.",
+        "stats": ["hp_pct", "def_pct", "dodge", "magic_resist"],
+    },
+    "sorcery": {
+        "display": "Sorcery",
+        "description": "Empowers abilities and resource manipulation. Boosts magic pen and speed.",
+        "stats": ["magic_pen", "atk_pct", "crit_dmg", "attack_speed"],
+    },
+}
+RUNE_CATEGORY_ROTATION = ["precision", "domination", "resolve", "sorcery"]
+RUNE_CATEGORY_DISPLAY = {k: v["display"] for k, v in RUNE_CATEGORIES.items()}
+
+
+def get_weekly_item_pool() -> tuple[str, list[tuple[str, str, str]]]:
+    """Return (category_display_name, item_pool) for the current week."""
+    import time
+    ANCHOR_UTC = 1703959200
+    WEEK_SECS = 604800
+    week_index = int((time.time() - ANCHOR_UTC) // WEEK_SECS)
+    key = ITEM_CATEGORY_ROTATION[week_index % len(ITEM_CATEGORY_ROTATION)]
+    return ITEM_CATEGORY_DISPLAY[key], ITEM_CATEGORIES[key]
+
+
+def get_weekly_rune_category() -> tuple[str, dict]:
+    """Return (category_display_name, category_dict) for the current week."""
+    import time
+    ANCHOR_UTC = 1703959200
+    WEEK_SECS = 604800
+    # Offset by 2 so rune week differs from champion and item week
+    week_index = int((time.time() - ANCHOR_UTC) // WEEK_SECS) + 2
+    key = RUNE_CATEGORY_ROTATION[week_index % len(RUNE_CATEGORY_ROTATION)]
+    return RUNE_CATEGORIES[key]["display"], RUNE_CATEGORIES[key]
 
 
 class SummonError(Exception):
@@ -101,7 +182,7 @@ async def summon_multi(
     user.summon_tokens -= SUMMON_MULTI_COST
     await user.save(session=usable_session(session))
     results = []
-    for _ in range(10):
+    for _ in range(11):  # 10 paid + 1 bonus
         results.append(await _roll_summon(owner_id, session, pool_type=pool_type))
     return results
 
@@ -173,7 +254,8 @@ async def _apply_summon_result(
 
     elif key.startswith("item_"):
         rank = key.split("_")[1].upper()
-        name, stat_type, passive = random.choice(SUMMON_ITEM_POOL)
+        _, item_pool = get_weekly_item_pool()
+        name, stat_type, passive = random.choice(item_pool)
         itm = await grant_item(owner_id, name, rank, stat_type, passive, session)
         return {
             "type": "item",

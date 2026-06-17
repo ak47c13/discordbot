@@ -200,8 +200,8 @@ MARKET_TAX_PCT = 0.05           # 5% of sale price taken on purchase
 # ---------------------------------------------------------------------------
 # Summon / gacha
 # ---------------------------------------------------------------------------
-SUMMON_TOKEN_COST = 100          # per single pull
-SUMMON_MULTI_COST = 950          # 10 pulls
+SUMMON_TOKEN_COST = 1            # per single pull
+SUMMON_MULTI_COST = 10           # 10-pull (gives 11 results — 1 bonus)
 
 # Starter rewards granted on /start registration
 STARTER_SUMMON_TOKENS = 950   # enough for 1x10 pull

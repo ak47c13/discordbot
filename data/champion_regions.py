@@ -82,6 +82,37 @@ REGION_DISPLAY_NAMES = {
     "void": "Void",
 }
 
+REGION_LORE = {
+    "demacia":        "A proud kingdom built on order and justice, where magic is feared and warriors are revered. Champions of the light stand guard against the darkness.",
+    "noxus":          "A brutal empire that values strength above all. Any who prove their power can rise — but the weak are left behind without mercy.",
+    "freljord":       "A frozen wasteland of warring tribes, ancient gods, and primal magic. Only the strongest survive the eternal winter.",
+    "piltover_zaun":  "Twin cities divided by wealth and progress. Piltover gleams with hextech innovation while Zaun churns in chemtech fumes below.",
+    "ionia":          "A spiritual archipelago where magic flows through all living things. Its champions walk the line between harmony and the chaos of war.",
+    "shadow_isles":   "A cursed land of death and spectral horror. The Black Mist seeps across the world, pulling the living into endless undeath.",
+    "bilgewater":     "A lawless port city of pirates, monsters, and ruthless ambition. Fortune favors the bold — and the ruthless.",
+    "shurima":        "An ancient empire risen from the sands. The Ascended once ruled all — and some still hunger to do so again.",
+    "targon":         "Home of celestial warriors and cosmic beings. Mount Targon's peak connects mortals to divine power — at a terrible price.",
+    "ixtal":          "A hidden jungle nation of elementalists who sealed themselves away from the world's chaos. Masters of elemental magic.",
+    "bandle_city":    "The whimsical home of yordles, a race of magical creatures who slip between worlds and cause mischief wherever they go.",
+    "void":           "A realm of nothingness that consumes all it touches. Void creatures hunger to unmake the world — and they are already here.",
+}
+
+# Representative champion riot_id for each region's banner image
+REGION_BANNER_CHAMPION = {
+    "demacia":       "Garen",
+    "noxus":         "Darius",
+    "freljord":      "Ashe",
+    "piltover_zaun": "Jinx",
+    "ionia":         "Ahri",
+    "shadow_isles":  "Thresh",
+    "bilgewater":    "MissFortune",
+    "shurima":       "Azir",
+    "targon":        "Leona",
+    "ixtal":         "Qiyana",
+    "bandle_city":   "Teemo",
+    "void":          "Chogath",
+}
+
 
 def current_region() -> str:
     """Return the current week's region key (deterministic, no DB needed)."""

@@ -9,12 +9,10 @@ class ShopError(Exception):
     pass
 
 
-# Gold → Token bundles
+# Gold → Token bundles (simple: 1 or 10)
 TOKEN_BUNDLES = [
     {"tokens": 1,  "gold": 500,   "label": "1 Token"},
-    {"tokens": 5,  "gold": 2250,  "label": "5 Tokens (10% off)"},
-    {"tokens": 11, "gold": 4500,  "label": "11 Tokens (1 free)"},
-    {"tokens": 22, "gold": 8500,  "label": "22 Tokens (2 free)"},
+    {"tokens": 10, "gold": 4500,  "label": "10 Tokens (10% off)"},
 ]
 
 # Token costs for pulls
