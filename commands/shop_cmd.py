@@ -36,7 +36,6 @@ def _champion_panel_embed(user_tokens: int, user_gold: int) -> discord.Embed:
     champs = [c for c in CHAMPION_REGIONS.get(region_key, []) if c in ALL_CHAMPION_NAMES]
     banner_champ = REGION_BANNER_CHAMPION.get(region_key, "Garen")
 
-    from services.summon_service import days_until_rotation as _dur
     from data.champion_regions import days_until_rotation
     days_left = days_until_rotation()
 
