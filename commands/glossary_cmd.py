@@ -153,33 +153,50 @@ def _rune_list_embed(color_filter: str = "all") -> discord.Embed:
 # Item glossary
 # ---------------------------------------------------------------------------
 
-def _item_glossary_embed(category: str = "recipes") -> discord.Embed:
-    from data.item_recipes import ITEM_RECIPES, COMPONENT_ITEMS
+def _item_glossary_embed(category: str = "completed") -> discord.Embed:
+    from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES, BASIC_COMPONENTS, ADVANCED_COMPONENTS
 
-    if category == "recipes":
+    if category == "completed":
         embed = discord.Embed(
-            title="Item Glossary — Craftable Items",
-            description="Craft these at `/build <name>`. Output rank = lowest component rank.",
+            title="Item Glossary — Completed Items (37)",
+            description="Craft at `/build <name>`. Output rank = lowest component rank. Very rare drops.",
             color=0xFFAA00,
         )
-        for name, recipe in ITEM_RECIPES.items():
+        for name, recipe in COMPLETED_RECIPES.items():
             comps = " + ".join(recipe["components"])
             embed.add_field(
                 name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
                 value=f"{comps}\n*{recipe['description']}*",
                 inline=False,
             )
-    else:
+    elif category == "component_recipes":
         embed = discord.Embed(
-            title="Item Glossary — Components",
-            description="Components drop from dungeons, raids, and shop pulls. Combine them at `/build`.",
+            title="Item Glossary — Component Recipes (19)",
+            description="Build advanced components from basics at `/build <name>`.",
             color=0x4488FF,
         )
-        lines = []
-        for name, data in sorted(COMPONENT_ITEMS.items()):
-            stat = data["stat_type"].upper()
-            passive = data["passive"].replace("_passive", "").replace("_", " ").title()
-            lines.append(f"**{name}** — {stat} · {passive}")
+        for name, recipe in COMPONENT_RECIPES.items():
+            comps = " + ".join(recipe["components"])
+            embed.add_field(
+                name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
+                value=f"{comps}\n*{recipe['description']}*",
+                inline=False,
+            )
+    elif category == "basic":
+        embed = discord.Embed(
+            title="Item Glossary — Basic Components (10)",
+            description="Most common drops from dungeons, raids, and shop. Use these as building blocks.",
+            color=0x888888,
+        )
+        lines = [f"**{n}** — {d['desc']}" for n, d in BASIC_COMPONENTS.items()]
+        embed.description += "\n\n" + "\n".join(lines)
+    else:  # advanced
+        embed = discord.Embed(
+            title="Item Glossary — Advanced Components (21)",
+            description="Crafted from basics or drop mid-tier. Used as inputs for completed items.",
+            color=0x44AAFF,
+        )
+        lines = [f"**{n}** — {d['desc']}" for n, d in ADVANCED_COMPONENTS.items()]
         embed.description += "\n\n" + "\n".join(lines)
 
     return embed
@@ -395,13 +412,15 @@ class GlossaryCog(commands.Cog):
 
     # ── Items ──────────────────────────────────────────────────────────────
 
-    @glossary.command(name="items", description="Browse craftable items and components.")
+    @glossary.command(name="items", description="Browse items — completed, components, or build recipes.")
     @app_commands.describe(category="What to show")
     @app_commands.choices(category=[
-        app_commands.Choice(name="Craftable Items (recipes)", value="recipes"),
-        app_commands.Choice(name="Components (drops)", value="components"),
+        app_commands.Choice(name="Completed Items — craft targets",          value="completed"),
+        app_commands.Choice(name="Component Recipes — build advanced from basics", value="component_recipes"),
+        app_commands.Choice(name="Basic Components — common drops",          value="basic"),
+        app_commands.Choice(name="Advanced Components — mid-tier drops",     value="advanced"),
     ])
-    async def glossary_items(self, interaction: discord.Interaction, category: str = "recipes"):
+    async def glossary_items(self, interaction: discord.Interaction, category: str = "completed"):
         await interaction.response.defer(ephemeral=True)
         embed = _item_glossary_embed(category)
         await interaction.followup.send(embed=embed, ephemeral=True)

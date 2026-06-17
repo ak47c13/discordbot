@@ -44,38 +44,53 @@ def get_weekly_champion_pool() -> tuple[str, list[str]]:
 # ---------------------------------------------------------------------------
 # Weekly item category pools
 # ---------------------------------------------------------------------------
-# Item pools are all components (common). Completed items are crafted at /build.
-# A "completed" item can drop from summons at very low chance via SUMMON_RATES item_S entry.
+# Shop item pools — basics are most common, advanced components appear too.
+# Completed items are not in these pools; craft them at /build.
 ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
     "weapons": [
-        ("B.F. Sword",         "atk", "atk_passive"),
-        ("Pickaxe",            "atk", "atk_passive"),
+        # Basic
         ("Long Sword",         "atk", "atk_passive"),
-        ("Recurve Bow",        "atk", "attack_speed_passive"),
+        ("Pickaxe",            "atk", "atk_passive"),
+        ("Dagger",             "atk", "attack_speed_passive"),
         ("Vampiric Scepter",   "atk", "lifesteal_passive"),
+        # Advanced
+        ("B.F. Sword",         "atk", "atk_passive"),
+        ("Recurve Bow",        "atk", "attack_speed_passive"),
         ("Cloak of Agility",   "atk", "crit_damage_passive"),
         ("Zeal",               "atk", "attack_speed_passive"),
+        ("Phage",              "atk", "atk_passive"),
     ],
     "armor": [
-        ("Chain Vest",         "def", "armor_passive"),
+        # Basic
         ("Cloth Armor",        "def", "armor_passive"),
+        ("Null-Magic Mantle",  "def", "magic_resist_passive"),
+        # Advanced
+        ("Chain Vest",         "def", "armor_passive"),
+        ("Negatron Cloak",     "def", "magic_resist_passive"),
         ("Warden's Mail",      "def", "armor_passive"),
         ("Bramble Vest",       "def", "armor_passive"),
+        ("Hexdrinker",         "def", "magic_resist_passive"),
+        ("Spectre's Cowl",     "def", "magic_resist_passive"),
     ],
     "accessories": [
+        # Basic
         ("Ruby Crystal",       "hp",  "fortify_passive"),
+        ("Faerie Charm",       "hp",  "fortify_passive"),
+        # Advanced
         ("Giant's Belt",       "hp",  "fortify_passive"),
-        ("Spectre's Cowl",     "hp",  "fortify_passive"),
-        ("Hexdrinker",         "hp",  "fortify_passive"),
-        ("Phage",              "hp",  "fortify_passive"),
+        ("Kindlegem",          "hp",  "fortify_passive"),
+        ("Sheen",              "atk", "sheen_passive"),
+        ("Tear of the Goddess","atk", "atk_passive"),
     ],
     "magic": [
-        ("Needlessly Large Rod", "atk", "crit_damage_passive"),
-        ("Blasting Wand",        "atk", "atk_passive"),
-        ("Amplifying Tome",      "atk", "atk_passive"),
-        ("Lost Chapter",         "atk", "crit_damage_passive"),
-        ("Fiendish Codex",       "atk", "attack_speed_passive"),
-        ("Sheen",                "atk", "atk_passive"),
+        # Basic
+        ("Amplifying Tome",    "atk", "atk_passive"),
+        ("Sapphire Crystal",   "atk", "atk_passive"),
+        # Advanced
+        ("Blasting Wand",      "atk", "atk_passive"),
+        ("Needlessly Large Rod","atk", "crit_damage_passive"),
+        ("Lost Chapter",       "atk", "atk_passive"),
+        ("Fiendish Codex",     "atk", "attack_speed_passive"),
     ],
 }
 ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic"]

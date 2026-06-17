@@ -259,23 +259,40 @@ async def start_raid(
 
 # Raids drop components (common) or completed items (rare ~5% of item drops)
 RAID_ITEM_POOL = [
-    ("B.F. Sword",         "atk", "atk_passive"),
+    # basics
+    ("Long Sword",         "atk", "atk_passive"),
     ("Pickaxe",            "atk", "atk_passive"),
+    ("Dagger",             "atk", "attack_speed_passive"),
+    ("Cloth Armor",        "def", "armor_passive"),
+    ("Null-Magic Mantle",  "def", "magic_resist_passive"),
+    ("Ruby Crystal",       "hp",  "fortify_passive"),
+    ("Amplifying Tome",    "atk", "atk_passive"),
+    # advanced
+    ("B.F. Sword",         "atk", "atk_passive"),
     ("Recurve Bow",        "atk", "attack_speed_passive"),
     ("Chain Vest",         "def", "armor_passive"),
+    ("Negatron Cloak",     "def", "magic_resist_passive"),
     ("Warden's Mail",      "def", "armor_passive"),
-    ("Ruby Crystal",       "hp",  "fortify_passive"),
     ("Giant's Belt",       "hp",  "fortify_passive"),
-    ("Needlessly Large Rod", "atk", "crit_damage_passive"),
+    ("Needlessly Large Rod","atk", "crit_damage_passive"),
     ("Vampiric Scepter",   "atk", "lifesteal_passive"),
+    ("Zeal",               "atk", "attack_speed_passive"),
+    ("Spectre's Cowl",     "def", "magic_resist_passive"),
+    ("Blasting Wand",      "atk", "atk_passive"),
+    ("Tear of the Goddess","atk", "atk_passive"),
 ]
-# Completed items that can rarely drop from high-difficulty raids
+# Completed items that can rarely drop from raids (~5% of item drops)
 RAID_COMPLETED_ITEM_POOL = [
-    ("Infinity Edge",        "atk", "crit_damage_passive"),
-    ("Blade of the Ruined King", "atk", "lifesteal_passive"),
-    ("Sunfire Aegis",        "def", "armor_passive"),
-    ("Warmog's Armor",       "hp",  "fortify_passive"),
-    ("Rabadon's Deathcap",   "atk", "crit_damage_passive"),
+    ("Infinity Edge",          "atk", "crit_damage_passive"),
+    ("Blade of the Ruined King","atk", "lifesteal_passive"),
+    ("Sunfire Aegis",          "def", "armor_passive"),
+    ("Warmog's Armor",         "hp",  "fortify_passive"),
+    ("Rabadon's Deathcap",     "atk", "crit_damage_passive"),
+    ("Trinity Force",          "atk", "sheen_passive"),
+    ("Spirit Visage",          "def", "magic_resist_passive"),
+    ("Sterak's Gage",          "hp",  "fortify_passive"),
+    ("Nashor's Tooth",         "atk", "attack_speed_passive"),
+    ("Death's Dance",          "atk", "lifesteal_passive"),
 ]
 RAID_COMPLETED_DROP_CHANCE = 0.05  # 5% chance the item drop is a completed item
 

@@ -276,8 +276,8 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"), ephemeral=True)
 
 
-    @app_commands.command(name="build", description="Craft a completed item from its components.")
-    @app_commands.describe(item_name="Name of the completed item to craft (e.g. Infinity Edge)")
+    @app_commands.command(name="build", description="Craft an item from its components (components or completed items).")
+    @app_commands.describe(item_name="Item to craft (e.g. Infinity Edge, B.F. Sword, Zeal)")
     async def build(self, interaction: discord.Interaction, item_name: str):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
@@ -286,15 +286,17 @@ class BlacksmithCog(commands.Cog):
         # Case-insensitive match
         matched = next((k for k in ITEM_RECIPES if k.lower() == item_name.lower()), None)
         if matched is None:
-            craftable = "\n".join(f"• {k}" for k in sorted(ITEM_RECIPES))
-            await interaction.followup.send(
-                embed=error_embed(
-                    f"No recipe for **{item_name}**.",
-                    f"Craftable items:\n{craftable}",
-                ),
-                ephemeral=True,
-            )
-            return
+            # Try prefix match
+            candidates = [k for k in ITEM_RECIPES if k.lower().startswith(item_name.lower())]
+            if len(candidates) == 1:
+                matched = candidates[0]
+            else:
+                hint = ", ".join(candidates[:8]) if candidates else "Use `/recipes` to browse all craftable items."
+                await interaction.followup.send(
+                    embed=error_embed(f"No recipe found for **{item_name}**.", hint),
+                    ephemeral=True,
+                )
+                return
 
         recipe = ITEM_RECIPES[matched]
         components_needed = recipe["components"]
@@ -389,24 +391,42 @@ class BlacksmithCog(commands.Cog):
         embed.description = recipe["description"]
         await msg.edit(embed=embed, view=None)
 
-    @app_commands.command(name="recipes", description="Browse all craftable items and their components.")
-    async def recipes(self, interaction: discord.Interaction):
+    @app_commands.command(name="recipes", description="Browse all craftable items by tier.")
+    @app_commands.describe(tier="Which tier to show")
+    @app_commands.choices(tier=[
+        app_commands.Choice(name="Completed Items (end-game)",           value="completed"),
+        app_commands.Choice(name="Component Recipes (basics → advanced)", value="components"),
+    ])
+    async def recipes(self, interaction: discord.Interaction, tier: str = "completed"):
         await interaction.response.defer(ephemeral=True)
-        from data.item_recipes import ITEM_RECIPES
-        embed = discord.Embed(
-            title="Blacksmith Recipes",
-            description="Craft completed items from components. Output rank = lowest component rank.\nComponents drop commonly from dungeons and raids.",
-            color=0xFFAA00,
+        from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES
+
+        recipes = COMPLETED_RECIPES if tier == "completed" else COMPONENT_RECIPES
+        title = "Completed Item Recipes" if tier == "completed" else "Component Build Paths"
+        desc = (
+            "End-game items. Craft from advanced components at `/build <name>`.\nOutput rank = lowest component rank."
+            if tier == "completed" else
+            "Turn basic drops into advanced components at `/build <name>`."
         )
-        for name, recipe in ITEM_RECIPES.items():
-            comps = " + ".join(recipe["components"])
-            embed.add_field(
-                name=f"{name}  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
-                value=f"{comps}\n*{recipe['description']}*",
-                inline=False,
+
+        # Discord embed field limit is 25 — paginate into two messages if needed
+        items_list = list(recipes.items())
+        for batch_start in range(0, len(items_list), 20):
+            batch = items_list[batch_start:batch_start + 20]
+            embed = discord.Embed(
+                title=f"{title} ({len(recipes)} total)",
+                description=desc if batch_start == 0 else f"*(continued — {batch_start + 1}–{batch_start + len(batch)})*",
+                color=0xFFAA00 if tier == "completed" else 0x4488FF,
             )
-        embed.set_footer(text="Use /build <item_name> to craft")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+            for name, recipe in batch:
+                comps = " + ".join(recipe["components"])
+                embed.add_field(
+                    name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
+                    value=f"{comps}\n*{recipe['description']}*",
+                    inline=False,
+                )
+            embed.set_footer(text="/build <item_name> to craft")
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):
