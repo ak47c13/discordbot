@@ -65,6 +65,11 @@ ADVANCED_COMPONENTS: dict[str, dict] = {
     "Lost Chapter":            {"stat_type": "atk", "passive": "atk_passive",          "desc": "+40 ATK · mana regen"},
     "Fiendish Codex":          {"stat_type": "ap",  "passive": "attack_speed_passive",  "desc": "+35 AP · ability haste"},
     "Tear of the Goddess":     {"stat_type": "atk", "passive": "atk_passive",          "desc": "+15 ATK · stacking mana"},
+    # Assassin / lethality components
+    "Serrated Dirk":           {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+30 ATK · +10 Lethality (armor pen)"},
+    "Cauterize":               {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+20 ATK · +15 Lethality · builds into lethality items"},
+    "Serpent's Fang":          {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+55 ATK · +10 Lethality · reduces shields on targets"},
+    "Umbral Glaive":           {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+40 ATK · +15 Lethality · anti-ward utility"},
     # Starter items (no recipes, drop-only, cannot build into completed items)
     "Doran's Blade":           {"stat_type": "atk", "passive": "lifesteal_passive",     "desc": "+80 HP · +8 ATK · 3% omnivamp"},
     "Doran's Ring":            {"stat_type": "atk", "passive": "atk_passive",          "desc": "+70 HP · +15 ATK (AP) · mana regen"},
@@ -103,6 +108,8 @@ COMPONENT_RECIPES: dict[str, dict] = {
     "Noonquiver":           {"components": ["Long Sword", "Cloak of Agility"],    "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 250,  "description": "ATK + crit chance. Builds into Immortal Shieldbow and Kraken Slayer."},
     "Tiamat":               {"components": ["Long Sword", "Long Sword"],          "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 350,  "description": "ATK with splash. Builds into Ravenous Hydra and Titanic Hydra."},
     "Caulfield's Warhammer":{"components": ["Pickaxe", "Long Sword"],             "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 300,  "description": "ATK + ability haste. Builds into Death's Dance and Ravenous Hydra."},
+    "Serrated Dirk":        {"components": ["Long Sword"],                        "stat_type": "atk", "passive": "armor_pen_passive",     "gold_cost": 200,  "description": "+30 ATK · +10 Lethality. Builds into most assassin items."},
+    "Cauterize":            {"components": ["Serrated Dirk", "Long Sword"],       "stat_type": "atk", "passive": "armor_pen_passive",     "gold_cost": 300,  "description": "+20 ATK · +15 Lethality. Mid-tier assassin component."},
 }
 
 # ---------------------------------------------------------------------------
@@ -308,6 +315,31 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "components": ["Giant's Belt", "Ruby Crystal", "Kindlegem"],
         "stat_type": "hp", "passive": "fortify_passive", "gold_cost": 1100,
         "description": "Charges up a massive bonus HP-scaling strike. Enormous HP stacking.",
+    },
+    "Duskblade of Draktharr": {
+        "components": ["Serrated Dirk", "Cauterize", "Long Sword"],
+        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 1200,
+        "description": "Nightstalker: after being unseen, next attack deals massive bonus damage.",
+    },
+    "Prowler's Claw": {
+        "components": ["Serrated Dirk", "Cauterize", "Dagger"],
+        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 1200,
+        "description": "Lunge to a target and deal bonus physical damage, ignoring armor.",
+    },
+    "Serpent's Fang": {
+        "components": ["Serrated Dirk", "Long Sword"],
+        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 900,
+        "description": "Reduces shields on enemies hit. Strong against shielding teams.",
+    },
+    "Umbral Glaive": {
+        "components": ["Serrated Dirk", "Pickaxe"],
+        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 900,
+        "description": "+40 ATK · +15 Lethality. Efficient lethality item for burst assassins.",
+    },
+    "Axiom Arc": {
+        "components": ["Serrated Dirk", "Caulfield's Warhammer"],
+        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 1000,
+        "description": "Refunds ultimate cooldown on kills. Resets for multi-kill potential.",
     },
 }
 

@@ -56,6 +56,7 @@ BASIC_ITEM_POOL = [
     ("Faerie Charm",     "hp",  "fortify_passive"),
     ("Amplifying Tome",  "atk", "atk_passive"),
     ("Sapphire Crystal", "atk", "atk_passive"),
+    ("Serrated Dirk",    "atk", "armor_pen_passive"),
 ]
 
 ADVANCED_ITEM_POOL = [
@@ -75,6 +76,9 @@ ADVANCED_ITEM_POOL = [
     ("Kindlegem",            "hp",  "fortify_passive"),
     ("Noonquiver",           "atk", "attack_speed_passive"),
     ("Tiamat",               "atk", "atk_passive"),
+    ("Cauterize",            "atk", "armor_pen_passive"),
+    ("Serpent's Fang",       "atk", "armor_pen_passive"),
+    ("Umbral Glaive",        "atk", "armor_pen_passive"),
     ("Caulfield's Warhammer","atk", "atk_passive"),
 ]
 

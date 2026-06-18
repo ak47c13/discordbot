@@ -502,6 +502,9 @@ RAID_ITEM_POOL = [
     ("Spectre's Cowl",     "def", "magic_resist_passive"),
     ("Blasting Wand",      "atk", "atk_passive"),
     ("Tear of the Goddess","atk", "atk_passive"),
+    ("Serrated Dirk",      "atk", "armor_pen_passive"),
+    ("Cauterize",          "atk", "armor_pen_passive"),
+    ("Umbral Glaive",      "atk", "armor_pen_passive"),
 ]
 # Completed items that can rarely drop from raids (~5% of item drops)
 RAID_COMPLETED_ITEM_POOL = [
@@ -515,6 +518,8 @@ RAID_COMPLETED_ITEM_POOL = [
     ("Sterak's Gage",          "hp",  "fortify_passive"),
     ("Nashor's Tooth",         "atk", "attack_speed_passive"),
     ("Death's Dance",          "atk", "lifesteal_passive"),
+    ("Duskblade of Draktharr", "atk", "armor_pen_passive"),
+    ("Prowler's Claw",         "atk", "armor_pen_passive"),
 ]
 RAID_COMPLETED_DROP_CHANCE = 0.05  # 5% chance the item drop is a completed item
 

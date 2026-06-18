@@ -92,13 +92,26 @@ ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
         ("Lost Chapter",       "atk", "atk_passive"),
         ("Fiendish Codex",     "atk", "attack_speed_passive"),
     ],
+    "assassin": [
+        # Basic
+        ("Serrated Dirk",      "atk", "armor_pen_passive"),
+        ("Long Sword",         "atk", "atk_passive"),
+        ("Dagger",             "atk", "attack_speed_passive"),
+        # Advanced
+        ("Cauterize",          "atk", "armor_pen_passive"),
+        ("Serpent's Fang",     "atk", "armor_pen_passive"),
+        ("Umbral Glaive",      "atk", "armor_pen_passive"),
+        ("Prowler's Claw",     "atk", "armor_pen_passive"),
+        ("Axiom Arc",          "atk", "armor_pen_passive"),
+    ],
 }
-ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic"]
+ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic", "assassin"]
 ITEM_CATEGORY_DISPLAY = {
     "weapons":     "Weapons",
     "armor":       "Armor",
     "accessories": "Accessories",
     "magic":       "Magic Items",
+    "assassin":    "Assassin Items",
 }
 
 # ---------------------------------------------------------------------------
