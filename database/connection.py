@@ -13,6 +13,7 @@ from models.processed_interaction import ProcessedInteraction
 from models.raid import RaidQueue
 from models.battle_session import BattleSession
 from models.dungeon import Dungeon, DungeonFloor, DungeonProgress, DungeonRun
+from models.rune_instance import RuneInstance
 
 
 _client: AsyncIOMotorClient | None = None
@@ -42,6 +43,7 @@ async def init_db() -> None:
             ProcessedInteraction,
             RaidQueue,
             BattleSession,
+            RuneInstance,
             Dungeon,
             DungeonFloor,
             DungeonProgress,

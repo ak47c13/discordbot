@@ -349,23 +349,40 @@ async def _apply_summon_result(
         await user.save(session=usable_session(session))
         return {"type": "seal", "amount": 1}
 
-    elif key == "rune":
+    elif key.startswith("rune"):
         from data.rune_catalog import RUNE_CATALOG
+        from services.rune_service import grant_rune
+        from config.game_config import RUNE_SUMMON_RATES
+
+        # Determine rank: if key is "rune_X" use that rank, else roll from rates
+        if "_" in key and key.split("_")[1].upper() in ("F","E","D","C","B","A","S"):
+            rank = key.split("_")[1].upper()
+        else:
+            ranks = list(RUNE_SUMMON_RATES.keys())
+            weights = list(RUNE_SUMMON_RATES.values())
+            rank_key = random.choices(ranks, weights=weights, k=1)[0]
+            rank = rank_key.split("_")[1].upper()
+
         pool = _get_weekly_rune_pool()
-        # tier-weighted pick: tier determined by -t1/-t2/-t3 suffix
-        tiers = [1, 2, 3]
-        tier = random.choices(tiers, weights=_RUNE_TIER_WEIGHTS, k=1)[0]
+        # Pick rune ID from pool weighted by tier aligned to rank
+        rank_to_tier = {"F": 1, "E": 1, "D": 2, "C": 2, "B": 3, "A": 3, "S": 3}
+        tier = rank_to_tier.get(rank, 1)
         tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
         if not tier_pool:
-            tier_pool = [rid for rid in pool if rid.endswith("-t1")]
+            tier_pool = pool
         rune_id = random.choice(tier_pool)
         rune = RUNE_CATALOG.get(rune_id, {})
+
+        inst = await grant_rune(owner_id, rune_id, rank, session)
         return {
             "type": "rune",
             "rune_id": rune_id,
+            "instance_id": str(inst.id),
+            "display_id": inst.display_id,
             "name": rune.get("name", rune_id),
             "description": rune.get("description", ""),
             "color": rune.get("color", "red"),
+            "rank": rank,
             "tier": tier,
         }
 

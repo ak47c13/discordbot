@@ -18,7 +18,7 @@ class User(Document):
     raids_completed: int = 0
     daily_raids_used: int = 0
     daily_raids_reset: Optional[datetime] = None
-    rune_shards: int = 0        # dungeon-exclusive crafting material
+    rune_shards: int = 0        # legacy field — no longer used
     last_daily: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

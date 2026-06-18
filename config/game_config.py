@@ -223,6 +223,29 @@ SUMMON_RATES = {
     "enhance_mat":0.025,
     "reroll_mat": 0.015,
     "seal":       0.001,
+    "rune":       0.040,   # rune instance (rank rolled from RUNE_SUMMON_RATES)
+}
+
+# Rune pull rank rates — used when pool_type="rune"
+RUNE_SUMMON_RATES = {
+    "rune_F": 0.450,
+    "rune_E": 0.255,
+    "rune_D": 0.150,
+    "rune_C": 0.080,
+    "rune_B": 0.040,
+    "rune_A": 0.020,
+    "rune_S": 0.005,
+}
+
+# Stat multiplier applied to catalog base value based on rune rank
+RUNE_RANK_MULTIPLIERS = {
+    "F": 0.50,
+    "E": 0.70,
+    "D": 0.85,
+    "C": 1.00,
+    "B": 1.20,
+    "A": 1.40,
+    "S": 1.65,
 }
 
 # Token income sources

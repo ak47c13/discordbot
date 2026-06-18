@@ -95,8 +95,9 @@ def _rewards_lines(rewards: dict) -> str:
         lines.append(f"{rewards['gold']} gold")
     if rewards.get("xp"):
         lines.append(f"{rewards['xp']} XP")
-    if rewards.get("rune_shards"):
-        lines.append(f"{rewards['rune_shards']} rune shard")
+    if rewards.get("rune"):
+        r = rewards["rune"]
+        lines.append(f"🧿 {r['name']} [{r['rank']}] Rune  #{r['display_id']}")
     for lv in rewards.get("leveled", []):
         lines.append(f"{lv['name']} reached Lv.{lv['level']}!")
     bonus = rewards.get("bonus")

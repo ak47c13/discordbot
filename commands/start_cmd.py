@@ -45,8 +45,7 @@ def _results_to_lines(results: list[dict]) -> list[str]:
     for r in results:
         rtype = r.get("type", "")
         if rtype == "rune":
-            tier_label = {1: "Common", 2: "Uncommon", 3: "Rare"}.get(r.get("tier", 1), "Common")
-            lines.append(f"**{r['name']}** — {tier_label} Rune")
+            lines.append(f"**{r['name']}** [{r.get('rank', 'F')}] Rune  #{r.get('display_id', '?')}")
         elif rtype == "item":
             lines.append(f"**{r['name']}** [{r.get('rank', 'F')}] {r.get('stat_type', '').upper()} Gear")
         elif rtype == "champion":

@@ -1,33 +1,56 @@
+from __future__ import annotations
+from motor.motor_asyncio import AsyncIOMotorClientSession
+from utils.db_session import usable_session
+
 from data.rune_catalog import RUNE_CATALOG
+from models.rune_instance import RuneInstance
+from config.game_config import RUNE_RANK_MULTIPLIERS
+from utils.counters import next_display_id
+
+
+async def grant_rune(
+    owner_id: str,
+    rune_id: str,
+    rank: str,
+    session: AsyncIOMotorClientSession | None = None,
+) -> RuneInstance:
+    """Create and persist a new owned rune for the given owner."""
+    did = await next_display_id("rune_instances")
+    inst = RuneInstance(owner_id=owner_id, rune_id=rune_id, rank=rank, display_id=did)
+    await inst.insert(session=usable_session(session))
+    return inst
 
 
 def apply_rune_bonuses(unit, rune_page, champion_level: int):
     """Apply rune page stat bonuses to a CombatUnit (mutated in place)."""
-    all_rune_ids = (
-        [s.rune_id for s in rune_page.reds] +
-        [s.rune_id for s in rune_page.yellows] +
-        [s.rune_id for s in rune_page.blues] +
-        [s.rune_id for s in rune_page.quints[:3]]
+    all_slots = (
+        list(rune_page.reds) +
+        list(rune_page.yellows) +
+        list(rune_page.blues) +
+        list(rune_page.quints[:3])
     )
 
-    for rune_id in all_rune_ids:
-        if not rune_id:
+    for slot in all_slots:
+        if not slot.rune_id:
             continue
-        rune = RUNE_CATALOG.get(rune_id)
+        rune = RUNE_CATALOG.get(slot.rune_id)
         if not rune:
             continue
         stat = rune["stat"]
-        val = rune["value"]
+        rank = getattr(slot, "rank", "C")
+        mult = RUNE_RANK_MULTIPLIERS.get(rank, 1.0)
+        val = rune["value"] * mult
 
         if stat == "atk":
-            unit.atk += val
+            unit.atk += int(val)
         elif stat == "hp":
-            unit.hp += val
-            unit.hp_max += val
+            bonus = int(val)
+            unit.hp += bonus
+            unit.hp_max += bonus
         elif stat == "def_stat":
-            unit.def_stat += val
+            unit.def_stat += int(val)
         elif stat == "spd":
-            unit.spd += val
+            unit.spd += int(val)
         elif stat == "crit_chance":
             unit.crit_chance = getattr(unit, "crit_chance", 0.0) + val
         elif stat == "crit_dmg":
@@ -53,4 +76,4 @@ def apply_rune_bonuses(unit, rune_page, champion_level: int):
         elif stat == "xp_gain":
             unit.xp_gain_mult = getattr(unit, "xp_gain_mult", 1.0) + val
         elif stat == "atk_per_10_levels":
-            unit.atk += val * (champion_level // 10)
+            unit.atk += int(val * (champion_level // 10))

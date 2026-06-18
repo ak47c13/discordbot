@@ -33,7 +33,7 @@ from config.game_config import (
     DUNGEON_FLOOR_GOLD_PER_FLOOR,
     DUNGEON_FLOOR_XP_BASE,
     DUNGEON_FLOOR_XP_PER_FLOOR,
-    DUNGEON_RUNE_SHARD_CHANCE,
+    DUNGEON_RUNE_SHARD_CHANCE, RUNE_SUMMON_RATES,
     DUNGEON_FIRST_CLEAR,
     DUNGEON_DAILY_CLEAR,
     DUNGEON_STAMINA_COST,
@@ -381,22 +381,41 @@ async def grant_floor_rewards(
     prog.last_attempt_at = datetime.now(timezone.utc)
 
     rewards: dict[str, Any] = {
-        "gold": 0, "xp": 0, "rune_shards": 0,
+        "gold": 0, "xp": 0, "rune": None,
         "leveled": [], "bonus": None,
     }
     if won:
         map_mult = _map_multiplier(dungeon_slug)
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
-        # Rune drop chance scales with map (higher maps = better drop rates)
-        rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
         rng = random.Random(seed)
-        if rng.random() < rune_shard_chance:
-            user.rune_shards += 1
-            rewards["rune_shards"] = 1
+        if rng.random() < rune_drop_chance:
+            from services.rune_service import grant_rune
+            from services.summon_service import _get_weekly_rune_pool
+            import random as _random
+            pool = _get_weekly_rune_pool()
+            # Lower-rank runes more common in dungeons — bias toward F/E
+            ranks = list(RUNE_SUMMON_RATES.keys())
+            weights = list(RUNE_SUMMON_RATES.values())
+            rank_key = _random.choices(ranks, weights=weights, k=1)[0]
+            rank = rank_key.split("_")[1].upper()
+            rank_to_tier = {"F": 1, "E": 1, "D": 2, "C": 2, "B": 3, "A": 3, "S": 3}
+            tier = rank_to_tier.get(rank, 1)
+            tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
+            rune_id = _random.choice(tier_pool if tier_pool else pool)
+            inst = await grant_rune(owner_id, rune_id, rank, session)
+            from data.rune_catalog import RUNE_CATALOG
+            rune_data = RUNE_CATALOG.get(rune_id, {})
+            rewards["rune"] = {
+                "rune_id": rune_id,
+                "name": rune_data.get("name", rune_id),
+                "rank": rank,
+                "display_id": inst.display_id,
+            }
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
@@ -500,7 +519,7 @@ async def enter_floor(
     prog.last_attempt_at = datetime.now(timezone.utc)
 
     rewards: dict[str, Any] = {
-        "gold": 0, "xp": 0, "rune_shards": 0,
+        "gold": 0, "xp": 0, "rune": None,
         "leveled": [], "bonus": None,
     }
     completion: Optional[dict] = None
@@ -509,15 +528,34 @@ async def enter_floor(
         map_mult = _map_multiplier(dungeon_slug)
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
-        rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
 
         rng = random.Random(seed)
-        if rng.random() < rune_shard_chance:
-            user.rune_shards += 1
-            rewards["rune_shards"] = 1
+        if rng.random() < rune_drop_chance:
+            from services.rune_service import grant_rune
+            from services.summon_service import _get_weekly_rune_pool
+            import random as _random
+            pool = _get_weekly_rune_pool()
+            ranks = list(RUNE_SUMMON_RATES.keys())
+            weights = list(RUNE_SUMMON_RATES.values())
+            rank_key = _random.choices(ranks, weights=weights, k=1)[0]
+            rank = rank_key.split("_")[1].upper()
+            rank_to_tier = {"F": 1, "E": 1, "D": 2, "C": 2, "B": 3, "A": 3, "S": 3}
+            tier = rank_to_tier.get(rank, 1)
+            tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
+            rune_id = _random.choice(tier_pool if tier_pool else pool)
+            inst = await grant_rune(owner_id, rune_id, rank, session)
+            from data.rune_catalog import RUNE_CATALOG
+            rune_data = RUNE_CATALOG.get(rune_id, {})
+            rewards["rune"] = {
+                "rune_id": rune_id,
+                "name": rune_data.get("name", rune_id),
+                "rank": rank,
+                "display_id": inst.display_id,
+            }
 
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
 

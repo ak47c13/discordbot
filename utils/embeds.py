@@ -389,18 +389,18 @@ def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
             color=color,
         )
     elif rtype == "rune":
-        tier = r.get("tier", 1)
+        rune_rank = r.get("rank", "F")
         color_key = r.get("color", "red")
         color_emoji = {"red": "🔴", "yellow": "🟡", "blue": "🔵", "quint": "💠"}.get(color_key, "")
-        tier_label = {1: "Common", 2: "Uncommon", 3: "Rare"}.get(tier, "Common")
+        display_id = r.get("display_id", "?")
         embed = discord.Embed(
-            title=f"{color_emoji} {r.get('name', 'Rune')}",
+            title=f"{color_emoji} {r.get('name', 'Rune')} [{rune_rank}]",
             description=(
-                f"**{tier_label} Rune**\n\n"
+                f"**{_SUMMON_RANK_LABEL.get(rune_rank, rune_rank)} [{rune_rank}] Rune**\n\n"
                 f"{r.get('description', '')}\n\n"
-                f"Use `/runes catalog` to find its ID, then `/runes set` to equip it."
+                f"Rune #{display_id} — Use `/runes set` to equip it."
             ),
-            color={"red": 0xFF4444, "yellow": 0xFFDD00, "blue": 0x4488FF, "quint": 0xAA44FF}.get(color_key, 0xAA44FF),
+            color=COLOR_RANK.get(rune_rank, 0xAA44FF),
         )
     else:
         emoji = _SUMMON_REWARD_EMOJI.get(rtype, "🎁")

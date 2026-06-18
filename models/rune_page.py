@@ -4,6 +4,8 @@ from typing import Optional
 
 class RuneSlot(BaseModel):
     rune_id: Optional[str] = None
+    instance_id: Optional[str] = None   # RuneInstance._id
+    rank: str = "F"
 
 
 class RunePage(BaseModel):
