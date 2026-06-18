@@ -104,6 +104,11 @@ class CombatUnit:
     damage_dealt: int = 0
     damage_taken: int = 0
 
+    # Phase 2 skill mechanic state
+    skill_stacks: int = 0        # stack_damage mechanic accumulator
+    pending_reset: bool = False  # reset_on_kill: set by skill, cleared by combat loop → mana→100
+    marked_by: int = 0           # mark_detonate: stores id(caster) when marked, 0 = unmarked
+
     # Skill callables (set during build)
     basic_fn: Optional[callable] = field(default=None, repr=False)
     ultimate_fn: Optional[callable] = field(default=None, repr=False)
@@ -300,9 +305,8 @@ def build_unit_from_champion(
         elif itm.name == "Warmog's Armor":
             has_warmog = True
 
-    skills = CHAMPION_SKILLS.get(champ_doc.name, {})
-    # Use player's chosen basic skill (q/w/e); R is always the ultimate
-    basic_fn = skills.get(active_skill_key) or skills.get("q") or skills.get("basic")
+    from engine.skills import get_skill_fns
+    skill_fns = get_skill_fns(champ_doc.name, rank, active_skill_key)
     unit = CombatUnit(
         unit_id=str(champ_doc.id),
         name=champ_doc.name,
@@ -317,8 +321,8 @@ def build_unit_from_champion(
         def_stat=final_def,
         spd=final_spd,
         mana=0,
-        basic_fn=basic_fn,
-        ultimate_fn=skills.get("r") or skills.get("ultimate"),
+        basic_fn=skill_fns["basic_fn"],
+        ultimate_fn=skill_fns["ultimate_fn"],
     )
 
     # Apply item passive bonuses to the unit
@@ -735,6 +739,10 @@ def run_battle_with_rounds(
                 log.append(f"  💫 {unit.name} casts ULTIMATE!")
                 skill_log = _invoke_skill(unit.ultimate_fn, unit, enemies_of_unit, allies_of_unit)
                 unit.mana = 0
+                # reset_on_kill mechanic: skill flagged a kill → restore mana for next cast
+                if getattr(unit, "pending_reset", False):
+                    unit.mana = 100
+                    unit.pending_reset = False
                 _used_skill = True
             elif unit.basic_fn:
                 skill_log = _invoke_skill(unit.basic_fn, unit, enemies_of_unit, allies_of_unit)
