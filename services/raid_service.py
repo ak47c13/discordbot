@@ -19,7 +19,7 @@ from engine.combat import build_unit_from_champion, run_battle
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
-from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS
+from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS, RAID_BOSS_STATS, RANKS
 
 
 class RaidError(Exception):
@@ -90,18 +90,29 @@ def _pick_drop_count(rank: str) -> int:
 
 
 def _build_raid_boss(difficulty: str, n_players: int, boss_name: str):
-    """Build a boss CombatUnit from a named champion scaled to raid difficulty."""
+    """Build a boss CombatUnit scaled for a full 5-player team, reduced for smaller parties.
+
+    Stats are explicit per-tier values (not formula-derived) so the boss is always
+    a meaningful threat regardless of level randomness.
+    HP scales linearly: 5 players = 100%, 1 player = 30% (solo is intentionally brutal).
+    """
     from engine.combat import build_boss_unit
     cfg = RAID_DIFFICULTIES[difficulty]
     rank = cfg["boss_rank"]
-    level_range = cfg["boss_level"]
-    level = random.randint(level_range[0], level_range[1])
-    base = CHAMPION_BASE_STATS.get(rank, CHAMPION_BASE_STATS["F"])
+    tier_stats = RAID_BOSS_STATS[rank]
 
-    growth = 1.05 ** (level - 1)
-    hp  = int(base["hp"]  * growth * cfg["boss_hp_mult"] * max(1, n_players * 0.6))
-    atk = int(base["atk"] * growth * cfg["boss_hp_mult"] ** 0.5)
-    defense = int(base["def"] * growth)
+    # HP scales with party size: solo=30%, each additional player adds 17.5%
+    # 1p=30%, 2p=47.5%, 3p=65%, 4p=82.5%, 5p=100%
+    hp_scale = 0.30 + (n_players - 1) * 0.175
+    hp = int(tier_stats["hp"] * hp_scale)
+
+    # ATK/DEF are fixed — the boss hits the same regardless of party size
+    atk = tier_stats["atk"]
+    defense = tier_stats["def"]
+    spd = tier_stats["spd"]
+
+    # Assign a pseudo-level for display purposes only
+    level = 1 + RANKS.index(rank) * 20
 
     return build_boss_unit({
         "name": boss_name,
@@ -110,7 +121,7 @@ def _build_raid_boss(difficulty: str, n_players: int, boss_name: str):
         "hp": hp,
         "atk": atk,
         "def": defense,
-        "spd": 95,
+        "spd": spd,
         "is_boss": True,
         "mechanic": "",
         "champion_name": boss_name,

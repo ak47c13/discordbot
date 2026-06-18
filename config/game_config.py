@@ -379,72 +379,86 @@ RAID_DIFFICULTY_WEIGHTS = {
     "F": 35, "E": 25, "D": 18, "C": 11, "B": 6, "A": 3, "S": 2,
 }
 
+# Raid boss explicit stat targets — designed for 5 fully-itemized players.
+# HP is the full-team (5p) value; _build_raid_boss scales it down for smaller parties.
+# ATK/DEF are absolute values fed directly into combat (not multipliers).
+# Each tier is ~2–2.5× the previous in effective threat.
+RAID_BOSS_STATS = {
+    #        hp        atk    def   spd
+    "F": {"hp":  40_000, "atk":  450, "def":  180, "spd":  90},
+    "E": {"hp":  90_000, "atk":  800, "def":  320, "spd":  92},
+    "D": {"hp": 200_000, "atk": 1_400, "def":  560, "spd":  95},
+    "C": {"hp": 440_000, "atk": 2_400, "def":  950, "spd":  98},
+    "B": {"hp": 950_000, "atk": 4_000, "def": 1_600, "spd": 101},
+    "A": {"hp":2_100_000,"atk": 6_500, "def": 2_600, "spd": 104},
+    "S": {"hp":4_800_000,"atk":10_500, "def": 4_200, "spd": 108},
+}
+
 # F→S raid difficulties — boss stats scale exponentially
 # gold/token payouts multiply by ~2.5x per tier; champion/item drop quality rises
-# boss_level is [min, max] — actual level randomized within range
 RAID_DIFFICULTIES = {
     "F": {
         "display": "F — Skirmish",
-        "boss_rank": "E", "boss_level": [5, 15], "boss_hp_mult": 1.0,
-        "gold_min": 800,   "gold_max": 1500,
-        "token_min": 5,    "token_max": 10,
+        "boss_rank": "F",
+        "gold_min": 3_000,   "gold_max":  6_000,
+        "token_min": 15,     "token_max": 30,
         "champ_chance": 0.10, "champ_ranks": ["F", "E"],
         "item_chance":  0.15, "item_ranks":  ["F", "E"],
-        "seal_chance":  0.01,
+        "seal_chance":  0.02,
     },
     "E": {
         "display": "E — Skirmish+",
-        "boss_rank": "D", "boss_level": [15, 25], "boss_hp_mult": 1.5,
-        "gold_min": 2000,  "gold_max": 3500,
-        "token_min": 12,   "token_max": 22,
+        "boss_rank": "E",
+        "gold_min":  8_000,  "gold_max": 15_000,
+        "token_min": 40,     "token_max": 70,
         "champ_chance": 0.12, "champ_ranks": ["E", "D"],
         "item_chance":  0.18, "item_ranks":  ["E", "D"],
-        "seal_chance":  0.02,
+        "seal_chance":  0.04,
     },
     "D": {
         "display": "D — Incursion",
-        "boss_rank": "C", "boss_level": [28, 45], "boss_hp_mult": 2.2,
-        "gold_min": 5000,  "gold_max": 8500,
-        "token_min": 28,   "token_max": 50,
+        "boss_rank": "D",
+        "gold_min": 20_000,  "gold_max": 40_000,
+        "token_min": 100,    "token_max": 180,
         "champ_chance": 0.15, "champ_ranks": ["D", "C"],
         "item_chance":  0.20, "item_ranks":  ["D", "C"],
-        "seal_chance":  0.03,
+        "seal_chance":  0.06,
     },
     "C": {
         "display": "C — Siege",
-        "boss_rank": "B", "boss_level": [45, 65], "boss_hp_mult": 3.5,
-        "gold_min": 12000, "gold_max": 20000,
-        "token_min": 60,   "token_max": 110,
+        "boss_rank": "C",
+        "gold_min":  50_000, "gold_max": 100_000,
+        "token_min": 250,    "token_max": 450,
         "champ_chance": 0.18, "champ_ranks": ["C", "B"],
         "item_chance":  0.22, "item_ranks":  ["C", "B"],
-        "seal_chance":  0.05,
+        "seal_chance":  0.09,
     },
     "B": {
         "display": "B — Assault",
-        "boss_rank": "A", "boss_level": [65, 95], "boss_hp_mult": 5.5,
-        "gold_min": 30000, "gold_max": 50000,
-        "token_min": 130,  "token_max": 240,
+        "boss_rank": "B",
+        "gold_min": 120_000, "gold_max": 240_000,
+        "token_min": 600,    "token_max": 1_100,
         "champ_chance": 0.20, "champ_ranks": ["B", "A"],
         "item_chance":  0.25, "item_ranks":  ["B", "A"],
-        "seal_chance":  0.08,
+        "seal_chance":  0.13,
     },
     "A": {
         "display": "A — Conquest",
-        "boss_rank": "S", "boss_level": [100, 140], "boss_hp_mult": 9.0,
-        "gold_min": 75000, "gold_max": 125000,
-        "token_min": 280,  "token_max": 500,
+        "boss_rank": "A",
+        "gold_min": 300_000, "gold_max": 600_000,
+        "token_min": 1_400,  "token_max": 2_600,
         "champ_chance": 0.22, "champ_ranks": ["A", "S"],
         "item_chance":  0.28, "item_ranks":  ["A", "S"],
-        "seal_chance":  0.12,
+        "seal_chance":  0.18,
     },
     "S": {
         "display": "S — Annihilation",
-        "boss_rank": "S", "boss_level": [170, 230], "boss_hp_mult": 16.0,
-        "gold_min": 200000, "gold_max": 350000,
-        "token_min": 600,   "token_max": 1000,
+        "boss_rank": "S",
+        "gold_min": 750_000, "gold_max":1_500_000,
+        "token_min": 3_500,  "token_max": 6_500,
         "champ_chance": 0.25, "champ_ranks": ["A", "S"],
         "item_chance":  0.30, "item_ranks":  ["A", "S"],
-        "seal_chance":  0.20,
+        "seal_chance":  0.25,
     },
 }
 

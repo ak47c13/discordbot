@@ -37,16 +37,17 @@ def _difficulty_overview_embed(user: User) -> discord.Embed:
         color=COLOR_INFO,
     )
     for key, cfg in RAID_DIFFICULTIES.items():
-        lvl = cfg["boss_level"]
+        from config.game_config import RAID_BOSS_STATS
+        bstats = RAID_BOSS_STATS[cfg["boss_rank"]]
         weight = RAID_DIFFICULTY_WEIGHTS[key]
         total_weight = sum(RAID_DIFFICULTY_WEIGHTS.values())
         chance = int(weight / total_weight * 100)
         embed.add_field(
             name=f"{cfg['display']}  ({chance}%)",
             value=(
-                f"Boss Lv.{lvl[0]}–{lvl[1]}\n"
+                f"Boss Rank: {cfg['boss_rank']} | {bstats['hp']:,} HP\n"
                 f"Gold: {cfg['gold_min']:,}–{cfg['gold_max']:,}\n"
-                f"Tokens: {cfg['token_min']}–{cfg['token_max']}"
+                f"Tokens: {cfg['token_min']:,}–{cfg['token_max']:,}"
             ),
             inline=True,
         )
@@ -88,8 +89,8 @@ class RaidCog(commands.Cog):
                     return
 
         cfg = RAID_DIFFICULTIES[difficulty]
-        lvl = cfg["boss_level"]
-        drop_pct = int(CHAMP_DROP_CHANCE.get(cfg["boss_rank"], 0.05) * 100 * (0.5 if True else 1))  # solo shown
+        from config.game_config import RAID_BOSS_STATS
+        bstats = RAID_BOSS_STATS[cfg["boss_rank"]]
         embed = discord.Embed(
             title=f"⚔️ Raid Rolled — {cfg['display']}",
             description=(
@@ -97,14 +98,15 @@ class RaidCog(commands.Cog):
                 f"**Raid ID:** `{raid.id}`\n\n"
                 f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"
-                f"You can start immediately to solo (60% gold/token payout).\n"
+                f"Bosses are designed for **5 fully-geared players**.\n"
+                f"Solo start grants 60% gold/token payout but boss HP scales down.\n"
                 f"Max 5 players."
             ),
             color=COLOR_INFO,
         )
-        embed.add_field(name="Boss Level Range", value=f"Lv.{lvl[0]}–{lvl[1]}", inline=True)
-        embed.add_field(name="Gold Payout",      value=f"{cfg['gold_min']:,}–{cfg['gold_max']:,}", inline=True)
-        embed.add_field(name="Token Payout",     value=f"{cfg['token_min']}–{cfg['token_max']}", inline=True)
+        embed.add_field(name="Boss HP (5 players)", value=f"{bstats['hp']:,}", inline=True)
+        embed.add_field(name="Gold Payout",          value=f"{cfg['gold_min']:,}–{cfg['gold_max']:,}", inline=True)
+        embed.add_field(name="Token Payout",         value=f"{cfg['token_min']:,}–{cfg['token_max']:,}", inline=True)
         embed.add_field(
             name="Champion Drop Chance",
             value=f"{CHAMP_DROP_CHANCE.get(cfg['boss_rank'], 0.05) * 100:.1f}% (×0.5 solo)\nTop contributor has highest odds",
