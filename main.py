@@ -35,6 +35,7 @@ COGS = [
     "commands.blacksmith_cmd",
     "commands.dungeon_cmd",
     "commands.raid_cmd",
+    "commands.fuse_cmd",
     "commands.market_cmd",
     "commands.trade_cmd",
     "commands.help_cmd",

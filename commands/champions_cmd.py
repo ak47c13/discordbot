@@ -11,11 +11,9 @@ from utils.embeds import (
 )
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
-from services.champion_service import (
-    fuse_champions, bulk_fuse_champions, level_up_champion, FusionError,
-)
+from services.champion_service import level_up_champion
 from services.bulk_service import bulk_sell_champions, BulkSellError
-from config.game_config import CHAMPION_FUSION_COST, RANKS, SELL_PRICE_CHAMPION, CHAMPION_MAX_LEVEL, levelup_cost, levelup_cost_range
+from config.game_config import RANKS, SELL_PRICE_CHAMPION, CHAMPION_MAX_LEVEL, levelup_cost, levelup_cost_range
 from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
 
 
@@ -58,130 +56,6 @@ class ChampionsCog(commands.Cog):
         riot_id = c.riot_id or _riot_id_from_name(c.name)
         embed.set_image(url=DDRAGON_LOADING.format(riot_id=riot_id))
         await interaction.followup.send(embed=embed, ephemeral=True)
-
-    @app_commands.command(name="fuse-champions", description="Fuse 3 identical same-rank champions into 1 of next rank.")
-    @app_commands.describe(name="Champion name", rank="Champion rank (F/E/D/C/B/A)")
-    async def fuse_champs(self, interaction: discord.Interaction, name: str, rank: str):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        rank = rank.upper()
-
-        if rank == "S":
-            await interaction.followup.send(embed=error_embed("S-rank champions cannot be fused."), ephemeral=True)
-            return
-        if rank not in RANKS:
-            await interaction.followup.send(
-                embed=error_embed("Invalid rank.", "Use one of F/E/D/C/B/A."), ephemeral=True
-            )
-            return
-
-        # Auto-select the 3 lowest-level matching unlocked, non-favorite, available champions.
-        candidates = await ChampionInstance.find(
-            ChampionInstance.owner_id == uid,
-            ChampionInstance.name == name,
-            ChampionInstance.rank == rank,
-        ).to_list()
-        usable = [c for c in candidates if c.is_available and not getattr(c, "favorite", False)]
-        usable.sort(key=lambda c: c.level)
-        if len(usable) < 3:
-            await interaction.followup.send(
-                embed=error_embed(
-                    f"Not enough fusible {name} [{rank}] champions. Have {len(usable)}, need 3.",
-                    "Champions must be unlocked, non-favorite, and not equipped/traded/listed.",
-                ),
-                ephemeral=True,
-            )
-            return
-
-        champs = usable[:3]
-        ids = [str(c.id) for c in champs]
-
-        current_rank = rank
-        next_rank = RANKS[RANKS.index(current_rank) + 1]
-        cost = CHAMPION_FUSION_COST[next_rank]
-
-        preview_lines = "\n".join(f"• {c.name} [{c.rank}] Lv.{c.level}" for c in champs)
-        embed = discord.Embed(
-            title="🔮 Confirm Fusion",
-            description=(
-                f"These 3 (lowest level) will be used:\n{preview_lines}\n\n"
-                f"Fuse **3x {champs[0].name} [{current_rank}]** → **{champs[0].name} [{next_rank}]**\n"
-                f"Cost: **{cost} gold**\n"
-                f"⚠️ The 3 source champions will be **permanently consumed**.\n"
-                f"⚠️ Result starts at **Level 1**."
-            ),
-            color=COLOR_WARNING,
-        )
-
-        view = ConfirmView()
-        msg = await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
-            return
-
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        result = await fuse_champions(uid, ids, session)
-                    except FusionError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
-
-        await interaction.followup.send(
-            embed=success_embed(
-                f"✨ **{result.name} [{result.rank}]** created! Starts at Level 1."
-            ),
-            ephemeral=True,
-        )
-
-    @app_commands.command(name="champions-bulk-fuse", description="Fuse many identical champions at once (count must be a multiple of 3).")
-    @app_commands.describe(name="Champion name", rank="Source rank", count="How many to consume (multiple of 3)")
-    async def bulk_fuse_champs(self, interaction: discord.Interaction, name: str, rank: str, count: int):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        rank = rank.upper()
-        if count <= 0 or count % 3 != 0:
-            await interaction.followup.send(embed=error_embed("Count must be a positive multiple of 3."), ephemeral=True)
-            return
-        if rank == "S":
-            await interaction.followup.send(embed=error_embed("S-rank champions cannot be fused."), ephemeral=True)
-            return
-        next_rank = RANKS[RANKS.index(rank) + 1]
-        produced = count // 3
-
-        embed = discord.Embed(
-            title="🔮 Confirm Bulk Fusion",
-            description=(
-                f"Fuse **{count}x {name} [{rank}]** → **{produced}x {name} [{next_rank}]**?\n"
-                f"⚠️ Source champions will be permanently consumed."
-            ),
-            color=COLOR_WARNING,
-        )
-        view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=COLOR_INFO), ephemeral=True)
-            return
-
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        created = await bulk_fuse_champions(uid, name, rank, count, session)
-                    except FusionError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
-
-        await interaction.followup.send(
-            embed=success_embed(f"✨ Created {len(created)}x {name} [{next_rank}]!"),
-            ephemeral=True,
-        )
 
     @app_commands.command(name="champions-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped champions of a rank.")
     @app_commands.describe(rank="Rank to sell", name="Optional champion name filter")
@@ -381,7 +255,7 @@ class ChampionsCog(commands.Cog):
         if collecting:
             lines = [f"• {n} [{r}] ×{cnt}" for n, r, cnt in collecting]
             embed.add_field(name="Collecting (2 copies)", value="\n".join(lines)[:1024], inline=False)
-        embed.set_footer(text="Champions with 3+ copies can be fused with /fuse-champions")
+        embed.set_footer(text="Champions with 3+ copies can be fused with /fuse")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @app_commands.command(name="lock-champion", description="Lock or unlock a champion to protect it.")

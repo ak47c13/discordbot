@@ -136,6 +136,41 @@ class RuneCog(commands.Cog):
             await user.save()
         await interaction.followup.send(embed=success_embed(f"Slot {slot} ({color}) cleared."), ephemeral=True)
 
+    @runes.command(name="inventory", description="Show your rune shards and equipped rune summary.")
+    async def runes_inventory(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
+        user = await User.find_one(User.discord_id == str(interaction.user.id))
+        if not user:
+            await interaction.followup.send(embed=error_embed("Not registered."), ephemeral=True)
+            return
+        rp = user.rune_page
+        embed = discord.Embed(
+            title="🧿 Rune Inventory",
+            description=f"**Rune Shards:** {user.rune_shards}",
+            color=0x5865F2,
+        )
+        for color, attr in [("red", "reds"), ("yellow", "yellows"), ("blue", "blues"), ("quint", "quints")]:
+            slots = getattr(rp, attr)
+            max_slots = 3 if color == "quint" else 9
+            equipped = [
+                RUNE_CATALOG[s.rune_id]["name"]
+                for s in slots[:max_slots]
+                if s.rune_id and s.rune_id in RUNE_CATALOG
+            ]
+            if not equipped:
+                value = "*No runes equipped*"
+            else:
+                from collections import Counter
+                counts = Counter(equipped)
+                value = "\n".join(f"{name} ×{n}" if n > 1 else name for name, n in counts.items())
+            embed.add_field(
+                name=f"{COLOR_EMOJI[color]} {color.title()} ({len(equipped)}/{max_slots})",
+                value=value,
+                inline=True,
+            )
+        embed.set_footer(text="Earn rune shards from dungeons · Use /runes set to equip runes")
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
     @runes.command(name="catalog", description="Browse available runes.")
     @app_commands.describe(color="Filter by color (optional)")
     @app_commands.choices(color=[

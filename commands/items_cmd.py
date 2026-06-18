@@ -11,9 +11,8 @@ from utils.embeds import (
 )
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
-from services.item_service import fuse_items, bulk_fuse_items, ItemFusionError
 from services.bulk_service import bulk_sell_items, BulkSellError
-from config.game_config import ITEM_FUSION_COST, RANKS, SELL_PRICE_ITEM
+from config.game_config import RANKS, SELL_PRICE_ITEM
 
 
 class ItemsCog(commands.Cog):
@@ -53,77 +52,6 @@ class ItemsCog(commands.Cog):
             return
         await interaction.followup.send(embed=item_embed(itm, "Item Details"), ephemeral=True)
 
-    @app_commands.command(name="fuse-items", description="Fuse 3 identical same-rank +0 items into 1 of next rank.")
-    @app_commands.describe(name="Item name", rank="Item rank (F/E/D/C/B/A)")
-    async def fuse_items_cmd(self, interaction: discord.Interaction, name: str, rank: str):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        rank = rank.upper()
-
-        if rank == "S":
-            await interaction.followup.send(
-                embed=error_embed("S-rank items cannot be fused."), ephemeral=True
-            )
-            return
-        if rank not in RANKS:
-            await interaction.followup.send(
-                embed=error_embed("Invalid rank.", "Use one of F/E/D/C/B/A."), ephemeral=True
-            )
-            return
-
-        # Auto-select 3 matching +0 available, non-favorite items.
-        candidates = await ItemInstance.find(
-            ItemInstance.owner_id == uid,
-            ItemInstance.name == name,
-            ItemInstance.rank == rank,
-        ).to_list()
-        usable = [i for i in candidates if i.is_fusible and not getattr(i, "favorite", False)]
-        if len(usable) < 3:
-            await interaction.followup.send(
-                embed=error_embed(
-                    f"Not enough fusible {name} [{rank}] (+0) items. Have {len(usable)}, need 3.",
-                    "Items must be +0, unlocked, non-favorite, and not equipped/traded/listed.",
-                ),
-                ephemeral=True,
-            )
-            return
-
-        trio = usable[:3]
-        ids = [str(i.id) for i in trio]
-        next_rank = RANKS[RANKS.index(rank) + 1]
-        cost = ITEM_FUSION_COST[next_rank]
-
-        embed = discord.Embed(
-            title="🔨 Confirm Item Fusion",
-            description=(
-                f"Fuse **3x {name} [{rank}] +0** → **{name} [{next_rank}] +0**\n"
-                f"Cost: **{cost} gold**\n"
-                f"⚠️ The 3 source items will be **permanently consumed**.\n"
-                f"⚠️ Result gets a **new secondary stat roll**."
-            ),
-            color=COLOR_WARNING,
-        )
-
-        view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
-            return
-
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        result = await fuse_items(uid, ids, session)
-                    except ItemFusionError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
-
-        await interaction.followup.send(embed=item_embed(result, "✨ Item Fusion Result"), ephemeral=True)
-
     @app_commands.command(name="lock-item", description="Lock or unlock an item to protect it.")
     @app_commands.describe(number="Item list number (see /items)")
     async def lock_item(self, interaction: discord.Interaction, number: int):
@@ -152,45 +80,6 @@ class ItemsCog(commands.Cog):
         await itm.save()
         state = "⭐ favorited" if new_state else "unfavorited"
         await interaction.followup.send(embed=success_embed(f"{itm.name} is now {state}."), ephemeral=True)
-
-    @app_commands.command(name="items-bulk-fuse", description="Fuse many identical +0 items at once (count must be a multiple of 3).")
-    @app_commands.describe(name="Item name", rank="Source rank", count="How many to consume (multiple of 3)")
-    async def bulk_fuse_items_cmd(self, interaction: discord.Interaction, name: str, rank: str, count: int):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        rank = rank.upper()
-        if count <= 0 or count % 3 != 0:
-            await interaction.followup.send(embed=error_embed("Count must be a positive multiple of 3."), ephemeral=True)
-            return
-        if rank == "S":
-            await interaction.followup.send(embed=error_embed("S-rank items cannot be fused."), ephemeral=True)
-            return
-        next_rank = RANKS[RANKS.index(rank) + 1]
-        produced = count // 3
-
-        embed = discord.Embed(
-            title="🔨 Confirm Bulk Item Fusion",
-            description=f"Fuse **{count}x {name} [{rank}] +0** → **{produced}x {name} [{next_rank}]**?",
-            color=COLOR_WARNING,
-        )
-        view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        await view.wait()
-        if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Bulk fusion cancelled.", color=COLOR_INFO), ephemeral=True)
-            return
-
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        created = await bulk_fuse_items(uid, name, rank, count, session)
-                    except ItemFusionError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
-
-        await interaction.followup.send(embed=success_embed(f"✨ Created {len(created)}x {name} [{next_rank}]!"), ephemeral=True)
 
     @app_commands.command(name="items-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped items of a rank.")
     @app_commands.describe(rank="Rank to sell", name="Optional item name filter")

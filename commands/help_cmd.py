@@ -14,7 +14,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
             "2. **/summon** — spend tokens to pull champions, items, and runes\n"
             "3. **/champion-select** — set your active champion for battle\n"
             "4. **/dungeon-enter** — fight through floors and earn loot\n"
-            "5. **/fuse-champions** — combine duplicates into stronger ranks\n\n"
+            "5. **/fuse** — combine duplicates into stronger ranks\n\n"
             "Use **/daily** every day for free summon tokens.\n"
             "Use **/profile** to see your resources and **/stamina** to track energy.",
         ],
@@ -24,8 +24,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         [
             "**Ranks:** F → E → D → C → B → A → S (higher is stronger)\n\n"
             "**Fusion:** Combine 3 identical same-rank champions into 1 of the next rank.\n"
-            "• `/fuse-champions <name> <rank>` — fuses your 3 lowest-level copies\n"
-            "• `/champions-bulk-fuse <name> <rank> <count>` — fuse many at once\n"
+            "• `/fuse type:Champions` — auto-fuses all eligible champions across every rank\n"
             "• `/champions-duplicates` — see which champions are fusion-ready\n\n"
             "**Leveling:** `/levelup <number>` spends gold to raise a champion's level.\n"
             "Each rank has its own max level.\n\n"
@@ -39,7 +38,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
             "Items are equipped to champions for stat bonuses and passives.\n\n"
             "• `/items` — view your inventory (each item has a number)\n"
             "• `/equip <item_number> <champion_number> <slot>` — equip (up to 5 per champion)\n"
-            "• `/fuse-items <name> <rank>` — combine 3 +0 items into the next rank\n"
+            "• `/fuse type:Items` — auto-fuses all eligible +0 items across every rank\n"
             "• `/lock-item`, `/favorite-item` — protect items\n\n"
             "Each item has a **main stat**, a **passive**, and a **secondary stat** "
             "that can be rerolled at the blacksmith.",
@@ -98,11 +97,10 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         "Command List",
         [
             "**Account:** /start, /profile, /stamina, /daily, /leaderboard\n"
-            "**Champions:** /champions, /champion-info, /fuse-champions, "
-            "/champions-bulk-fuse, /champions-bulk-sell, /champions-duplicates, "
-            "/levelup, /lock-champion, /champion-favorite\n"
-            "**Items:** /items, /item-info, /fuse-items, /items-bulk-fuse, "
-            "/items-bulk-sell, /lock-item, /favorite-item\n"
+            "**Champions:** /champions, /champion-info, /champions-bulk-sell, "
+            "/champions-duplicates, /levelup, /lock-champion, /champion-favorite\n"
+            "**Items:** /items, /item-info, /items-bulk-sell, /lock-item, /favorite-item\n"
+            "**Fuse:** /fuse (type: Champions or Items)\n"
             "**Champion:** /champion-select, /skill, /runes, /champions, /champion-info\n"
             "**Blacksmith:** /enhance, /clear, /reroll, /refine\n"
             "**Combat:** /hunt, /raid-create, /raid-list, /raid-join, /raid-start\n"
