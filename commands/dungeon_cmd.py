@@ -190,6 +190,9 @@ class DungeonCog(commands.Cog):
             return
 
         prog = await dungeon_service.get_or_create_progress(uid, dungeon_name, None)
+        if floor_override is not None and floor_override < 1:
+            await interaction.followup.send(embed=error_embed("Floor must be 1 or higher."))
+            return
         floor_num = floor_override if floor_override else (prog.highest_floor + 1)
         floor_num = max(1, min(floor_num, dungeon.total_floors))
         # Cannot skip ahead beyond highest cleared + 1 (unless within checkpoint)
@@ -333,50 +336,83 @@ class DungeonCog(commands.Cog):
         await interaction.followup.send(embed=embed)
 
     async def _run_continuous(self, interaction, uid, slug, start_floor, champ_ids):
-        """Run floors back-to-back until death, stamina depletion, map clear, or user stops."""
+        """Run floors back-to-back, advancing to the next map on completion."""
         from models.dungeon import Dungeon
-        dungeon = await Dungeon.find_one(Dungeon.slug == slug)
-        total_floors = dungeon.total_floors if dungeon else 999
+        from services.dungeon_service import _MAP_ORDER
 
-        floor_num = start_floor
         floors_cleared = 0
+        maps_cleared = []
         stop_reason = "map cleared"
         battle_message = None
+        current_slug = slug
+        floor_num = start_floor
 
-        while floor_num <= total_floors:
-            ok, reason = await dungeon_service.can_enter_dungeon(uid, slug, None)
-            if not ok:
-                stop_reason = f"out of stamina"
+        while True:
+            dungeon = await Dungeon.find_one(Dungeon.slug == current_slug)
+            if dungeon is None:
+                stop_reason = "dungeon not found"
                 break
+            total_floors = dungeon.total_floors
 
-            try:
-                result = await self._run_floor(
-                    interaction, uid, slug, floor_num, champ_ids,
-                    existing_message=battle_message, continuous=True,
-                )
-            except DungeonError as e:
-                stop_reason = str(e)
-                break
+            # Run all remaining floors on this map
+            while floor_num <= total_floors:
+                ok, reason = await dungeon_service.can_enter_dungeon(uid, current_slug, None)
+                if not ok:
+                    stop_reason = "out of stamina"
+                    break
 
-            if result is None:
-                # User cancelled via Cancel button during the fight
-                stop_reason = "cancelled"
-                break
+                try:
+                    result = await self._run_floor(
+                        interaction, uid, current_slug, floor_num, champ_ids,
+                        existing_message=battle_message, continuous=True,
+                    )
+                except DungeonError as e:
+                    stop_reason = str(e)
+                    break
 
-            battle_message = result
+                if result is None:
+                    stop_reason = "cancelled"
+                    break
 
-            prog = await dungeon_service.get_or_create_progress(uid, slug, None)
-            if prog.highest_floor < floor_num:
-                stop_reason = f"defeated on floor {floor_num}"
-                break
+                battle_message = result
 
-            floors_cleared += 1
-            floor_num += 1
+                prog = await dungeon_service.get_or_create_progress(uid, current_slug, None)
+                if prog.highest_floor < floor_num:
+                    stop_reason = f"defeated on floor {floor_num} of {dungeon.name}"
+                    break
 
+                floors_cleared += 1
+                floor_num += 1
+            else:
+                # Completed all floors on this map — try the next one
+                maps_cleared.append(dungeon.name)
+                next_idx = _MAP_ORDER.index(current_slug) + 1 if current_slug in _MAP_ORDER else None
+                if next_idx is None or next_idx >= len(_MAP_ORDER):
+                    stop_reason = "all maps cleared"
+                    break
+                next_slug = _MAP_ORDER[next_idx]
+                next_dungeon = await Dungeon.find_one(Dungeon.slug == next_slug)
+                if next_dungeon is None:
+                    stop_reason = "no further maps available"
+                    break
+                ok, reason = await dungeon_service.can_enter_dungeon(uid, next_slug, None)
+                if not ok:
+                    stop_reason = f"out of stamina (before {next_dungeon.name})"
+                    break
+                current_slug = next_slug
+                floor_num = 1
+                continue
+
+            # Inner loop broke early (defeat, stamina, cancel)
+            break
+
+        map_line = f"**Maps cleared:** {', '.join(maps_cleared)}\n" if maps_cleared else ""
+        floor_range = f"(floors {start_floor}–{start_floor + floors_cleared - 1})" if floors_cleared > 0 else ""
         embed = discord.Embed(
             title="⏹ Continuous Run Complete",
             description=(
-                f"**Floors cleared:** {floors_cleared}\n"
+                f"{map_line}"
+                f"**Floors cleared:** {floors_cleared} {floor_range}\n"
                 f"**Stopped:** {stop_reason}"
             ),
             color=0x5865F2,
@@ -698,6 +734,7 @@ class _NextFloorView(discord.ui.View):
         try:
             async with get_user_lock(self.uid):
                 await self.cog._run_continuous(interaction, self.uid, self.slug, self.next_floor, self.champ_ids)
+                # Note: starts at next_floor since current_floor was already cleared manually
         except DungeonError as e:
             await interaction.followup.send(embed=error_embed(str(e)))
 
