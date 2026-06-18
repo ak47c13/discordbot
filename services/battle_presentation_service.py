@@ -54,9 +54,10 @@ async def simulate_and_store(
     battle_type: str,
     entry_cost: dict,
     session,
+    max_rounds: int | None = None,
 ) -> BattleSession:
     seed = random.randint(0, 2 ** 31)
-    result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed)
+    result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed, max_rounds=max_rounds)
 
     bs = BattleSession(
         owner_id=owner_id,

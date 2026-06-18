@@ -216,6 +216,143 @@ async def join_raid(
 # Run the raid
 # ---------------------------------------------------------------------------
 
+async def prepare_raid(
+    leader_id: str,
+    raid_id: str,
+    session: AsyncIOMotorClientSession,
+) -> dict[str, Any]:
+    """Validate, build units, mark raid in_progress. Does NOT run combat."""
+    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
+    if raid is None:
+        raise RaidError("Raid not found.")
+    if raid.leader_id != leader_id:
+        raise RaidError("Only the raid leader can start.")
+    if raid.status != "waiting":
+        raise RaidError(f"Raid is already {raid.status}.")
+
+    difficulty = raid.zone
+    cfg = RAID_DIFFICULTIES.get(difficulty, RAID_DIFFICULTIES["F"])
+    n_players = len(raid.player_ids)
+    is_solo = n_players == 1
+    boss_rank = cfg["boss_rank"]
+    boss_name = raid.boss_champion_name or random.choice(list(ALL_CHAMPION_NAMES))
+
+    player_units = []
+    unit_to_player: dict[str, str] = {}
+    for idx, player_id in enumerate(raid.player_ids):
+        champ_id = raid.player_champions.get(player_id)
+        if not champ_id:
+            continue
+        champ_doc = await ChampionInstance.get(PydanticObjectId(champ_id))
+        if champ_doc is None:
+            continue
+        item_docs = await ItemInstance.find(
+            ItemInstance.equipped_to == str(champ_doc.id)
+        ).to_list()
+        unit = build_unit_from_champion(champ_doc, item_docs, position=idx + 1, team=0)
+        player_units.append(unit)
+        unit_to_player[unit.unit_id] = player_id
+
+    if not player_units:
+        raise RaidError("No valid champions in raid.")
+
+    boss = _build_raid_boss(difficulty, n_players, boss_name)
+
+    raid.status = "in_progress"
+    raid.started_at = datetime.now(timezone.utc)
+    raid.boss_champion_name = boss_name
+    raid.boss_rank = boss_rank
+    await raid.save(session=usable_session(session))
+
+    return {
+        "raid_id": str(raid.id),
+        "player_units": player_units,
+        "enemy_units": [boss],
+        "unit_to_player": unit_to_player,
+        "player_ids": list(raid.player_ids),
+        "difficulty": difficulty,
+        "is_solo": is_solo,
+        "boss_name": boss_name,
+        "boss_rank": boss_rank,
+    }
+
+
+async def finalize_raid(
+    raid_id: str,
+    player_units: list,
+    unit_to_player: dict[str, str],
+    player_ids: list[str],
+    winner: int,
+    difficulty: str,
+    is_solo: bool,
+    boss_name: str,
+    boss_rank: str,
+    session: AsyncIOMotorClientSession,
+) -> dict[str, Any]:
+    """Calculate contributions and distribute rewards after combat resolves."""
+    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
+
+    raw_scores: dict[str, float] = {}
+    for unit in player_units:
+        pid = unit_to_player.get(unit.unit_id)
+        if pid:
+            raw_scores[pid] = getattr(unit, "damage_dealt", 0) * 0.6 + getattr(unit, "damage_taken", 0) * 0.4
+    total_score = sum(raw_scores.values()) or 1
+    contributions: dict[str, float] = {pid: s / total_score for pid, s in raw_scores.items()}
+
+    champ_dropped: list[str] = []
+    won = winner in (0, -1)
+    if won:
+        drop_chance = CHAMP_DROP_CHANCE.get(boss_rank, 0.05)
+        if is_solo:
+            drop_chance *= 0.5
+        if random.random() < drop_chance:
+            count = _pick_drop_count(boss_rank)
+            player_list = list(contributions.keys())
+            weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
+            for _ in range(count):
+                if not player_list:
+                    break
+                winner_pid = random.choices(player_list, weights=weights, k=1)[0]
+                champ_dropped.append(winner_pid)
+
+    player_rewards: dict[str, Any] = {}
+    rewarded = set(raid.rewarded_player_ids) if raid else set()
+    for player_id in player_ids:
+        if player_id in rewarded:
+            player_rewards[player_id] = {"already_rewarded": True}
+            continue
+        user = await User.find_one(User.discord_id == player_id, session=usable_session(session))
+        if user:
+            _reset_daily_raids_if_needed(user)
+            user.daily_raids_used += 1
+            user.raids_completed += (1 if won else 0)
+            await user.save(session=usable_session(session))
+        if won:
+            drop_copies = champ_dropped.count(player_id)
+            rewards = await _roll_raid_drops(
+                player_id, difficulty, is_solo, session,
+                boss_name=boss_name, boss_rank=boss_rank, champ_copies=drop_copies,
+                contribution=contributions.get(player_id, 0.0),
+            )
+            if raid:
+                raid.rewarded_player_ids.append(player_id)
+            player_rewards[player_id] = rewards
+        else:
+            player_rewards[player_id] = {"gold": 0, "lost": True}
+
+    if raid:
+        raid.status = "completed" if won else "failed"
+        raid.completed_at = datetime.now(timezone.utc)
+        await raid.save(session=usable_session(session))
+
+    return {
+        "player_rewards": player_rewards,
+        "contributions": contributions,
+        "won": won,
+    }
+
+
 async def start_raid(
     leader_id: str,
     raid_id: str,

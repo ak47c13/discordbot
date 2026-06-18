@@ -10,7 +10,7 @@ from utils.embeds import reward_embed, error_embed, success_embed, get_champion_
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
-from services.raid_service import create_raid_queue, join_raid, start_raid, cancel_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
+from services.raid_service import create_raid_queue, join_raid, prepare_raid, finalize_raid, cancel_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
 from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTY_WEIGHTS
 
 
@@ -199,86 +199,94 @@ class RaidCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Raid already started."))
             return
 
+        from services.battle_presentation_service import simulate_and_store, start_presentation, advance_and_display
+        from config.game_config import MAX_ROUNDS
+
+        # Phase 1: validate + build units (marks raid in_progress)
         try:
             async with get_user_lock(uid):
                 client = get_motor_client()
                 async with await client.start_session() as session:
                     try:
-                        outcome = await start_raid(uid, raid_id, session)
+                        prep = await prepare_raid(uid, raid_id, session)
                     except RaidError as e:
                         await interaction.followup.send(embed=error_embed(str(e)))
                         return
         except Exception as e:
-            try:
-                await interaction.followup.send(
-                    embed=error_embed("Something went wrong starting the raid.", str(e)[:200])
-                )
-            except Exception:
-                pass
+            await interaction.followup.send(embed=error_embed(f"Failed to start raid: {e}"))
             return
 
         await mark_processed(iid, f"raid_start:{raid_id}")
 
-        result = outcome["battle_result"]
-        difficulty = outcome["difficulty"]
-        is_solo = outcome["is_solo"]
-        boss_name = outcome.get("boss_name", "Raid Boss")
-        boss_rank = outcome.get("boss_rank", "?")
-        contributions = outcome.get("contributions", {})
-        cfg = RAID_DIFFICULTIES.get(difficulty, {})
-        diff_display = cfg.get("display", difficulty)
+        player_units  = prep["player_units"]
+        enemy_units   = prep["enemy_units"]
+        unit_to_player = prep["unit_to_player"]
+        player_ids    = prep["player_ids"]
+        difficulty    = prep["difficulty"]
+        is_solo       = prep["is_solo"]
+        boss_name     = prep["boss_name"]
+        boss_rank     = prep["boss_rank"]
+        cfg           = RAID_DIFFICULTIES.get(difficulty, {})
+        diff_display  = cfg.get("display", difficulty)
 
-        won = result.winner == 0
-        title = f"{'⚔️ Victory' if won else '💀 Defeat'} — {boss_name} [{boss_rank}]"
-        if is_solo:
-            title += " (Solo)"
-
-        embed = discord.Embed(
-            title=title,
-            description=f"Difficulty: **{diff_display}** · {result.rounds} rounds",
-            color=COLOR_SUCCESS if won else COLOR_DANGER,
+        # Phase 2: simulate + visual presentation (uncapped rounds)
+        zone_label = f"Raid — {boss_name} [{boss_rank}] · {diff_display}"
+        bs = await simulate_and_store(
+            owner_id=uid,
+            zone=zone_label,
+            player_units=player_units,
+            enemy_units=enemy_units,
+            battle_type="boss",
+            entry_cost={},
+            session=None,
+            max_rounds=0,  # uncapped — fight until wipe or boss dies
         )
 
-        # Show contribution breakdown
-        if contributions:
-            contrib_lines = []
-            for pid, pct in sorted(contributions.items(), key=lambda x: -x[1]):
-                try:
-                    member = interaction.guild.get_member(int(pid)) if interaction.guild else None
-                    name = member.display_name if member else f"<@{pid}>"
-                except Exception:
-                    name = f"<@{pid}>"
-                contrib_lines.append(f"{name}: {pct * 100:.1f}%")
-            embed.add_field(name="Contribution", value="\n".join(contrib_lines), inline=True)
-
-        log_lines = [l for l in outcome["battle_log"] if l.strip()][-6:]
-        if log_lines:
-            embed.add_field(name="Battle Log", value="\n".join(log_lines)[:1000], inline=False)
-
-        if not won:
-            embed.add_field(
-                name="Defeated",
-                value="The raid boss was too powerful. No rewards this time.\nYour daily raid count was still used.",
-                inline=False,
-            )
-
-        await interaction.followup.send(embed=embed)
-
-        if won:
-            for player_id, rewards in outcome["player_rewards"].items():
-                if rewards.get("already_rewarded") or rewards.get("lost"):
-                    continue
-                try:
-                    member = interaction.guild.get_member(int(player_id)) if interaction.guild else None
-                    mention = member.mention if member else f"<@{player_id}>"
-                except Exception:
-                    mention = f"<@{player_id}>"
-
-                solo_note = " (Solo — 60% payout)" if is_solo else ""
-                await interaction.followup.send(
-                    content=mention,
-                    embed=reward_embed(rewards, f"Raid Rewards — {diff_display}{solo_note}"),
+        # Phase 3: reward function called after presentation finishes
+        async def _reward_fn():
+            client = get_motor_client()
+            async with await client.start_session() as session:
+                return await finalize_raid(
+                    raid_id=raid_id,
+                    player_units=player_units,
+                    unit_to_player=unit_to_player,
+                    player_ids=player_ids,
+                    winner=bs.winner,
+                    difficulty=difficulty,
+                    is_solo=is_solo,
+                    boss_name=boss_name,
+                    boss_rank=boss_rank,
+                    session=session,
                 )
+
+        enemy_name = enemy_units[0].name if enemy_units else boss_name
+        player_names = [u.name for u in player_units]
+        message = await start_presentation(
+            bs, interaction.channel, player_names, enemy_name,
+            followup=interaction.followup,
+        )
+        outcome = await advance_and_display(str(bs.id), message, reward_fn=_reward_fn)
+
+        # Phase 4: send per-player reward embeds after battle resolves
+        if not bs.winner in (0, -1):
+            # Loss — no rewards, just inform
+            return
+
+        player_rewards = (outcome or {}).get("player_rewards", {}) if isinstance(outcome, dict) else {}
+        solo_note = " (Solo — 60% payout)" if is_solo else ""
+        for player_id in player_ids:
+            rewards = player_rewards.get(player_id, {})
+            if rewards.get("already_rewarded") or rewards.get("lost") or not rewards.get("gold"):
+                continue
+            try:
+                member = interaction.guild.get_member(int(player_id)) if interaction.guild else None
+                mention = member.mention if member else f"<@{player_id}>"
+            except Exception:
+                mention = f"<@{player_id}>"
+            await interaction.followup.send(
+                content=mention,
+                embed=reward_embed(rewards, f"Raid Rewards — {diff_display}{solo_note}"),
+            )
 
 
     @app_commands.command(name="raid-cancel", description="Cancel your open raid queue (leader only).")
