@@ -101,12 +101,9 @@ def _build_raid_boss(difficulty: str, n_players: int, boss_name: str):
     rank = cfg["boss_rank"]
     tier_stats = RAID_BOSS_STATS[rank]
 
-    # HP scales with party size: solo=30%, each additional player adds 17.5%
-    # 1p=30%, 2p=47.5%, 3p=65%, 4p=82.5%, 5p=100%
-    hp_scale = 0.30 + (n_players - 1) * 0.175
-    hp = int(tier_stats["hp"] * hp_scale)
-
-    # ATK/DEF are fixed — the boss hits the same regardless of party size
+    # HP, ATK, DEF are fixed regardless of party size — the boss is the same challenge.
+    # Solo players get 60% payout as consolation, not an easier boss.
+    hp = tier_stats["hp"]
     atk = tier_stats["atk"]
     defense = tier_stats["def"]
     spd = tier_stats["spd"]

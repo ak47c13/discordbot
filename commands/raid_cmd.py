@@ -99,7 +99,8 @@ class RaidCog(commands.Cog):
                 f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"
                 f"Bosses are designed for **5 fully-geared players**.\n"
-                f"Solo start grants 60% gold/token payout but boss HP scales down.\n"
+                f"Boss difficulty is the same regardless of party size.\n"
+                f"Solo start grants 60% gold/token payout.\n"
                 f"Max 5 players."
             ),
             color=COLOR_INFO,
