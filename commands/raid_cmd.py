@@ -10,7 +10,7 @@ from utils.embeds import reward_embed, error_embed, success_embed, get_champion_
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
 from utils.idempotency import is_already_processed, mark_processed
-from services.raid_service import create_raid_queue, join_raid, start_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
+from services.raid_service import create_raid_queue, join_raid, start_raid, cancel_raid, raids_remaining, RaidError, CHAMP_DROP_CHANCE
 from config.game_config import RAID_DIFFICULTIES, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTY_WEIGHTS
 
 
@@ -279,6 +279,26 @@ class RaidCog(commands.Cog):
                     content=mention,
                     embed=reward_embed(rewards, f"Raid Rewards — {diff_display}{solo_note}"),
                 )
+
+
+    @app_commands.command(name="raid-cancel", description="Cancel your open raid queue (leader only).")
+    @app_commands.describe(raid_id="Raid ID to cancel")
+    async def raid_cancel(self, interaction: discord.Interaction, raid_id: str):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        try:
+            await cancel_raid(uid, raid_id)
+            await interaction.followup.send(
+                embed=discord.Embed(
+                    description="✅ Raid cancelled.",
+                    color=COLOR_INFO,
+                ),
+                ephemeral=True,
+            )
+        except RaidError as e:
+            await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+        except Exception as e:
+            await interaction.followup.send(embed=error_embed(f"Failed to cancel: {e}"), ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

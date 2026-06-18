@@ -438,3 +438,16 @@ async def _roll_raid_drops(
     rewards["contribution_pct"] = round(contribution * 100, 1)
     await user.save(session=usable_session(session))
     return rewards
+
+
+async def cancel_raid(leader_id: str, raid_id: str, session=None) -> None:
+    """Cancel a waiting raid. Only the leader can cancel, and only before it starts."""
+    raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
+    if raid is None:
+        raise RaidError("Raid not found.")
+    if raid.leader_id != leader_id:
+        raise RaidError("Only the raid leader can cancel.")
+    if raid.status != "waiting":
+        raise RaidError("Cannot cancel a raid that has already started.")
+    raid.status = "cancelled"
+    await raid.save(session=usable_session(session))
