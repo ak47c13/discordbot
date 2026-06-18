@@ -119,7 +119,7 @@ class FuseCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @app_commands.command(name="fuse", description="Bulk-fuse all eligible champions or items across every rank.")
+    @app_commands.command(name="fuse", description="Fuse champions, items, or runes — bulk or single group.")
     @app_commands.describe(type="What to fuse")
     @app_commands.choices(type=[
         app_commands.Choice(name="Champions", value="champions"),
@@ -130,6 +130,22 @@ class FuseCog(commands.Cog):
         await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
+
+        # Ask bulk vs single first
+        mode_view = _ModeSelectView(interaction.user.id)
+        await interaction.followup.send(
+            embed=discord.Embed(
+                title=f"🔮 Fuse — {type.capitalize()}",
+                description="**Bulk** — fuse all eligible groups at once.\n**Single** — pick one champion/rank group to fuse.",
+                color=COLOR_INFO,
+            ),
+            view=mode_view,
+        )
+        await mode_view.wait()
+        if mode_view.mode is None:
+            return  # timed out
+
+        bulk = mode_view.mode == "bulk"
 
         if type == "champions":
             # Preview: count fusible groups
@@ -145,6 +161,69 @@ class FuseCog(commands.Cog):
                 )
                 return
             user = await User.find_one(User.discord_id == uid)
+
+            if not bulk:
+                # Single mode: pick one group
+                options = []
+                for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
+                    next_rank = RANKS[RANKS.index(rank) + 1]
+                    n = cnt // 3
+                    cost = n * CHAMPION_FUSION_COST[next_rank]
+                    options.append(discord.SelectOption(
+                        label=f"{name} [{rank}] → {n}x [{next_rank}]",
+                        value=f"{name}|{rank}",
+                        description=f"×{cnt // 3 * 3} consumed • {cost:,} gold",
+                    ))
+                pick_view = _SinglePickView(interaction.user.id, options[:25])
+                await interaction.followup.send(
+                    embed=discord.Embed(title="🔮 Single Fuse — Pick a group", color=COLOR_INFO),
+                    view=pick_view,
+                )
+                await pick_view.wait()
+                if pick_view.value is None:
+                    return
+                chosen_name, chosen_rank = pick_view.value.split("|", 1)
+                cnt = fusible.get((chosen_name, chosen_rank), 0)
+                next_rank = RANKS[RANKS.index(chosen_rank) + 1]
+                n = cnt // 3
+                cost = n * CHAMPION_FUSION_COST[next_rank]
+                if user.gold < cost:
+                    await interaction.followup.send(embed=error_embed(f"Not enough gold. Need {cost:,}, have {user.gold:,}."))
+                    return
+                confirm_view = ConfirmView()
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="🔮 Confirm Single Fuse",
+                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
+                        color=COLOR_WARNING,
+                    ),
+                    view=confirm_view,
+                )
+                await confirm_view.wait()
+                if not confirm_view.confirmed:
+                    await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
+                    return
+                async with get_user_lock(uid):
+                    client = get_motor_client()
+                    async with await client.start_session() as session:
+                        async with session.start_transaction():
+                            pool = [c for c in all_champs if c.name == chosen_name and c.rank == chosen_rank and c.is_available and not getattr(c, "favorite", False)]
+                            pool.sort(key=lambda c: c.level)
+                            fused = 0
+                            for i in range(0, len(pool) - 2, 3):
+                                try:
+                                    await fuse_champions(uid, [str(c.id) for c in pool[i:i+3]], session)
+                                    fused += 1
+                                except FusionError:
+                                    break
+                await interaction.followup.send(embed=discord.Embed(
+                    title="🔮 Fusion Complete",
+                    description=f"✨ **{chosen_name} [{next_rank}]** ×{fused} created.",
+                    color=COLOR_SUCCESS,
+                ))
+                return
+
+            # Bulk mode
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
             total_gold_cost = sum(
                 (cnt // 3) * CHAMPION_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
@@ -209,6 +288,67 @@ class FuseCog(commands.Cog):
                 )
                 return
             user = await User.find_one(User.discord_id == uid)
+
+            if not bulk:
+                options = []
+                for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
+                    next_rank = RANKS[RANKS.index(rank) + 1]
+                    n = cnt // 3
+                    cost = n * ITEM_FUSION_COST[next_rank]
+                    options.append(discord.SelectOption(
+                        label=f"{name} [{rank}] → {n}x [{next_rank}]",
+                        value=f"{name}|{rank}",
+                        description=f"×{cnt // 3 * 3} consumed • {cost:,} gold",
+                    ))
+                pick_view = _SinglePickView(interaction.user.id, options[:25])
+                await interaction.followup.send(
+                    embed=discord.Embed(title="🔨 Single Fuse — Pick a group", color=COLOR_INFO),
+                    view=pick_view,
+                )
+                await pick_view.wait()
+                if pick_view.value is None:
+                    return
+                chosen_name, chosen_rank = pick_view.value.split("|", 1)
+                cnt = fusible.get((chosen_name, chosen_rank), 0)
+                next_rank = RANKS[RANKS.index(chosen_rank) + 1]
+                n = cnt // 3
+                cost = n * ITEM_FUSION_COST[next_rank]
+                if user.gold < cost:
+                    await interaction.followup.send(embed=error_embed(f"Not enough gold. Need {cost:,}, have {user.gold:,}."))
+                    return
+                confirm_view = ConfirmView()
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="🔨 Confirm Single Fuse",
+                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
+                        color=COLOR_WARNING,
+                    ),
+                    view=confirm_view,
+                )
+                await confirm_view.wait()
+                if not confirm_view.confirmed:
+                    await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
+                    return
+                async with get_user_lock(uid):
+                    client = get_motor_client()
+                    async with await client.start_session() as session:
+                        async with session.start_transaction():
+                            pool = [i for i in all_items if i.name == chosen_name and i.rank == chosen_rank and i.is_fusible and not getattr(i, "favorite", False)]
+                            fused = 0
+                            for i in range(0, len(pool) - 2, 3):
+                                try:
+                                    await fuse_items(uid, [str(it.id) for it in pool[i:i+3]], session)
+                                    fused += 1
+                                except ItemFusionError:
+                                    break
+                await interaction.followup.send(embed=discord.Embed(
+                    title="🔨 Fusion Complete",
+                    description=f"✨ **{chosen_name} [{next_rank}]** ×{fused} created.",
+                    color=COLOR_SUCCESS,
+                ))
+                return
+
+            # Bulk mode
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
             total_gold_cost = sum(
                 (cnt // 3) * ITEM_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
@@ -276,6 +416,64 @@ class FuseCog(commands.Cog):
                     embed=error_embed("No fusible runes found.", "Need 3+ copies of the same rune at the same rank (unequipped, non-S)."),
                 )
                 return
+
+            if not bulk:
+                options = []
+                for rune_id, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
+                    next_rank = RANKS[RANKS.index(rank) + 1]
+                    n = cnt // 3
+                    rune_name = RUNE_CATALOG.get(rune_id, {}).get("name", rune_id)
+                    options.append(discord.SelectOption(
+                        label=f"{rune_name} [{rank}] → {n}x [{next_rank}]",
+                        value=f"{rune_id}|{rank}",
+                        description=f"×{cnt // 3 * 3} consumed (free)",
+                    ))
+                pick_view = _SinglePickView(interaction.user.id, options[:25])
+                await interaction.followup.send(
+                    embed=discord.Embed(title="🧿 Single Fuse — Pick a group", color=COLOR_INFO),
+                    view=pick_view,
+                )
+                await pick_view.wait()
+                if pick_view.value is None:
+                    return
+                chosen_id, chosen_rank = pick_view.value.split("|", 1)
+                next_rank = RANKS[RANKS.index(chosen_rank) + 1]
+                rune_name = RUNE_CATALOG.get(chosen_id, {}).get("name", chosen_id)
+                cnt = fusible.get((chosen_id, chosen_rank), 0)
+                n = cnt // 3
+                confirm_view = ConfirmView()
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title="🧿 Confirm Single Fuse",
+                        description=f"**{rune_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**",
+                        color=COLOR_WARNING,
+                    ),
+                    view=confirm_view,
+                )
+                await confirm_view.wait()
+                if not confirm_view.confirmed:
+                    await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
+                    return
+                async with get_user_lock(uid):
+                    client = get_motor_client()
+                    async with await client.start_session() as session:
+                        async with session.start_transaction():
+                            pool = [r for r in all_runes if r.rune_id == chosen_id and r.rank == chosen_rank]
+                            fused = 0
+                            for i in range(0, len(pool) - 2, 3):
+                                trio = pool[i:i+3]
+                                for consumed in trio:
+                                    await consumed.delete(session=session)
+                                await grant_rune(uid, chosen_id, next_rank, session)
+                                fused += 1
+                await interaction.followup.send(embed=discord.Embed(
+                    title="🧿 Fusion Complete",
+                    description=f"✨ **{rune_name} [{next_rank}]** ×{fused} created.",
+                    color=COLOR_SUCCESS,
+                ))
+                return
+
+            # Bulk mode
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
             preview_lines = []
             for rune_id, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
@@ -318,6 +516,59 @@ class FuseCog(commands.Cog):
                 color=COLOR_SUCCESS,
             )
             await interaction.followup.send(embed=result_embed)
+
+
+class _ModeSelectView(discord.ui.View):
+    def __init__(self, user_id: int, timeout: float = 60.0):
+        super().__init__(timeout=timeout)
+        self.user_id = user_id
+        self.mode: str | None = None
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This isn't your menu.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="Bulk", style=discord.ButtonStyle.primary)
+    async def bulk_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.mode = "bulk"
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+    @discord.ui.button(label="Single", style=discord.ButtonStyle.secondary)
+    async def single_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.mode = "single"
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
+
+
+class _SinglePickView(discord.ui.View):
+    def __init__(self, user_id: int, options: list[discord.SelectOption], timeout: float = 60.0):
+        super().__init__(timeout=timeout)
+        self.user_id = user_id
+        self.value: str | None = None
+        select = discord.ui.Select(placeholder="Pick a group to fuse…", options=options)
+        select.callback = self._on_select
+        self.add_item(select)
+        self._select = select
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("This isn't your menu.", ephemeral=True)
+            return False
+        return True
+
+    async def _on_select(self, interaction: discord.Interaction):
+        self.value = self._select.values[0]
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        self.stop()
 
 
 async def setup(bot: commands.Bot):
