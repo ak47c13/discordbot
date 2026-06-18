@@ -51,7 +51,7 @@ def _difficulty_overview_embed(user: User) -> discord.Embed:
             ),
             inline=True,
         )
-    embed.set_footer(text="Raid limit resets every 3 hours.")
+    embed.set_footer(text=f"Raid limit resets every {RAID_RESET_HOURS} hours.")
     return embed
 
 
@@ -163,7 +163,6 @@ class RaidCog(commands.Cog):
         if champ is None or champ.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Champion not found. Use `/champions` to find the right number."),
-                ephemeral=True,
             )
             return
 
@@ -173,7 +172,7 @@ class RaidCog(commands.Cog):
                 try:
                     raid = await join_raid(uid, raid_id, str(champ.id), session)
                 except RaidError as e:
-                    await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                    await interaction.followup.send(embed=error_embed(str(e)))
                     return
 
         diff = RAID_DIFFICULTIES.get(raid.zone, {}).get("display", raid.zone)

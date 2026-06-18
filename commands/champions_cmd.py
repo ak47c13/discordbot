@@ -169,7 +169,6 @@ class ChampionsCog(commands.Cog):
             except ValueError:
                 await interaction.followup.send(
                     embed=error_embed("Enter a number of levels or 'max'."),
-                    ephemeral=True,
                 )
                 return
 
@@ -177,7 +176,6 @@ class ChampionsCog(commands.Cog):
         if champ is None or champ.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Champion not found.", "Use `/champions` to see IDs."),
-                ephemeral=True,
             )
             return
 
@@ -185,7 +183,6 @@ class ChampionsCog(commands.Cog):
         if champ.level >= max_lvl:
             await interaction.followup.send(
                 embed=error_embed(f"{champ.name} is already at max level {max_lvl} for rank {champ.rank}."),
-                ephemeral=True,
             )
             return
 
@@ -206,7 +203,6 @@ class ChampionsCog(commands.Cog):
             cost_next = levelup_cost(champ.rank, champ.level)
             await interaction.followup.send(
                 embed=error_embed(f"Need {cost_next:,} gold for the next level. You have {user.gold:,}."),
-                ephemeral=True,
             )
             return
 
@@ -226,10 +222,10 @@ class ChampionsCog(commands.Cog):
             color=COLOR_WARNING,
         )
         view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Level up cancelled.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Level up cancelled.", color=COLOR_INFO))
             return
 
         champion_id = str(champ.id)
@@ -240,7 +236,7 @@ class ChampionsCog(commands.Cog):
                     try:
                         c, spent = await level_up_champion(uid, champion_id, session, times=actual)
                     except ValueError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         at_cap = " (rank cap reached!)" if c.level >= max_lvl else ""

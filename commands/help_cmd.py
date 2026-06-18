@@ -11,7 +11,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         [
             "Welcome! Here's the core gameplay loop:\n\n"
             "1. **/start** — register and claim starter rewards\n"
-            "2. **/summon** — spend tokens to pull champions, items, and runes\n"
+            "2. **/shop** — spend tokens to pull champions, items, and runes\n"
             "3. **/champion-select** — set your active champion for battle\n"
             "4. **/dungeon-enter** — fight through floors and earn loot\n"
             "5. **/fuse** — combine duplicates into stronger ranks\n\n"
@@ -28,8 +28,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
             "• `/champions-duplicates` — see which champions are fusion-ready\n\n"
             "**Leveling:** `/levelup <number>` spends gold to raise a champion's level.\n"
             "Each rank has its own max level.\n\n"
-            "**Protect:** `/lock-champion` and `/champion-favorite` shield champions "
-            "from selling and fusing.",
+            "**Protect:** `/champion-protect` shields champions from selling and fusing.",
         ],
     ),
     "items": (
@@ -39,7 +38,7 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
             "• `/items` — view your inventory (each item has a number)\n"
             "• `/equip <item_number> <champion_number> <slot>` — equip (up to 5 per champion)\n"
             "• `/fuse type:Items` — auto-fuses all eligible +0 items across every rank\n"
-            "• `/lock-item`, `/favorite-item` — protect items\n\n"
+            "• `/item-protect` — protect items\n\n"
             "Each item has a **main stat**, a **passive**, and a **secondary stat** "
             "that can be rerolled at the blacksmith.",
         ],
@@ -86,11 +85,11 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         "Raids",
         [
             "Team up with up to 5 players against a powerful boss:\n\n"
-            "• **/raid-create <zone>** — open a raid queue (you become leader)\n"
+            "• **/raid-create** — open a raid queue (you become leader; difficulty is rolled randomly)\n"
             "• **/raid-list** — see open raids and their IDs\n"
             "• **/raid-join <id> <champion_number>** — join with one champion\n"
             "• **/raid-start <id>** — leader starts the battle\n\n"
-            "The boss scales with party size. Each player gets personal loot on victory.",
+            "Boss difficulty is fixed regardless of party size — solo runs pay 60% gold/token. Each player gets personal loot on victory.",
         ],
     ),
     "commands": (
@@ -98,13 +97,13 @@ HELP_TOPICS: dict[str, tuple[str, list[str]]] = {
         [
             "**Account:** /start, /profile, /stamina, /daily, /leaderboard\n"
             "**Champions:** /champions, /champion-info, /champions-bulk-sell, "
-            "/champions-duplicates, /levelup, /lock-champion, /champion-favorite\n"
-            "**Items:** /items, /item-info, /items-bulk-sell, /lock-item, /favorite-item\n"
+            "/champions-duplicates, /levelup, /champion-protect\n"
+            "**Items:** /items, /item-info, /items-bulk-sell, /item-protect\n"
             "**Fuse:** /fuse (type: Champions or Items)\n"
             "**Champion:** /champion-select, /skill, /runes, /champions, /champion-info\n"
             "**Blacksmith:** /enhance, /clear, /reroll, /refine\n"
             "**Combat:** /hunt, /raid-create, /raid-list, /raid-join, /raid-start\n"
-            "**Economy:** /market-* , /trade-* , /summon, /summon-rates\n"
+            "**Economy:** /market-* , /trade-* , /shop, /summon-rates\n"
             "**Help:** /help",
         ],
     ),

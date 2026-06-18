@@ -157,7 +157,7 @@ class ProfileCog(commands.Cog):
             title = "Leaderboard — Champions"
 
         if not rows:
-            await interaction.followup.send(embed=error_embed("No players on the leaderboard yet."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("No players on the leaderboard yet."))
             return
 
         embed = discord.Embed(title=title, description="\n".join(rows), color=COLOR_GOLD)
@@ -177,7 +177,6 @@ class ProfileCog(commands.Cog):
             m = rem // 60
             await interaction.followup.send(
                 embed=error_embed(f"Daily already claimed. Next in {h}h {m}m."),
-                ephemeral=True,
             )
             return
         from config.game_config import DAILY_SUMMON_TOKENS

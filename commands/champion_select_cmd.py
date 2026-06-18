@@ -13,7 +13,7 @@ class ChampionSelectCog(commands.Cog):
         self.bot = bot
 
     @app_commands.command(name="champion-select", description="Set your active champion for battles.")
-    @app_commands.describe(number="Champion list number (see /roster)")
+    @app_commands.describe(number="Champion display ID (see /champions)")
     async def champion_select(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer()
         uid = str(interaction.user.id)

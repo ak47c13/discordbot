@@ -123,7 +123,7 @@ def _rune_list_embed(color_filter: str = "all") -> discord.Embed:
     from data.rune_catalog import RUNE_CATALOG
     embed = discord.Embed(
         title="Rune Glossary",
-        description="Use `/runes set <color> <slot> <rune_id>` to equip. Higher tiers require higher champion rank.",
+        description="Use `/runes set <color> <slot> <display_id>` to equip (display_id is the number shown in `/runes inventory`). Higher tiers require higher champion rank.",
         color=0xAA44FF,
     )
     by_color: dict[str, list] = {}

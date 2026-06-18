@@ -139,7 +139,6 @@ class FuseCog(commands.Cog):
             if not groups:
                 await interaction.followup.send(
                     embed=error_embed("No fusible champions found.", "Need 3+ copies of the same champion and rank (non-favorite, unlocked)."),
-                    ephemeral=True,
                 )
                 return
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
@@ -159,10 +158,10 @@ class FuseCog(commands.Cog):
                 color=COLOR_WARNING,
             )
             view = ConfirmView()
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view)
             await view.wait()
             if not view.confirmed:
-                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
+                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
                 return
 
             async with get_user_lock(uid):
@@ -172,7 +171,7 @@ class FuseCog(commands.Cog):
                         results = await _auto_fuse_all_champions(uid, session)
 
             if not results:
-                await interaction.followup.send(embed=error_embed("No fusions completed."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("No fusions completed."))
                 return
 
             lines = [f"✨ **{label}** ×{cnt}" for label, cnt in sorted(results.items())]
@@ -194,7 +193,6 @@ class FuseCog(commands.Cog):
             if not groups:
                 await interaction.followup.send(
                     embed=error_embed("No fusible items found.", "Need 3+ copies of the same +0 item and rank (non-favorite, unlocked)."),
-                    ephemeral=True,
                 )
                 return
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
@@ -214,10 +212,10 @@ class FuseCog(commands.Cog):
                 color=COLOR_WARNING,
             )
             view = ConfirmView()
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view)
             await view.wait()
             if not view.confirmed:
-                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
+                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
                 return
 
             async with get_user_lock(uid):
@@ -227,7 +225,7 @@ class FuseCog(commands.Cog):
                         results = await _auto_fuse_all_items(uid, session)
 
             if not results:
-                await interaction.followup.send(embed=error_embed("No fusions completed."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("No fusions completed."))
                 return
 
             lines = [f"✨ **{label}** ×{cnt}" for label, cnt in sorted(results.items())]
@@ -253,7 +251,6 @@ class FuseCog(commands.Cog):
             if not groups:
                 await interaction.followup.send(
                     embed=error_embed("No fusible runes found.", "Need 3+ copies of the same rune at the same rank (unequipped, non-S)."),
-                    ephemeral=True,
                 )
                 return
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
@@ -274,19 +271,20 @@ class FuseCog(commands.Cog):
                 color=COLOR_WARNING,
             )
             view = ConfirmView()
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view)
             await view.wait()
             if not view.confirmed:
-                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO), ephemeral=True)
+                await interaction.followup.send(embed=discord.Embed(title="Fusion cancelled.", color=COLOR_INFO))
                 return
 
             async with get_user_lock(uid):
                 client = get_motor_client()
                 async with await client.start_session() as session:
-                    results = await _auto_fuse_all_runes(uid, session)
+                    async with session.start_transaction():
+                        results = await _auto_fuse_all_runes(uid, session)
 
             if not results:
-                await interaction.followup.send(embed=error_embed("No fusions completed."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("No fusions completed."))
                 return
 
             lines = [f"✨ **{label}** ×{cnt}" for label, cnt in sorted(results.items())]

@@ -42,8 +42,7 @@ class BlacksmithCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
-                ephemeral=True,
-            )
+                )
             return
         item_id = str(itm.id)
 
@@ -70,11 +69,11 @@ class BlacksmithCog(commands.Cog):
 
         embed = discord.Embed(title="⚒️ Confirm Enhancement", description=desc, color=COLOR_WARNING if is_risky else COLOR_INFO)
         view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Enhancement cancelled.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Enhancement cancelled.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -84,7 +83,7 @@ class BlacksmithCog(commands.Cog):
                     try:
                         result = await enhance_item(uid, item_id, use_seal, session)
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         if result["destroyed"]:
@@ -122,12 +121,11 @@ class BlacksmithCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
-                ephemeral=True,
-            )
+                )
             return
         item_id = str(itm.id)
         if itm.enhancement == 0:
-            await interaction.followup.send(embed=error_embed("Item is already +0."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("Item is already +0."))
             return
 
         gold_cost = clearing_gold_cost(itm.rank, itm.enhancement)
@@ -142,11 +140,11 @@ class BlacksmithCog(commands.Cog):
             color=COLOR_WARNING,
         )
         view = ConfirmView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.confirmed:
-            await interaction.followup.send(embed=discord.Embed(title="Clear cancelled.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Clear cancelled.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -156,7 +154,7 @@ class BlacksmithCog(commands.Cog):
                     try:
                         result = await clear_item(uid, item_id, session)
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         await interaction.followup.send(
@@ -173,8 +171,7 @@ class BlacksmithCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
-                ephemeral=True,
-            )
+                )
             return
         item_id = str(itm.id)
 
@@ -185,7 +182,7 @@ class BlacksmithCog(commands.Cog):
             try:
                 preview = await reroll_secondary_full(uid, item_id, session)
             except BlacksmithError as e:
-                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                await interaction.followup.send(embed=error_embed(str(e)))
                 return
 
         embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
@@ -203,11 +200,11 @@ class BlacksmithCog(commands.Cog):
         embed.set_footer(text="Accept to apply and pay. Reject to keep current stat.")
 
         view = RerollPreviewView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -220,7 +217,7 @@ class BlacksmithCog(commands.Cog):
                             session,
                         )
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         await interaction.followup.send(embed=item_embed(result, "✅ Reroll Applied"))
@@ -235,8 +232,7 @@ class BlacksmithCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
-                ephemeral=True,
-            )
+                )
             return
         item_id = str(itm.id)
 
@@ -246,7 +242,7 @@ class BlacksmithCog(commands.Cog):
             try:
                 preview = await reroll_secondary_value(uid, item_id, session)
             except BlacksmithError as e:
-                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                await interaction.followup.send(embed=error_embed(str(e)))
                 return
 
         embed = discord.Embed(title="🎲 Refine Preview", color=COLOR_INFO)
@@ -256,11 +252,11 @@ class BlacksmithCog(commands.Cog):
         embed.add_field(name="Cost",          value=f"{cost} gold",  inline=False)
 
         view = RerollPreviewView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Refine cancelled.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Refine cancelled.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -269,7 +265,7 @@ class BlacksmithCog(commands.Cog):
                     try:
                         result = await accept_reroll_value(uid, item_id, preview["new_value"], session)
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
         await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"))
@@ -311,8 +307,7 @@ class BlacksmithCog(commands.Cog):
                         "Nothing craftable yet.",
                         "You don't have the components to craft anything yet. Earn items from dungeons and hunts.",
                     ),
-                    ephemeral=True,
-                )
+                    )
                 return
 
             # Count craftable per category
@@ -339,11 +334,48 @@ class BlacksmithCog(commands.Cog):
                 color=0xFFAA00,
             )
             view = _BuildCategoryView(uid, craftable)
-            await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+            await interaction.followup.send(embed=embed, view=view)
             return
 
         # Direct craft by name
         await _do_build(interaction, uid, item_name)
+
+    @app_commands.command(name="recipes", description="Browse all craftable items by tier.")
+    @app_commands.describe(tier="Which tier to show")
+    @app_commands.choices(tier=[
+        app_commands.Choice(name="Completed Items (end-game)",           value="completed"),
+        app_commands.Choice(name="Component Recipes (basics → advanced)", value="components"),
+    ])
+    async def recipes(self, interaction: discord.Interaction, tier: str = "completed"):
+        await interaction.response.defer(ephemeral=True)
+        from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES
+
+        recipes = COMPLETED_RECIPES if tier == "completed" else COMPONENT_RECIPES
+        title = "Completed Item Recipes" if tier == "completed" else "Component Build Paths"
+        desc = (
+            "End-game items. Craft from advanced components at `/build <name>`.\nOutput rank = lowest component rank."
+            if tier == "completed" else
+            "Turn basic drops into advanced components at `/build <name>`."
+        )
+
+        # Discord embed field limit is 25 — paginate into two messages if needed
+        items_list = list(recipes.items())
+        for batch_start in range(0, len(items_list), 20):
+            batch = items_list[batch_start:batch_start + 20]
+            embed = discord.Embed(
+                title=f"{title} ({len(recipes)} total)",
+                description=desc if batch_start == 0 else f"*(continued — {batch_start + 1}–{batch_start + len(batch)})*",
+                color=0xFFAA00 if tier == "completed" else 0x4488FF,
+            )
+            for name, recipe in batch:
+                comps = " + ".join(recipe["components"])
+                embed.add_field(
+                    name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
+                    value=f"{comps}\n*{recipe['description']}*",
+                    inline=False,
+                )
+            embed.set_footer(text="/build <item_name> to craft")
+            await interaction.followup.send(embed=embed)
 
 
 async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, msg=None):
@@ -362,7 +394,7 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
             if msg:
                 await msg.edit(embed=embed, view=None)
             else:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed)
             return
 
     recipe = ITEM_RECIPES[matched]
@@ -395,7 +427,7 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
             if msg:
                 await msg.edit(embed=embed, view=None)
             else:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed)
             return
 
         rank_order = ["F", "E", "D", "C", "B", "A", "S"]
@@ -409,7 +441,7 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
             if msg:
                 await msg.edit(embed=embed, view=None)
             else:
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed)
             return
 
         comp_list = "\n".join(f"• {itm.name} [{itm.rank}]" for itm in items_to_consume)
@@ -428,7 +460,7 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
             await msg.edit(embed=confirm_embed, view=view)
             view.message = msg
         else:
-            msg = await interaction.followup.send(embed=confirm_embed, view=view, ephemeral=True, wait=True)
+            msg = await interaction.followup.send(embed=confirm_embed, view=view, wait=True)
             view.message = msg
         await view.wait()
 
@@ -487,7 +519,7 @@ class _BuildCategoryView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if str(interaction.user.id) != self.uid:
-            await interaction.response.send_message("Not your menu.", ephemeral=True)
+            await interaction.response.send_message("Not your menu.")
             return False
         return True
 
@@ -503,8 +535,7 @@ class _BuildCategoryView(discord.ui.View):
         if not recipes:
             await interaction.response.send_message(
                 f"You don't have the components to craft any **{label}** items yet.",
-                ephemeral=True,
-            )
+                )
             return
 
         options = [
@@ -562,7 +593,7 @@ class _BuildItemSelectView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         if str(interaction.user.id) != self.uid:
-            await interaction.response.send_message("Not your menu.", ephemeral=True)
+            await interaction.response.send_message("Not your menu.")
             return False
         return True
 
@@ -597,43 +628,6 @@ class _BuildItemSelectView(discord.ui.View):
             color=0xFFAA00,
         )
         await interaction.response.edit_message(embed=embed, view=_BuildCategoryView(self.uid, self.craftable))
-
-    @app_commands.command(name="recipes", description="Browse all craftable items by tier.")
-    @app_commands.describe(tier="Which tier to show")
-    @app_commands.choices(tier=[
-        app_commands.Choice(name="Completed Items (end-game)",           value="completed"),
-        app_commands.Choice(name="Component Recipes (basics → advanced)", value="components"),
-    ])
-    async def recipes(self, interaction: discord.Interaction, tier: str = "completed"):
-        await interaction.response.defer(ephemeral=True)
-        from data.item_recipes import COMPONENT_RECIPES, COMPLETED_RECIPES
-
-        recipes = COMPLETED_RECIPES if tier == "completed" else COMPONENT_RECIPES
-        title = "Completed Item Recipes" if tier == "completed" else "Component Build Paths"
-        desc = (
-            "End-game items. Craft from advanced components at `/build <name>`.\nOutput rank = lowest component rank."
-            if tier == "completed" else
-            "Turn basic drops into advanced components at `/build <name>`."
-        )
-
-        # Discord embed field limit is 25 — paginate into two messages if needed
-        items_list = list(recipes.items())
-        for batch_start in range(0, len(items_list), 20):
-            batch = items_list[batch_start:batch_start + 20]
-            embed = discord.Embed(
-                title=f"{title} ({len(recipes)} total)",
-                description=desc if batch_start == 0 else f"*(continued — {batch_start + 1}–{batch_start + len(batch)})*",
-                color=0xFFAA00 if tier == "completed" else 0x4488FF,
-            )
-            for name, recipe in batch:
-                comps = " + ".join(recipe["components"])
-                embed.add_field(
-                    name=f"**{name}**  [{recipe['stat_type'].upper()}]  {recipe['gold_cost']:,}g",
-                    value=f"{comps}\n*{recipe['description']}*",
-                    inline=False,
-                )
-            embed.set_footer(text="/build <item_name> to craft")
-            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 async def setup(bot: commands.Bot):

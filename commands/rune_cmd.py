@@ -157,7 +157,7 @@ class RuneCog(commands.Cog):
         uid = str(interaction.user.id)
         max_slots = 3 if color == "quint" else 9
         if not 1 <= slot <= max_slots:
-            await interaction.followup.send(embed=error_embed(f"Slot must be 1–{max_slots} for {color}."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed(f"Slot must be 1–{max_slots} for {color}."))
             return
 
         # Find owned rune by display_id
@@ -165,41 +165,34 @@ class RuneCog(commands.Cog):
         if inst is None:
             await interaction.followup.send(
                 embed=error_embed(f"Rune #{display_id} not found in your inventory.", "Use `/runes inventory` to see your runes."),
-                ephemeral=True,
             )
             return
 
         rune = RUNE_CATALOG.get(inst.rune_id)
         if not rune:
-            await interaction.followup.send(embed=error_embed("Unknown rune data."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("Unknown rune data."))
             return
         if rune["color"] != color:
             await interaction.followup.send(
-                embed=error_embed(f"That rune is a **{rune['color']}** rune, not {color}."), ephemeral=True
-            )
+                embed=error_embed(f"That rune is a **{rune['color']}** rune, not {color}."))
             return
 
         async with get_user_lock(uid):
             user = await User.find_one(User.discord_id == uid)
             if not user:
-                await interaction.followup.send(embed=error_embed("Not registered."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("Not registered."))
                 return
             if user.active_champion_id:
                 champ = await ChampionInstance.get(user.active_champion_id)
                 if champ and not can_equip_rune(inst.rune_id, champ.rank):
                     await interaction.followup.send(
                         embed=error_embed(f"This rune requires **{rune['rank_req']}** rank. Your champion is [{champ.rank}]."),
-                        ephemeral=True,
                     )
                     return
 
             # Unmark any previously equipped instance in this exact slot
             old_slot = getattr(user.rune_page, COLOR_ATTR[color])[slot - 1]
             if old_slot.instance_id:
-                old_inst = await RuneInstance.find_one(
-                    RuneInstance.owner_id == uid,
-                    RuneInstance.display_id == 0,  # find by instance_id instead
-                )
                 # Find by str(id)
                 from beanie import PydanticObjectId
                 try:
@@ -243,12 +236,12 @@ class RuneCog(commands.Cog):
         uid = str(interaction.user.id)
         max_slots = 3 if color == "quint" else 9
         if not 1 <= slot <= max_slots:
-            await interaction.followup.send(embed=error_embed(f"Slot must be 1–{max_slots}."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed(f"Slot must be 1–{max_slots}."))
             return
         async with get_user_lock(uid):
             user = await User.find_one(User.discord_id == uid)
             if not user:
-                await interaction.followup.send(embed=error_embed("Not registered."), ephemeral=True)
+                await interaction.followup.send(embed=error_embed("Not registered."))
                 return
             old_slot = getattr(user.rune_page, COLOR_ATTR[color])[slot - 1]
             if old_slot.instance_id:
