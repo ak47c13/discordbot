@@ -308,6 +308,8 @@ async def start_raid(
             user.daily_raids_used += 1
             user.raids_completed += (1 if battle_result.winner in (0, -1) else 0)
 
+        if user:
+            await user.save(session=usable_session(session))   # save daily count updates
         if battle_result.winner in (0, -1):
             drop_copies = champ_dropped.count(player_id)
             rewards = await _roll_raid_drops(
@@ -317,12 +319,8 @@ async def start_raid(
             )
             raid.rewarded_player_ids.append(player_id)
             player_rewards[player_id] = rewards
-            if user:
-                await user.save(session=usable_session(session))
         else:
             player_rewards[player_id] = {"gold": 0, "lost": True}
-            if user:
-                await user.save(session=usable_session(session))
 
     raid.status = "completed" if battle_result.winner in (0, -1) else "failed"
     raid.completed_at = datetime.now(timezone.utc)

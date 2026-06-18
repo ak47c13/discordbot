@@ -5631,7 +5631,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
     },
     "Wukong": {
         "role": "fighter",
-        "riot_id": "Wukong",
+        "riot_id": "MonkeyKing",
         "title": "the Monkey King",
         "source_roles": ["Fighter", "Tank"],
         "stat_weights": {"hp": 1.05, "atk": 1.28, "def": 0.95, "spd": 1.05},

@@ -263,8 +263,6 @@ def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_
             lines.append(f"**{rewards['blacksmith_seals']}** Blacksmith Seals")
         if rewards.get("rune_shards"):
             lines.append(f"**{rewards['rune_shards']}** Rune Shards")
-        if rewards.get("rune_fragments"):
-            lines.append(f"**{rewards['rune_fragments']}** Rune Fragments")
         if rewards.get("champion"):
             c = rewards["champion"]
             lines.append(f"**{c['name']}** [{c['rank']}] summoned!")

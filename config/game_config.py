@@ -209,17 +209,17 @@ STARTER_GOLD = 5000
 
 SUMMON_RATES = {
     # (item_or_champion, rank): probability
-    "champion_F": 0.40,
-    "champion_E": 0.25,
-    "champion_D": 0.15,
-    "champion_C": 0.08,
-    "champion_B": 0.04,
-    "champion_A": 0.02,
-    "champion_S": 0.005,
+    "champion_F": 0.470,
+    "champion_E": 0.265,
+    "champion_D": 0.123,
+    "champion_C": 0.057,
+    "champion_B": 0.019,
+    "champion_A": 0.005,
+    "champion_S": 0.001,
     "item_D":     0.025,
     "item_C":     0.015,
     "item_B":     0.005,
-    "gold_small": 0.03,   # 200-500 gold
+    "gold_small": 0.030,   # 200-500 gold
     "enhance_mat":0.025,
     "reroll_mat": 0.015,
     "seal":       0.001,
@@ -517,7 +517,6 @@ DUNGEON_FLOOR_GOLD_PER_FLOOR = 50
 DUNGEON_FLOOR_XP_BASE = 20
 DUNGEON_FLOOR_XP_PER_FLOOR = 8
 DUNGEON_RUNE_SHARD_CHANCE = 0.10     # 10% per floor
-DUNGEON_RUNE_FRAGMENT_CHANCE = 0.02  # 2% per floor
 
 # First-clear bonuses by dungeon length
 DUNGEON_FIRST_CLEAR = {

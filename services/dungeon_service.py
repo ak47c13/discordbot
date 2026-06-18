@@ -34,7 +34,6 @@ from config.game_config import (
     DUNGEON_FLOOR_XP_BASE,
     DUNGEON_FLOOR_XP_PER_FLOOR,
     DUNGEON_RUNE_SHARD_CHANCE,
-    DUNGEON_RUNE_FRAGMENT_CHANCE,
     DUNGEON_FIRST_CLEAR,
     DUNGEON_DAILY_CLEAR,
     DUNGEON_STAMINA_COST,
@@ -382,7 +381,7 @@ async def grant_floor_rewards(
     prog.last_attempt_at = datetime.now(timezone.utc)
 
     rewards: dict[str, Any] = {
-        "gold": 0, "xp": 0, "rune_shards": 0, "rune_fragments": 0,
+        "gold": 0, "xp": 0, "rune_shards": 0,
         "leveled": [], "bonus": None,
     }
     if won:
@@ -391,7 +390,6 @@ async def grant_floor_rewards(
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
         # Rune drop chance scales with map (higher maps = better drop rates)
         rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
-        rune_fragment_chance = min(0.15, DUNGEON_RUNE_FRAGMENT_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
@@ -399,9 +397,6 @@ async def grant_floor_rewards(
         if rng.random() < rune_shard_chance:
             user.rune_shards += 1
             rewards["rune_shards"] = 1
-        if rng.random() < rune_fragment_chance:
-            user.rune_fragments += 1
-            rewards["rune_fragments"] = 1
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
@@ -505,7 +500,7 @@ async def enter_floor(
     prog.last_attempt_at = datetime.now(timezone.utc)
 
     rewards: dict[str, Any] = {
-        "gold": 0, "xp": 0, "rune_shards": 0, "rune_fragments": 0,
+        "gold": 0, "xp": 0, "rune_shards": 0,
         "leveled": [], "bonus": None,
     }
     completion: Optional[dict] = None
@@ -515,7 +510,6 @@ async def enter_floor(
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
         rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
-        rune_fragment_chance = min(0.15, DUNGEON_RUNE_FRAGMENT_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
@@ -524,9 +518,6 @@ async def enter_floor(
         if rng.random() < rune_shard_chance:
             user.rune_shards += 1
             rewards["rune_shards"] = 1
-        if rng.random() < rune_fragment_chance:
-            user.rune_fragments += 1
-            rewards["rune_fragments"] = 1
 
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
 

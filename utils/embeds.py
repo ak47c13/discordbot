@@ -353,14 +353,19 @@ def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
         riot_id = r.get("riot_id") or roster.get("riot_id", name.replace(" ", "").replace("'", ""))
 
         from config.game_config import CHAMPION_BASE_STATS
-        stats = CHAMPION_BASE_STATS.get(rank, {})
+        base = CHAMPION_BASE_STATS.get(rank, {})
+        weights = roster.get("stat_weights", {"hp": 1.0, "atk": 1.0, "def": 1.0, "spd": 1.0})
+        hp = int(base.get("hp", 0) * weights.get("hp", 1.0))
+        atk = int(base.get("atk", 0) * weights.get("atk", 1.0))
+        def_ = int(base.get("def", 0) * weights.get("def", 1.0))
+        spd = int(base.get("spd", 0) * weights.get("spd", 1.0))
 
         embed = discord.Embed(
             title=f"{title_prefix}{name}",
             description=(
                 f"*{title_text}*\n\n"
                 f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] {role}**\n\n"
-                f"HP {stats.get('hp', '?'):,}   ATK {stats.get('atk', '?')}   DEF {stats.get('def', '?')}   SPD {stats.get('spd', '?')}"
+                f"HP {hp:,}   ATK {atk}   DEF {def_}   SPD {spd}"
             ),
             color=color,
         )
