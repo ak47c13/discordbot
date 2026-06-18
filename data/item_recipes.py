@@ -65,6 +65,10 @@ ADVANCED_COMPONENTS: dict[str, dict] = {
     "Lost Chapter":            {"stat_type": "atk", "passive": "atk_passive",          "desc": "+40 ATK · mana regen"},
     "Fiendish Codex":          {"stat_type": "ap",  "passive": "attack_speed_passive",  "desc": "+35 AP · ability haste"},
     "Tear of the Goddess":     {"stat_type": "atk", "passive": "atk_passive",          "desc": "+15 ATK · stacking mana"},
+    # Magic penetration components
+    "Aether Wisp":             {"stat_type": "atk", "passive": "magic_pen_passive",     "desc": "+10 Magic Pen · +5% Move Speed"},
+    "Cryptbloom":              {"stat_type": "atk", "passive": "magic_pen_passive",     "desc": "+20 Magic Pen · builds into magic pen completed items"},
+    "Shadowflame":             {"stat_type": "atk", "passive": "magic_pen_passive",     "desc": "+35 ATK · +15 Magic Pen · bonus pen vs shielded targets"},
     # Assassin / lethality components
     "Serrated Dirk":           {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+30 ATK · +10 Lethality (armor pen)"},
     "Cauterize":               {"stat_type": "atk", "passive": "armor_pen_passive",     "desc": "+20 ATK · +15 Lethality · builds into lethality items"},
@@ -110,6 +114,8 @@ COMPONENT_RECIPES: dict[str, dict] = {
     "Caulfield's Warhammer":{"components": ["Pickaxe", "Long Sword"],             "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 300,  "description": "ATK + ability haste. Builds into Death's Dance and Ravenous Hydra."},
     "Serrated Dirk":        {"components": ["Long Sword"],                        "stat_type": "atk", "passive": "armor_pen_passive",     "gold_cost": 200,  "description": "+30 ATK · +10 Lethality. Builds into most assassin items."},
     "Cauterize":            {"components": ["Serrated Dirk", "Long Sword"],       "stat_type": "atk", "passive": "armor_pen_passive",     "gold_cost": 300,  "description": "+20 ATK · +15 Lethality. Mid-tier assassin component."},
+    "Aether Wisp":          {"components": ["Amplifying Tome"],                   "stat_type": "atk", "passive": "magic_pen_passive",     "gold_cost": 150,  "description": "+10 Magic Pen. Builds into magic pen completed items."},
+    "Cryptbloom":           {"components": ["Aether Wisp", "Amplifying Tome"],    "stat_type": "atk", "passive": "magic_pen_passive",     "gold_cost": 250,  "description": "+20 Magic Pen. Mid-tier mage penetration component."},
 }
 
 # ---------------------------------------------------------------------------
@@ -315,6 +321,21 @@ COMPLETED_RECIPES: dict[str, dict] = {
         "components": ["Giant's Belt", "Ruby Crystal", "Kindlegem"],
         "stat_type": "hp", "passive": "fortify_passive", "gold_cost": 1100,
         "description": "Charges up a massive bonus HP-scaling strike. Enormous HP stacking.",
+    },
+    "Void Staff": {
+        "components": ["Blasting Wand", "Cryptbloom", "Aether Wisp"],
+        "stat_type": "ap", "passive": "magic_pen_passive", "gold_cost": 1100,
+        "description": "40% magic penetration. Shreds magic resistance on all hits.",
+    },
+    "Shadowflame": {
+        "components": ["Needlessly Large Rod", "Cryptbloom"],
+        "stat_type": "ap", "passive": "magic_pen_passive", "gold_cost": 1000,
+        "description": "Bonus magic pen against shielded targets. Strong vs sustain comps.",
+    },
+    "Luden's Tempest": {
+        "components": ["Lost Chapter", "Aether Wisp", "Blasting Wand"],
+        "stat_type": "ap", "passive": "magic_pen_passive", "gold_cost": 1100,
+        "description": "Spellburst: first ability hit fires a bolt to nearby enemies.",
     },
     "Duskblade of Draktharr": {
         "components": ["Serrated Dirk", "Cauterize", "Long Sword"],

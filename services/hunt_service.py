@@ -79,6 +79,9 @@ ADVANCED_ITEM_POOL = [
     ("Cauterize",            "atk", "armor_pen_passive"),
     ("Serpent's Fang",       "atk", "armor_pen_passive"),
     ("Umbral Glaive",        "atk", "armor_pen_passive"),
+    ("Aether Wisp",          "atk", "magic_pen_passive"),
+    ("Cryptbloom",           "atk", "magic_pen_passive"),
+    ("Shadowflame",          "atk", "magic_pen_passive"),
     ("Caulfield's Warhammer","atk", "atk_passive"),
 ]
 

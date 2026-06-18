@@ -86,11 +86,14 @@ ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
         # Basic
         ("Amplifying Tome",    "atk", "atk_passive"),
         ("Sapphire Crystal",   "atk", "atk_passive"),
+        ("Aether Wisp",        "atk", "magic_pen_passive"),
         # Advanced
         ("Blasting Wand",      "atk", "atk_passive"),
         ("Needlessly Large Rod","atk", "crit_damage_passive"),
         ("Lost Chapter",       "atk", "atk_passive"),
         ("Fiendish Codex",     "atk", "attack_speed_passive"),
+        ("Cryptbloom",         "atk", "magic_pen_passive"),
+        ("Shadowflame",        "atk", "magic_pen_passive"),
     ],
     "assassin": [
         # Basic

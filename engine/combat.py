@@ -251,6 +251,7 @@ def build_unit_from_champion(
     passive_lifesteal: float = 0.0
     passive_attack_speed: float = 0.0
     passive_armor_pen: float = 0.0
+    passive_magic_pen: float = 0.0
     has_sheen = False
     has_guardian_angel = False
     has_sterak = False
@@ -278,6 +279,8 @@ def build_unit_from_champion(
             passive_magic_resist += 30.0      # +30 MR from best MR item
         elif pname == "armor_pen_passive":
             passive_armor_pen += 20.0         # flat armor pen
+        elif pname == "magic_pen_passive":
+            passive_magic_pen += 20.0         # flat magic pen
         elif pname == "sheen_passive":
             has_sheen = True
 
@@ -331,6 +334,8 @@ def build_unit_from_champion(
         unit.attack_speed += passive_attack_speed
     if passive_armor_pen > 0:
         unit.armor_pen += passive_armor_pen
+    if passive_magic_pen > 0:
+        unit.magic_pen += passive_magic_pen
     if has_sheen:
         unit.has_sheen = True
     if has_guardian_angel:
