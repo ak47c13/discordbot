@@ -48,14 +48,20 @@ def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None, item_d
     unit = _build_stat_unit(champ, rune_page, item_docs)
 
     # Row 1: base combat stats (full width)
+    ap_val = int(getattr(unit, "ap", 0.0))
+    atk_val = int(unit.atk)
+
+    base_lines = [f"**HP** {int(unit.hp_max):,}"]
+    if atk_val > 0:
+        base_lines.append(f"**AD** {atk_val:,}")
+    if ap_val > 0:
+        base_lines.append(f"**AP** {ap_val:,}")
+    base_lines.append(f"**Armor** {int(unit.def_stat):,}")
+    base_lines.append(f"**SPD** {unit.spd}")
+
     embed.add_field(
         name="Base",
-        value=(
-            f"**HP** {int(unit.hp_max):,}\n"
-            f"**ATK** {int(unit.atk):,}\n"
-            f"**Armor** {int(unit.def_stat):,}\n"
-            f"**SPD** {unit.spd}"
-        ),
+        value="\n".join(base_lines),
         inline=True,
     )
 

@@ -60,6 +60,7 @@ class CombatUnit:
     hp: int = 0
     hp_max: int = 0
     atk: float = 0.0
+    ap: float = 0.0   # ability power — scales magic damage skills
     def_stat: float = 0.0
     spd: int = 80
     mana: int = 0
@@ -156,13 +157,33 @@ def build_unit_from_champion(
 
     weights = _stat_weights_for(champ_doc.name)
 
+    # Determine AD/AP split from the champion's skills in the roster.
+    ap_ratio = 0.0
+    try:
+        from data.champion_roster import CHAMPION_ROSTER
+        entry = CHAMPION_ROSTER.get(champ_doc.name)
+    except Exception:
+        entry = None
+    if entry:
+        basic_dt = (entry.get("basic") or {}).get("damage_type", "physical")
+        ult_dt = (entry.get("ultimate") or {}).get("damage_type", "physical")
+        if basic_dt == "magic" and ult_dt == "magic":
+            ap_ratio = 1.0
+        elif ult_dt == "magic" and basic_dt == "physical":
+            ap_ratio = 0.65
+        else:
+            ap_ratio = 0.0
+
     hp  = (base["hp"]  + growth["hp"]  * (lvl - 1)) * weights["hp"]
-    atk = (base["atk"] + growth["atk"] * (lvl - 1)) * weights["atk"]
+    offensive = (base["atk"] + growth["atk"] * (lvl - 1)) * weights["atk"]
+    base_ap = offensive * ap_ratio
+    atk = offensive * (1 - ap_ratio)
     dfn = (base["def"] + growth["def"] * (lvl - 1)) * weights["def"]
     spd = base["spd"] * weights["spd"]
 
     # Accumulate item main stats and secondary stats
     item_atk_bonus = 0
+    item_ap_bonus  = 0
     item_hp_bonus  = 0
     item_def_bonus = 0
     item_spd_bonus = 0
@@ -170,11 +191,22 @@ def build_unit_from_champion(
     # Passive non-stacking: collect by passive_name, keep only best
     passive_pool: dict[str, tuple] = {}  # passive_name -> (rank_idx, enhancement, item)
 
+    AP_ITEM_NAMES = {
+        "Amplifying Tome", "Sapphire Crystal", "Needlessly Large Rod",
+        "Fiendish Codex", "Hextech Alternator", "Rabadon's Deathcap",
+        "Luden's Companion", "Shadowflame", "Void Staff", "Nashor's Tooth",
+        "Liandry's Anguish", "Morellonomicon", "Archangel's Staff",
+        "Rod of Ages", "Rylai's Crystal Scepter", "Zhonya's Hourglass",
+        "Banshee's Veil", "Horizon Focus",
+    }
+
     for itm in item_docs:
         enh_mult = ENHANCEMENT_MULTIPLIER.get(itm.enhancement, 0.0)
         eff_stat = itm.main_stat_base * (1 + enh_mult)
 
-        if itm.main_stat_type == "atk":
+        if itm.name in AP_ITEM_NAMES or itm.main_stat_type == "ap":
+            item_ap_bonus += eff_stat
+        elif itm.main_stat_type == "atk":
             item_atk_bonus += eff_stat
         elif itm.main_stat_type == "hp":
             item_hp_bonus += eff_stat
@@ -278,6 +310,7 @@ def build_unit_from_champion(
         hp=int(final_hp),
         hp_max=int(final_hp),
         atk=final_atk,
+        ap=base_ap + item_ap_bonus,
         def_stat=final_def,
         spd=final_spd,
         mana=0,

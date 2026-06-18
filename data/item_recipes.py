@@ -30,8 +30,8 @@ BASIC_COMPONENTS: dict[str, dict] = {
     "Ruby Crystal":        {"stat_type": "hp",  "passive": "fortify_passive",       "desc": "+150 HP"},
     "Faerie Charm":        {"stat_type": "hp",  "passive": "fortify_passive",       "desc": "+15 HP + slight HP regen"},
     # Magic
-    "Amplifying Tome":     {"stat_type": "atk", "passive": "atk_passive",          "desc": "+20 ATK (Ability Power)"},
-    "Sapphire Crystal":    {"stat_type": "atk", "passive": "atk_passive",          "desc": "+20 ATK + mana utility"},
+    "Amplifying Tome":     {"stat_type": "ap",  "passive": "atk_passive",          "desc": "+20 AP (Ability Power)"},
+    "Sapphire Crystal":    {"stat_type": "ap",  "passive": "atk_passive",          "desc": "+20 AP + mana utility"},
 }
 
 # ---------------------------------------------------------------------------
@@ -61,9 +61,9 @@ ADVANCED_COMPONENTS: dict[str, dict] = {
     "Giant's Belt":            {"stat_type": "hp",  "passive": "fortify_passive",       "desc": "+380 HP"},
     # Magic advanced
     "Blasting Wand":           {"stat_type": "atk", "passive": "atk_passive",          "desc": "+40 ATK (Ability Power)"},
-    "Needlessly Large Rod":    {"stat_type": "atk", "passive": "crit_damage_passive",   "desc": "+60 ATK (Ability Power)"},
+    "Needlessly Large Rod":    {"stat_type": "ap",  "passive": "crit_damage_passive",   "desc": "+60 AP (Ability Power)"},
     "Lost Chapter":            {"stat_type": "atk", "passive": "atk_passive",          "desc": "+40 ATK · mana regen"},
-    "Fiendish Codex":          {"stat_type": "atk", "passive": "attack_speed_passive",  "desc": "+35 ATK · ability haste"},
+    "Fiendish Codex":          {"stat_type": "ap",  "passive": "attack_speed_passive",  "desc": "+35 AP · ability haste"},
     "Tear of the Goddess":     {"stat_type": "atk", "passive": "atk_passive",          "desc": "+15 ATK · stacking mana"},
     # Starter items (no recipes, drop-only, cannot build into completed items)
     "Doran's Blade":           {"stat_type": "atk", "passive": "lifesteal_passive",     "desc": "+80 HP · +8 ATK · 3% omnivamp"},
@@ -94,9 +94,9 @@ COMPONENT_RECIPES: dict[str, dict] = {
     "Spectre's Cowl":       {"components": ["Ruby Crystal", "Null-Magic Mantle"],   "stat_type": "def", "passive": "magic_resist_passive",  "gold_cost": 250,  "description": "+30 MR · +250 HP. Builds into most MR completed items."},
     "Giant's Belt":         {"components": ["Ruby Crystal", "Ruby Crystal"],        "stat_type": "hp",  "passive": "fortify_passive",       "gold_cost": 250,  "description": "Massive HP. Builds into all HP completed items."},
     "Blasting Wand":        {"components": ["Amplifying Tome", "Amplifying Tome"],  "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 250,  "description": "+40 AP. Builds into all ability power completed items."},
-    "Needlessly Large Rod": {"components": ["Amplifying Tome", "Blasting Wand"],    "stat_type": "atk", "passive": "crit_damage_passive",   "gold_cost": 350,  "description": "+60 AP. Highest AP component. Builds into Rabadon's and Zhonya's."},
+    "Needlessly Large Rod": {"components": ["Amplifying Tome", "Blasting Wand"],    "stat_type": "ap",  "passive": "crit_damage_passive",   "gold_cost": 350,  "description": "+60 AP. Highest AP component. Builds into Rabadon's and Zhonya's."},
     "Lost Chapter":         {"components": ["Sapphire Crystal", "Amplifying Tome"], "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 300,  "description": "AP + mana regen. Builds into mage power items."},
-    "Fiendish Codex":       {"components": ["Amplifying Tome", "Faerie Charm"],     "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "AP + ability haste. Builds into Nashor's and morello."},
+    "Fiendish Codex":       {"components": ["Amplifying Tome", "Faerie Charm"],     "stat_type": "ap",  "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "AP + ability haste. Builds into Nashor's and morello."},
     "Tear of the Goddess":  {"components": ["Faerie Charm", "Sapphire Crystal"],    "stat_type": "atk", "passive": "atk_passive",          "gold_cost": 200,  "description": "Stacks ATK through casting. Builds into Manamune and Archangel's."},
     "Vampiric Scepter":     {"components": ["Long Sword", "Faerie Charm"],          "stat_type": "atk", "passive": "lifesteal_passive",     "gold_cost": 200,  "description": "+10% Lifesteal. Builds into Blade of the Ruined King and Ravenous Hydra."},
     "Hearthbound Axe":      {"components": ["Long Sword", "Dagger"],               "stat_type": "atk", "passive": "attack_speed_passive",  "gold_cost": 200,  "description": "+15 ATK · +15% AS. Builds into Trinity Force."},
@@ -179,67 +179,67 @@ COMPLETED_RECIPES: dict[str, dict] = {
     # ── ABILITY POWER ────────────────────────────────────────────────────
     "Rabadon's Deathcap": {
         "components": ["Needlessly Large Rod", "Blasting Wand", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1400,
+        "stat_type": "ap", "passive": "crit_damage_passive", "gold_cost": 1400,
         "description": "Amplifies all AP by 35%. Biggest AP item in the game.",
     },
     "Luden's Companion": {
         "components": ["Lost Chapter", "Blasting Wand", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "attack_speed_passive", "gold_cost": 1200,
+        "stat_type": "ap", "passive": "attack_speed_passive", "gold_cost": 1200,
         "description": "First skill hit fires an echo that bounces to 3 nearby enemies.",
     },
     "Shadowflame": {
         "components": ["Needlessly Large Rod", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1000,
+        "stat_type": "ap", "passive": "crit_damage_passive", "gold_cost": 1000,
         "description": "Crits and high damage kills ignore shields and grievously wound.",
     },
     "Void Staff": {
         "components": ["Blasting Wand", "Amplifying Tome", "Null-Magic Mantle"],
-        "stat_type": "atk", "passive": "armor_pen_passive", "gold_cost": 900,
+        "stat_type": "ap", "passive": "armor_pen_passive", "gold_cost": 900,
         "description": "Magic damage ignores 40% of enemy magic resistance.",
     },
     "Nashor's Tooth": {
         "components": ["Fiendish Codex", "Recurve Bow", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "attack_speed_passive", "gold_cost": 1200,
+        "stat_type": "ap", "passive": "attack_speed_passive", "gold_cost": 1200,
         "description": "High AP and attack speed. Attacks deal bonus magic damage on-hit.",
     },
     "Liandry's Anguish": {
         "components": ["Fiendish Codex", "Blasting Wand", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "atk_passive", "gold_cost": 1200,
+        "stat_type": "ap", "passive": "atk_passive", "gold_cost": 1200,
         "description": "Deals % max HP burn magic damage per second. Melts tanky enemies.",
     },
     "Morellonomicon": {
         "components": ["Blasting Wand", "Fiendish Codex"],
-        "stat_type": "atk", "passive": "atk_passive", "gold_cost": 900,
+        "stat_type": "ap", "passive": "atk_passive", "gold_cost": 900,
         "description": "Applies Grievous Wounds on skill hit — reduces enemy healing by 40%.",
     },
     "Archangel's Staff": {
         "components": ["Tear of the Goddess", "Blasting Wand", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "atk_passive", "gold_cost": 1200,
+        "stat_type": "ap", "passive": "atk_passive", "gold_cost": 1200,
         "description": "Huge AP at full stacks. Shield that scales with stacked ATK.",
     },
     "Rod of Ages": {
         "components": ["Lost Chapter", "Ruby Crystal", "Giant's Belt"],
-        "stat_type": "atk", "passive": "fortify_passive", "gold_cost": 1200,
+        "stat_type": "ap", "passive": "fortify_passive", "gold_cost": 1200,
         "description": "Stacks HP, AP, and mana over time. Massive scaling power.",
     },
     "Rylai's Crystal Scepter": {
         "components": ["Blasting Wand", "Ruby Crystal", "Amplifying Tome"],
-        "stat_type": "atk", "passive": "atk_passive", "gold_cost": 1000,
+        "stat_type": "ap", "passive": "atk_passive", "gold_cost": 1000,
         "description": "Skills slow enemies by 20%. AP + HP bruiser mage item.",
     },
     "Zhonya's Hourglass": {
         "components": ["Needlessly Large Rod", "Cloth Armor"],
-        "stat_type": "atk", "passive": "armor_passive", "gold_cost": 1000,
+        "stat_type": "ap", "passive": "armor_passive", "gold_cost": 1000,
         "description": "Active: become invulnerable for 2.5 seconds. AP + armor.",
     },
     "Banshee's Veil": {
         "components": ["Blasting Wand", "Null-Magic Mantle"],
-        "stat_type": "atk", "passive": "magic_resist_passive", "gold_cost": 900,
+        "stat_type": "ap", "passive": "magic_resist_passive", "gold_cost": 900,
         "description": "Spell shield that blocks one skill every 40 seconds.",
     },
     "Horizon Focus": {
         "components": ["Blasting Wand", "Fiendish Codex"],
-        "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1000,
+        "stat_type": "ap", "passive": "crit_damage_passive", "gold_cost": 1000,
         "description": "Skills that hit at long range or stun deal 10% bonus damage.",
     },
 

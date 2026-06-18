@@ -135,7 +135,10 @@ def make_skill(
                     mitigation = df / (df + 200)
                     dmg = max(1, int(raw * (1 - mitigation)))
                 elif damage_type == "magic" and coeff > 0:
-                    raw = caster.atk * coeff * 1.1
+                    ap = getattr(caster, "ap", 0.0)
+                    # fall back to atk if champion has no AP (shouldn't happen for magic skills)
+                    effective_power = ap if ap > 0 else caster.atk * 0.9
+                    raw = effective_power * coeff
                     pen_bonus = min(magic_pen, 50)
                     target_mr = max(0.0, getattr(t, "magic_resist", 0.0) - pen_bonus)
                     mr_mitigation = target_mr / (target_mr + 200)
@@ -151,7 +154,7 @@ def make_skill(
                     _apply_damage(t, dmg, damage_type)
                     crit_label = " 💥CRIT!" if is_crit else ""
                     log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.{crit_label}")
-                    if lifesteal > 0 and damage_type == "physical":
+                    if lifesteal > 0 and damage_type in ("physical", "magic"):
                         heal = int(dmg * lifesteal / 100.0)
                         if heal > 0:
                             caster.hp = min(caster.hp_max, caster.hp + heal)
