@@ -17,6 +17,41 @@ from config.game_config import RANKS, SELL_PRICE_CHAMPION, CHAMPION_MAX_LEVEL, l
 from utils.image_gen import DDRAGON_LOADING, _riot_id_from_name
 
 
+class ProtectView(discord.ui.View):
+    def __init__(self, champion, user_id):
+        super().__init__(timeout=60)
+        self.champion = champion
+        self.user_id = user_id
+
+    def _build_embed(self):
+        c = self.champion
+        fav = "⭐ Yes" if getattr(c, "favorite", False) else "—"
+        locked = "🔒 Yes" if c.locked else "—"
+        return discord.Embed(
+            title=f"{c.name} [{c.rank}] Lv.{c.level}  #{c.display_id}",
+            description=f"**Favorite:** {fav}\n**Locked:** {locked}",
+            color=0x5865F2,
+        )
+
+    @discord.ui.button(label="Toggle Favorite ⭐", style=discord.ButtonStyle.secondary)
+    async def toggle_fav(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your champion.", ephemeral=True)
+            return
+        self.champion.favorite = not getattr(self.champion, "favorite", False)
+        await self.champion.save()
+        await interaction.response.edit_message(embed=self._build_embed(), view=self)
+
+    @discord.ui.button(label="Toggle Lock 🔒", style=discord.ButtonStyle.secondary)
+    async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your champion.", ephemeral=True)
+            return
+        self.champion.locked = not self.champion.locked
+        await self.champion.save()
+        await interaction.response.edit_message(embed=self._build_embed(), view=self)
+
+
 class ChampionsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -24,7 +59,7 @@ class ChampionsCog(commands.Cog):
     @app_commands.command(name="champions", description="View your champion inventory.")
     @app_commands.describe(rank="Filter by rank (F/E/D/C/B/A/S)", name="Filter by champion name")
     async def champions(self, interaction: discord.Interaction, rank: str = "", name: str = ""):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -37,11 +72,11 @@ class ChampionsCog(commands.Cog):
             champs = [c for c in champs if name.lower() in c.name.lower()]
 
         if not champs:
-            await interaction.followup.send(embed=error_embed("No champions found."))
+            await interaction.followup.send(embed=error_embed("No champions found."), ephemeral=True)
             return
 
         view = PaginatedChampionView(champs, interaction.user.id)
-        await interaction.followup.send(embed=view.current_embed(), view=view)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="champion-info", description="View details of a specific champion.")
     @app_commands.describe(number="Champion list number (see /champions)")
@@ -56,6 +91,18 @@ class ChampionsCog(commands.Cog):
         riot_id = c.riot_id or _riot_id_from_name(c.name)
         embed.set_image(url=DDRAGON_LOADING.format(riot_id=riot_id))
         await interaction.followup.send(embed=embed, ephemeral=True)
+
+    @app_commands.command(name="champion-protect", description="Toggle favorite or lock status on a champion.")
+    @app_commands.describe(number="Champion display ID (see /champions)")
+    async def champion_protect(self, interaction: discord.Interaction, number: int):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+        c = await get_champion_by_number(uid, number)
+        if c is None or c.owner_id != uid:
+            await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
+            return
+        view = ProtectView(c, interaction.user.id)
+        await interaction.followup.send(embed=view._build_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="champions-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped champions of a rank.")
     @app_commands.describe(rank="Rank to sell", name="Optional champion name filter")
@@ -102,27 +149,12 @@ class ChampionsCog(commands.Cog):
 
         await interaction.followup.send(
             embed=success_embed(f"Sold {res['sold']} champion(s) for {res['gold']} gold."),
-            ephemeral=True,
         )
-
-    @app_commands.command(name="champion-favorite", description="Toggle the favorite flag on a champion.")
-    @app_commands.describe(number="Champion list number (see /champions)")
-    async def favorite_champ(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        c = await get_champion_by_number(uid, number)
-        if c is None or c.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
-            return
-        c.favorite = not getattr(c, "favorite", False)
-        await c.save()
-        state = "⭐ favorited" if c.favorite else "unfavorited"
-        await interaction.followup.send(embed=success_embed(f"{c.name} [{c.rank}] is now {state}."), ephemeral=True)
 
     @app_commands.command(name="levelup", description="Level up a champion (costs gold).")
     @app_commands.describe(number="Champion display ID (see /champions)", times="Number of levels, or 'max' to spend all gold")
     async def levelup(self, interaction: discord.Interaction, number: int, times: str = "1"):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         # Parse times: integer or "max"
@@ -214,7 +246,6 @@ class ChampionsCog(commands.Cog):
         at_cap = " (rank cap reached!)" if c.level >= max_lvl else ""
         await interaction.followup.send(
             embed=success_embed(f"{c.name} [{c.rank}] is now Level {c.level}{at_cap}! (-{spent:,} gold)"),
-            ephemeral=True,
         )
 
     @app_commands.command(name="champions-duplicates", description="Find champions you have multiple copies of.")
@@ -257,23 +288,6 @@ class ChampionsCog(commands.Cog):
             embed.add_field(name="Collecting (2 copies)", value="\n".join(lines)[:1024], inline=False)
         embed.set_footer(text="Champions with 3+ copies can be fused with /fuse")
         await interaction.followup.send(embed=embed, ephemeral=True)
-
-    @app_commands.command(name="lock-champion", description="Lock or unlock a champion to protect it.")
-    @app_commands.describe(number="Champion list number (see /champions)")
-    async def lock_champion(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        c = await get_champion_by_number(uid, number)
-        if c is None or c.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
-            return
-        c.locked = not c.locked
-        await c.save()
-        state = "🔒 locked" if c.locked else "🔓 unlocked"
-        await interaction.followup.send(
-            embed=success_embed(f"{c.name} [{c.rank}] is now {state}."),
-            ephemeral=True,
-        )
 
 
 async def setup(bot: commands.Bot):

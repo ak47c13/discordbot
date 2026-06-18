@@ -15,6 +15,41 @@ from services.bulk_service import bulk_sell_items, BulkSellError
 from config.game_config import RANKS, SELL_PRICE_ITEM
 
 
+class ItemProtectView(discord.ui.View):
+    def __init__(self, item, user_id):
+        super().__init__(timeout=60)
+        self.item = item
+        self.user_id = user_id
+
+    def _build_embed(self):
+        i = self.item
+        fav = "⭐ Yes" if getattr(i, "favorite", False) else "—"
+        locked = "🔒 Yes" if i.locked else "—"
+        return discord.Embed(
+            title=f"{i.name} [{i.rank}] +{i.enhancement}  #{i.display_id}",
+            description=f"**Favorite:** {fav}\n**Locked:** {locked}",
+            color=0x5865F2,
+        )
+
+    @discord.ui.button(label="Toggle Favorite ⭐", style=discord.ButtonStyle.secondary)
+    async def toggle_fav(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your item.", ephemeral=True)
+            return
+        self.item.favorite = not getattr(self.item, "favorite", False)
+        await self.item.save()
+        await interaction.response.edit_message(embed=self._build_embed(), view=self)
+
+    @discord.ui.button(label="Toggle Lock 🔒", style=discord.ButtonStyle.secondary)
+    async def toggle_lock(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your item.", ephemeral=True)
+            return
+        self.item.locked = not self.item.locked
+        await self.item.save()
+        await interaction.response.edit_message(embed=self._build_embed(), view=self)
+
+
 class ItemsCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -22,7 +57,7 @@ class ItemsCog(commands.Cog):
     @app_commands.command(name="items", description="View your item inventory.")
     @app_commands.describe(rank="Filter by rank", name="Filter by name")
     async def items_list(self, interaction: discord.Interaction, rank: str = "", name: str = ""):
-        await interaction.response.defer()
+        await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -35,11 +70,11 @@ class ItemsCog(commands.Cog):
             items = [i for i in items if name.lower() in i.name.lower()]
 
         if not items:
-            await interaction.followup.send(embed=error_embed("No items found."))
+            await interaction.followup.send(embed=error_embed("No items found."), ephemeral=True)
             return
 
         view = PaginatedItemView(items, interaction.user.id)
-        await interaction.followup.send(embed=view.current_embed(), view=view)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="item-info", description="View details of a specific item.")
     @app_commands.describe(number="Item list number (see /items)")
@@ -52,34 +87,17 @@ class ItemsCog(commands.Cog):
             return
         await interaction.followup.send(embed=item_embed(itm, "Item Details"), ephemeral=True)
 
-    @app_commands.command(name="lock-item", description="Lock or unlock an item to protect it.")
+    @app_commands.command(name="item-protect", description="Toggle favorite or lock status on an item.")
     @app_commands.describe(number="Item list number (see /items)")
-    async def lock_item(self, interaction: discord.Interaction, number: int):
+    async def item_protect(self, interaction: discord.Interaction, number: int):
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
         itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
             return
-        itm.locked = not itm.locked
-        await itm.save()
-        state = "🔒 locked" if itm.locked else "🔓 unlocked"
-        await interaction.followup.send(embed=success_embed(f"{itm.name} +{itm.enhancement} is now {state}."), ephemeral=True)
-
-    @app_commands.command(name="favorite-item", description="Toggle favorite on an item.")
-    @app_commands.describe(number="Item list number (see /items)")
-    async def favorite_item(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
-        uid = str(interaction.user.id)
-        itm = await get_item_by_number(uid, number)
-        if itm is None or itm.owner_id != uid:
-            await interaction.followup.send(embed=error_embed("Item not found."), ephemeral=True)
-            return
-        new_state = not getattr(itm, "favorite", False)
-        itm.favorite = new_state
-        await itm.save()
-        state = "⭐ favorited" if new_state else "unfavorited"
-        await interaction.followup.send(embed=success_embed(f"{itm.name} is now {state}."), ephemeral=True)
+        view = ItemProtectView(itm, interaction.user.id)
+        await interaction.followup.send(embed=view._build_embed(), view=view, ephemeral=True)
 
     @app_commands.command(name="items-bulk-sell", description="Sell all unlocked, non-favorite, non-equipped items of a rank.")
     @app_commands.describe(rank="Rank to sell", name="Optional item name filter")
@@ -123,7 +141,7 @@ class ItemsCog(commands.Cog):
                         await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
 
-        await interaction.followup.send(embed=success_embed(f"Sold {res['sold']} item(s) for {res['gold']} gold."), ephemeral=True)
+        await interaction.followup.send(embed=success_embed(f"Sold {res['sold']} item(s) for {res['gold']} gold."))
 
 
     @app_commands.command(name="items-equipped", description="Show all items currently equipped on your champions.")

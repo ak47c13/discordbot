@@ -50,7 +50,7 @@ class RuneCog(commands.Cog):
 
         if not instances:
             await interaction.followup.send(
-                embed=error_embed("No runes in your inventory.", "Pull runes from /summon type:Runes."),
+                embed=error_embed("No runes in your inventory.", "Pull runes from /shop type:Runes."),
                 ephemeral=True,
             )
             return
@@ -87,10 +87,10 @@ class RuneCog(commands.Cog):
                 value=value or "—",
                 inline=False,
             )
-        embed.set_footer(text="/runes set <color> <slot> <display_id>  ·  /runes catalog to browse all runes")
+        embed.set_footer(text="/runes set <color> <slot> <display_id>  ·  /runes view to see your page")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @runes.command(name="view", description="Show your current rune page.")
+    @runes.command(name="view", description="Show your rune page layout and total stat bonuses.")
     async def runes_view(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
         user = await User.find_one(User.discord_id == str(interaction.user.id))
@@ -98,7 +98,33 @@ class RuneCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Not registered."), ephemeral=True)
             return
         rp = user.rune_page
+
+        # Compute stat totals
+        totals: dict = {}
+        all_slots = list(rp.reds) + list(rp.yellows) + list(rp.blues) + list(rp.quints[:3])
+        for slot in all_slots:
+            if not slot.rune_id:
+                continue
+            r = RUNE_CATALOG.get(slot.rune_id)
+            if not r:
+                continue
+            mult = RUNE_RANK_MULTIPLIERS.get(slot.rank, 1.0)
+            val = r["value"] * mult
+            totals[r["stat"]] = totals.get(r["stat"], 0) + val
+
         embed = discord.Embed(title="📖 Your Rune Page", color=0x5865F2)
+
+        # Top section: stat totals
+        if totals:
+            lines = []
+            for stat, val in sorted(totals.items()):
+                disp = f"{val:.1f}" if val != int(val) else str(int(val))
+                lines.append(f"**{stat}**: +{disp}")
+            embed.description = "**📊 Stat Totals**\n" + "\n".join(lines)
+        else:
+            embed.description = "No runes equipped. Use `/runes set` to add runes."
+
+        # Per-color slot layout
         for color, attr in [("red", "reds"), ("yellow", "yellows"), ("blue", "blues"), ("quint", "quints")]:
             slots = getattr(rp, attr)
             max_slots = 3 if color == "quint" else 9
@@ -118,39 +144,6 @@ class RuneCog(commands.Cog):
             )
         await interaction.followup.send(embed=embed, ephemeral=True)
 
-    @runes.command(name="page", description="Show total stat bonuses from your rune page.")
-    async def runes_page(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        user = await User.find_one(User.discord_id == str(interaction.user.id))
-        if not user:
-            await interaction.followup.send(embed=error_embed("Not registered."), ephemeral=True)
-            return
-        totals: dict = {}
-        rp = user.rune_page
-        all_slots = list(rp.reds) + list(rp.yellows) + list(rp.blues) + list(rp.quints[:3])
-        for slot in all_slots:
-            if not slot.rune_id:
-                continue
-            r = RUNE_CATALOG.get(slot.rune_id)
-            if not r:
-                continue
-            mult = RUNE_RANK_MULTIPLIERS.get(slot.rank, 1.0)
-            val = r["value"] * mult
-            totals[r["stat"]] = totals.get(r["stat"], 0) + val
-        if not totals:
-            embed = discord.Embed(
-                title="📊 Rune Page Summary",
-                description="No runes equipped. Use `/runes set` to add runes.",
-                color=0x5865F2,
-            )
-        else:
-            lines = []
-            for stat, val in sorted(totals.items()):
-                disp = f"{val:.1f}" if val != int(val) else str(int(val))
-                lines.append(f"**{stat}**: +{disp}")
-            embed = discord.Embed(title="📊 Rune Page Summary", description="\n".join(lines), color=0x5865F2)
-        await interaction.followup.send(embed=embed, ephemeral=True)
-
     @runes.command(name="set", description="Equip an owned rune into a slot.")
     @app_commands.describe(color="red/yellow/blue/quint", slot="Slot number", display_id="Rune # from /runes inventory")
     @app_commands.choices(color=[
@@ -160,7 +153,7 @@ class RuneCog(commands.Cog):
         app_commands.Choice(name="Quint (Quintessences)", value="quint"),
     ])
     async def runes_set(self, interaction: discord.Interaction, color: str, slot: int, display_id: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         max_slots = 3 if color == "quint" else 9
         if not 1 <= slot <= max_slots:
@@ -235,7 +228,6 @@ class RuneCog(commands.Cog):
                 f"Slot {slot} ({color}) → **{rune['name']} [{inst.rank}]**\n"
                 f"{rune['stat'].upper()} +{eff_str} — {rune['description']}"
             ),
-            ephemeral=True,
         )
 
     @runes.command(name="clear", description="Remove a rune from a slot.")
@@ -247,7 +239,7 @@ class RuneCog(commands.Cog):
         app_commands.Choice(name="Quint", value="quint"),
     ])
     async def runes_clear(self, interaction: discord.Interaction, color: str, slot: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         max_slots = 3 if color == "quint" else 9
         if not 1 <= slot <= max_slots:
@@ -270,35 +262,7 @@ class RuneCog(commands.Cog):
                     pass
             getattr(user.rune_page, COLOR_ATTR[color])[slot - 1] = RuneSlot()
             await user.save()
-        await interaction.followup.send(embed=success_embed(f"Slot {slot} ({color}) cleared."), ephemeral=True)
-
-    @runes.command(name="catalog", description="Browse available runes.")
-    @app_commands.describe(color="Filter by color (optional)")
-    @app_commands.choices(color=[
-        app_commands.Choice(name="All", value="all"),
-        app_commands.Choice(name="Red (Marks)", value="red"),
-        app_commands.Choice(name="Yellow (Seals)", value="yellow"),
-        app_commands.Choice(name="Blue (Glyphs)", value="blue"),
-        app_commands.Choice(name="Quint (Quintessences)", value="quint"),
-    ])
-    async def runes_catalog(self, interaction: discord.Interaction, color: str = "all"):
-        await interaction.response.defer(ephemeral=True)
-        runes_by_color: dict = {}
-        for r in RUNE_CATALOG.values():
-            if color == "all" or r["color"] == color:
-                runes_by_color.setdefault(r["color"], []).append(r)
-        embed = discord.Embed(title="📖 Rune Catalog", color=0x5865F2)
-        for c in ["red", "yellow", "blue", "quint"]:
-            if c not in runes_by_color:
-                continue
-            lines = [
-                f"`{r['id']}` — {r['name']}: {r['description']} *(req: [{r['rank_req']}])*"
-                for r in runes_by_color[c]
-            ]
-            value = "\n".join(lines)[:1024]
-            embed.add_field(name=f"{COLOR_EMOJI[c]} {c.title()}", value=value, inline=False)
-        embed.set_footer(text="Pull runes with /summon type:Runes · Equip with /runes set")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=success_embed(f"Slot {slot} ({color}) cleared."))
 
 
 async def setup(bot):

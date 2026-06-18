@@ -15,7 +15,7 @@ class ChampionSelectCog(commands.Cog):
     @app_commands.command(name="champion-select", description="Set your active champion for battles.")
     @app_commands.describe(number="Champion list number (see /roster)")
     async def champion_select(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
             user = await User.find_one(User.discord_id == uid)
@@ -53,7 +53,7 @@ class ChampionSelectCog(commands.Cog):
         )
         riot_id = getattr(champ, "riot_id", "") or champ.name.replace(" ", "").replace("'", "")
         embed.set_thumbnail(url=f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
 
 async def setup(bot):

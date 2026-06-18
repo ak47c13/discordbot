@@ -124,7 +124,7 @@ class FuseCog(commands.Cog):
         app_commands.Choice(name="Runes", value="runes"),
     ])
     async def fuse(self, interaction: discord.Interaction, type: str):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -182,7 +182,7 @@ class FuseCog(commands.Cog):
                 description="\n".join(lines[:25]) + f"\n\n**{total} champion(s) created.**",
                 color=COLOR_SUCCESS,
             )
-            await interaction.followup.send(embed=result_embed, ephemeral=True)
+            await interaction.followup.send(embed=result_embed)
 
         elif type == "items":
             all_items = await ItemInstance.find(ItemInstance.owner_id == uid).to_list()
@@ -237,7 +237,7 @@ class FuseCog(commands.Cog):
                 description="\n".join(lines[:25]) + f"\n\n**{total} item(s) created.**",
                 color=COLOR_SUCCESS,
             )
-            await interaction.followup.send(embed=result_embed, ephemeral=True)
+            await interaction.followup.send(embed=result_embed)
 
         elif type == "runes":
             all_runes = await RuneInstance.find(
@@ -296,7 +296,7 @@ class FuseCog(commands.Cog):
                 description="\n".join(lines[:25]) + f"\n\n**{total} rune(s) created.**",
                 color=COLOR_SUCCESS,
             )
-            await interaction.followup.send(embed=result_embed, ephemeral=True)
+            await interaction.followup.send(embed=result_embed)
 
 
 async def setup(bot: commands.Bot):

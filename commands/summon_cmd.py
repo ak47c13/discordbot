@@ -2,61 +2,15 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from models.user import User
-from utils.embeds import (
-    error_embed, success_embed, progress_bar, COLOR_INFO,
-    SummonRevealView, build_summon_result_embed,
-)
-from utils.locks import get_user_lock
-from utils.db_session import get_motor_client
-from utils.idempotency import is_already_processed, mark_processed
-from services.summon_service import summon_single, summon_multi, SummonError
+from utils.embeds import progress_bar, COLOR_INFO
 from config.game_config import (
-    SUMMON_TOKEN_COST, SUMMON_MULTI_COST, AURA_COLOR_BY_RANK, SUMMON_RATES,
+    SUMMON_TOKEN_COST, SUMMON_MULTI_COST, SUMMON_RATES,
 )
 
 
 class SummonCog(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    @app_commands.command(name="summon", description="Summon a champion or item using summon tokens.")
-    @app_commands.describe(multi="Do 10 summons at once (costs 950 tokens instead of 1000)")
-    async def summon(self, interaction: discord.Interaction, multi: bool = False):
-        await interaction.response.defer()
-        uid = str(interaction.user.id)
-
-        iid = str(interaction.id)
-        if await is_already_processed(iid):
-            await interaction.followup.send(embed=error_embed("Already processed."), ephemeral=True)
-            return
-
-        await User.get_or_create(uid, interaction.user.display_name)
-
-        async with get_user_lock(uid):
-            client = get_motor_client()
-            async with await client.start_session() as session:
-                async with session.start_transaction():
-                    try:
-                        if multi:
-                            results = await summon_multi(uid, session)
-                        else:
-                            results = [await summon_single(uid, session)]
-                    except SummonError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
-                        return
-
-        await mark_processed(iid, f"summon:{'multi' if multi else 'single'}")
-
-        if multi:
-            view = SummonRevealView(results, interaction.user.id)
-            await interaction.followup.send(embed=view.build_page_embed(), view=view)
-        else:
-            embed = build_summon_result_embed(
-                results[0],
-                footer=f"Cost: {SUMMON_TOKEN_COST} summon tokens",
-            )
-            await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="summon-rates", description="View summon pull rates.")
     async def summon_rates(self, interaction: discord.Interaction):

@@ -22,7 +22,7 @@ class TeamCog(commands.Cog):
         slot="Equipment slot 1-6",
     )
     async def equip(self, interaction: discord.Interaction, item_number: int, champion_number: int, slot: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         if not 1 <= slot <= 6:
             await interaction.followup.send(embed=error_embed("Equipment slot must be 1–6."), ephemeral=True)
             return
@@ -72,13 +72,12 @@ class TeamCog(commands.Cog):
 
         await interaction.followup.send(
             embed=success_embed(f"{itm.name} +{itm.enhancement} equipped to {champ.name} in slot {slot}."),
-            ephemeral=True,
         )
 
     @app_commands.command(name="unequip", description="Unequip an item from a champion.")
     @app_commands.describe(item_number="Item list number (see /items)")
     async def unequip(self, interaction: discord.Interaction, item_number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
             itm = await get_item_by_number(uid, item_number)
@@ -94,7 +93,6 @@ class TeamCog(commands.Cog):
 
         await interaction.followup.send(
             embed=success_embed(f"{itm.name} unequipped."),
-            ephemeral=True,
         )
 
 

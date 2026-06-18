@@ -35,7 +35,7 @@ class BlacksmithCog(commands.Cog):
     @app_commands.command(name="enhance", description="Enhance an item (+1 level). Above +7 risks destruction.")
     @app_commands.describe(number="Item list number (see /items)", use_seal="Use a Blacksmith's Seal to protect against destruction")
     async def enhance(self, interaction: discord.Interaction, number: int, use_seal: bool = False):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         itm = await get_item_by_number(uid, number)
@@ -110,12 +110,12 @@ class BlacksmithCog(commands.Cog):
             if result["seal_used"]:
                 embed.add_field(name="🔏 Seal Used", value="Seal protected the item from destruction.", inline=False)
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        await interaction.followup.send(embed=embed)
 
     @app_commands.command(name="clear", description="Reset an item to +0 (costs gold, no refund).")
     @app_commands.describe(number="Item list number (see /items)")
     async def clear(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         itm = await get_item_by_number(uid, number)
@@ -161,7 +161,6 @@ class BlacksmithCog(commands.Cog):
 
         await interaction.followup.send(
             embed=success_embed(f"{result.name} [{result.rank}] cleared to +0. (-{gold_cost} gold)"),
-            ephemeral=True,
         )
 
     @app_commands.command(name="reroll", description="Reroll secondary stat (full: changes type+value).")
@@ -174,6 +173,7 @@ class BlacksmithCog(commands.Cog):
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
+                ephemeral=True,
             )
             return
         item_id = str(itm.id)
@@ -185,7 +185,7 @@ class BlacksmithCog(commands.Cog):
             try:
                 preview = await reroll_secondary_full(uid, item_id, session)
             except BlacksmithError as e:
-                await interaction.followup.send(embed=error_embed(str(e)))
+                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                 return
 
         embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
@@ -203,11 +203,11 @@ class BlacksmithCog(commands.Cog):
         embed.set_footer(text="Accept to apply and pay. Reject to keep current stat.")
 
         view = RerollPreviewView()
-        await interaction.followup.send(embed=embed, view=view)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO))
+            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO), ephemeral=True)
             return
 
         async with get_user_lock(uid):
@@ -220,7 +220,7 @@ class BlacksmithCog(commands.Cog):
                             session,
                         )
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)))
+                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
 
         await interaction.followup.send(embed=item_embed(result, "✅ Reroll Applied"))
@@ -228,7 +228,7 @@ class BlacksmithCog(commands.Cog):
     @app_commands.command(name="refine", description="Reroll secondary stat value only (keeps stat type).")
     @app_commands.describe(number="Item list number (see /items)")
     async def refine(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         itm = await get_item_by_number(uid, number)
@@ -272,13 +272,13 @@ class BlacksmithCog(commands.Cog):
                         await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
 
-        await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"), ephemeral=True)
+        await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"))
 
 
     @app_commands.command(name="build", description="Craft an item from its components. Browse with the menu or type a name directly.")
     @app_commands.describe(item_name="Optional: type item name directly (e.g. Infinity Edge). Leave blank to browse.")
     async def build(self, interaction: discord.Interaction, item_name: str = ""):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         if not item_name:
