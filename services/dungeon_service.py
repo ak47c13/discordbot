@@ -48,6 +48,28 @@ class DungeonError(Exception):
     pass
 
 
+# Map order defines global difficulty progression.
+# map_multiplier = 1.0 + (map_index * MAP_SCALE_PER_MAP)
+# So Map 2 Floor 1 is always slightly stronger than Map 1 Floor max.
+_MAP_ORDER = [
+    "map-1-demacia",
+    "map-2-noxus",
+    "map-3-freljord",
+    "map-4-ionia",
+    "map-5-piltover",
+    "map-6-bilgewater",
+    "map-7-shadow-isles",
+    "map-8-void",
+]
+_MAP_SCALE_PER_MAP = 0.30  # each map adds 30% base stat multiplier on top of floor scaling
+
+
+def _map_multiplier(dungeon_slug: str) -> float:
+    """Return a global stat multiplier based on which map this dungeon is."""
+    idx = _MAP_ORDER.index(dungeon_slug) if dungeon_slug in _MAP_ORDER else 0
+    return 1.0 + idx * _MAP_SCALE_PER_MAP
+
+
 # ---------------------------------------------------------------------------
 # Progress helpers
 # ---------------------------------------------------------------------------
@@ -117,7 +139,7 @@ async def _check_unlock(owner_id: str, dungeon: Dungeon, session=None) -> tuple[
 # ---------------------------------------------------------------------------
 # Enemy construction
 # ---------------------------------------------------------------------------
-def _build_enemy_unit(enemy: dict, floor_num: int, boss_floor: bool, position: int) -> CombatUnit:
+def _build_enemy_unit(enemy: dict, floor_num: int, boss_floor: bool, position: int, dungeon_slug: str = "") -> CombatUnit:
     rank = enemy.get("rank", "F")
     base = CHAMPION_BASE_STATS.get(rank, CHAMPION_BASE_STATS["F"])
     growth = CHAMPION_GROWTH_STATS.get(rank, CHAMPION_GROWTH_STATS["F"])
@@ -128,9 +150,10 @@ def _build_enemy_unit(enemy: dict, floor_num: int, boss_floor: bool, position: i
     base_def = base["def"] + growth["def"] * (level - 1)
     base_spd = base["spd"]
 
-    hp = base_hp * (1 + (floor_num - 1) * DUNGEON_HP_SCALE_PER_FLOOR) * enemy.get("hp_mult", 1.0)
-    atk = base_atk * (1 + (floor_num - 1) * DUNGEON_ATK_SCALE_PER_FLOOR) * enemy.get("atk_mult", 1.0)
-    defense = base_def * (1 + (floor_num - 1) * DUNGEON_DEF_SCALE_PER_FLOOR) * enemy.get("def_mult", 1.0)
+    map_mult = _map_multiplier(dungeon_slug)
+    hp = base_hp * (1 + (floor_num - 1) * DUNGEON_HP_SCALE_PER_FLOOR) * enemy.get("hp_mult", 1.0) * map_mult
+    atk = base_atk * (1 + (floor_num - 1) * DUNGEON_ATK_SCALE_PER_FLOOR) * enemy.get("atk_mult", 1.0) * map_mult
+    defense = base_def * (1 + (floor_num - 1) * DUNGEON_DEF_SCALE_PER_FLOOR) * enemy.get("def_mult", 1.0) * map_mult
     spd = base_spd + (floor_num // 5)
 
     if boss_floor:
@@ -203,7 +226,7 @@ async def get_floor_preview(dungeon_slug: str, floor_num: int, session=None) -> 
     if floor is None:
         raise DungeonError(f"Floor {floor_num} not found for {dungeon_slug}.")
     enemy_units = [
-        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1)
+        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1, dungeon_slug)
         for i, e in enumerate(floor.enemies)
     ]
     return {
@@ -307,7 +330,7 @@ async def build_floor_units(
         raise DungeonError("No valid champions provided for this run.")
 
     enemy_units = [
-        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1)
+        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1, dungeon_slug)
         for i, e in enumerate(floor.enemies)
     ]
     boss_passive = floor.boss_passive or (dungeon.boss_passive if floor.boss_floor else "")
@@ -445,7 +468,7 @@ async def enter_floor(
 
     # Build enemy units
     enemy_units = [
-        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1)
+        _build_enemy_unit(e, floor_num, floor.boss_floor, i + 1, dungeon_slug)
         for i, e in enumerate(floor.enemies)
     ]
     if not enemy_units:
