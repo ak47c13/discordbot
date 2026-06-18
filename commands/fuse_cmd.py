@@ -21,7 +21,7 @@ from config.game_config import RANKS, CHAMPION_FUSION_COST, ITEM_FUSION_COST
 
 async def _auto_fuse_all_champions(uid: str, session) -> dict:
     """Fuse all eligible champion groups across every fusible rank. Returns result summary."""
-    results: dict[str, int] = defaultdict(int)  # next_rank -> count created
+    results: dict[str, int] = defaultdict(int)  # label -> count created
     for rank in RANKS[:-1]:  # F through A
         next_rank = RANKS[RANKS.index(rank) + 1]
         while True:
@@ -43,7 +43,10 @@ async def _auto_fuse_all_champions(uid: str, session) -> dict:
                         await fuse_champions(uid, [str(c.id) for c in trio], session)
                         results[f"{name} [{next_rank}]"] += 1
                         did_any = True
-                    except FusionError:
+                    except FusionError as e:
+                        if "gold" in str(e).lower():
+                            # Out of gold for this rank tier — skip to next name, not next rank
+                            break
                         break
             if not did_any:
                 break
@@ -141,18 +144,28 @@ class FuseCog(commands.Cog):
                     embed=error_embed("No fusible champions found.", "Need 3+ copies of the same champion and rank (non-favorite, unlocked)."),
                 )
                 return
+            user = await User.find_one(User.discord_id == uid)
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
+            total_gold_cost = sum(
+                (cnt // 3) * CHAMPION_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
+                for _, rank, cnt in groups
+            )
+            affordable = user.gold >= total_gold_cost
             preview_lines = []
             for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                 next_rank = RANKS[RANKS.index(rank) + 1]
                 n = cnt // 3
                 preview_lines.append(f"• {name} [{rank}] ×{cnt // 3 * 3} → **{n}x [{next_rank}]**")
+            gold_line = f"💰 Total cost: **{total_gold_cost:,} gold** (you have {user.gold:,})"
+            if not affordable:
+                gold_line += " ⚠️ — fusions will stop when gold runs out"
             embed = discord.Embed(
                 title="🔮 Bulk Fuse — Champions",
                 description=(
                     "\n".join(preview_lines[:20]) +
                     (f"\n…and {len(preview_lines) - 20} more groups" if len(preview_lines) > 20 else "") +
                     f"\n\n**{total_fusions} fusion(s)** will run across all ranks.\n"
+                    f"{gold_line}\n"
                     "⚠️ Lowest-level copies consumed. Favorites and locked champions are skipped."
                 ),
                 color=COLOR_WARNING,
@@ -195,18 +208,28 @@ class FuseCog(commands.Cog):
                     embed=error_embed("No fusible items found.", "Need 3+ copies of the same +0 item and rank (non-favorite, unlocked)."),
                 )
                 return
+            user = await User.find_one(User.discord_id == uid)
             total_fusions = sum(cnt // 3 for _, _, cnt in groups)
+            total_gold_cost = sum(
+                (cnt // 3) * ITEM_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
+                for _, rank, cnt in groups
+            )
+            affordable = user.gold >= total_gold_cost
             preview_lines = []
             for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                 next_rank = RANKS[RANKS.index(rank) + 1]
                 n = cnt // 3
                 preview_lines.append(f"• {name} [{rank}] ×{cnt // 3 * 3} → **{n}x [{next_rank}]**")
+            gold_line = f"💰 Total cost: **{total_gold_cost:,} gold** (you have {user.gold:,})"
+            if not affordable:
+                gold_line += " ⚠️ — fusions will stop when gold runs out"
             embed = discord.Embed(
                 title="🔨 Bulk Fuse — Items",
                 description=(
                     "\n".join(preview_lines[:20]) +
                     (f"\n…and {len(preview_lines) - 20} more groups" if len(preview_lines) > 20 else "") +
                     f"\n\n**{total_fusions} fusion(s)** will run.\n"
+                    f"{gold_line}\n"
                     "⚠️ Items must be +0. Favorites and locked items are skipped."
                 ),
                 color=COLOR_WARNING,
