@@ -59,6 +59,14 @@ async def simulate_and_store(
     seed = random.randint(0, 2 ** 31)
     result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed, max_rounds=max_rounds)
 
+    # Thin stored rounds to at most DISPLAY_MAX_UPDATES evenly-spaced snapshots so
+    # MongoDB documents stay small and advance_and_display never runs for hours.
+    if len(rounds) > DISPLAY_MAX_UPDATES:
+        step = len(rounds) / DISPLAY_MAX_UPDATES
+        kept = [rounds[int(i * step)] for i in range(DISPLAY_MAX_UPDATES - 1)]
+        kept.append(rounds[-1])  # always include the final round
+        rounds = kept
+
     bs = BattleSession(
         owner_id=owner_id,
         zone=zone,
@@ -191,10 +199,10 @@ async def advance_and_display(
         return
 
     interval = _interval_for(bs)
-    target = bs.simulated_round_count if until_round is None else min(until_round, bs.simulated_round_count)
+    raw_target = bs.simulated_round_count if until_round is None else min(until_round, bs.simulated_round_count)
+    # Hard cap: never display more than DISPLAY_MAX_UPDATES rounds regardless of simulation length.
+    target = min(raw_target, bs.displayed_round_count + DISPLAY_MAX_UPDATES)
 
-    # Display EVERY round, editing the message once per round with a sleep
-    # between each so the battle reveals at a steady, snappy pace.
     for idx in range(bs.displayed_round_count, target):
         # Re-check status for cooperative cancellation
         fresh = await BattleSession.get(bs.id)
@@ -240,9 +248,11 @@ async def advance_and_display(
         if interval > 0:
             await asyncio.sleep(interval)
 
-    # All target rounds shown — finalize if fully displayed
-    if bs.displayed_round_count >= bs.simulated_round_count:
-        await finalize(bs, message, bs.rewards_json, session=None, reward_fn=reward_fn)
+    # Jump displayed count to end so finalize always triggers even when we capped display.
+    if bs.displayed_round_count < bs.simulated_round_count:
+        bs.displayed_round_count = bs.simulated_round_count
+        await bs.save()
+    await finalize(bs, message, bs.rewards_json, session=None, reward_fn=reward_fn)
 
 
 async def _resolve_message(bs: BattleSession, discord_bot):

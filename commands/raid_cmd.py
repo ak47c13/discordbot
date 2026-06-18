@@ -169,11 +169,12 @@ class RaidCog(commands.Cog):
         async with get_user_lock(uid):
             client = get_motor_client()
             async with await client.start_session() as session:
-                try:
-                    raid = await join_raid(uid, raid_id, str(champ.id), session)
-                except RaidError as e:
-                    await interaction.followup.send(embed=error_embed(str(e)))
-                    return
+                async with session.start_transaction():
+                    try:
+                        raid = await join_raid(uid, raid_id, str(champ.id), session)
+                    except RaidError as e:
+                        await interaction.followup.send(embed=error_embed(str(e)))
+                        return
 
         diff = RAID_DIFFICULTIES.get(raid.zone, {}).get("display", raid.zone)
         await interaction.followup.send(
