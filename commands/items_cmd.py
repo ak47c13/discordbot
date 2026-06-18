@@ -22,7 +22,7 @@ class ItemsCog(commands.Cog):
     @app_commands.command(name="items", description="View your item inventory.")
     @app_commands.describe(rank="Filter by rank", name="Filter by name")
     async def items_list(self, interaction: discord.Interaction, rank: str = "", name: str = ""):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -35,11 +35,11 @@ class ItemsCog(commands.Cog):
             items = [i for i in items if name.lower() in i.name.lower()]
 
         if not items:
-            await interaction.followup.send(embed=error_embed("No items found."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("No items found."))
             return
 
         view = PaginatedItemView(items, interaction.user.id)
-        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
+        await interaction.followup.send(embed=view.current_embed(), view=view)
 
     @app_commands.command(name="item-info", description="View details of a specific item.")
     @app_commands.describe(number="Item list number (see /items)")

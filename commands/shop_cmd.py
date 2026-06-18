@@ -152,7 +152,7 @@ class PullView(discord.ui.View):
         return True
 
     async def _do_pull(self, interaction: discord.Interaction, multi: bool):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         async with get_user_lock(uid):
             client = get_motor_client()
@@ -161,13 +161,13 @@ class PullView(discord.ui.View):
                     if multi:
                         results = await summon_multi(uid, session, pool_type=self.pool_type)
                         view = SummonRevealView(results, interaction.user.id)
-                        await interaction.followup.send(embed=view.build_page_embed(), view=view, ephemeral=True)
+                        await interaction.followup.send(embed=view.build_page_embed(), view=view)
                     else:
                         result = await summon_single(uid, session, pool_type=self.pool_type)
                         embed = build_summon_result_embed(result)
-                        await interaction.followup.send(embed=embed, ephemeral=True)
+                        await interaction.followup.send(embed=embed)
                 except SummonError as e:
-                    await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                    await interaction.followup.send(embed=error_embed(str(e)))
 
     @discord.ui.button(label="1× Pull (1 token)", style=discord.ButtonStyle.primary)
     async def single_pull(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -217,7 +217,7 @@ class TokenBundleView(discord.ui.View):
             if interaction.user.id != self.user_id:
                 await interaction.response.send_message("This isn't your shop.", ephemeral=True)
                 return
-            await interaction.response.defer(ephemeral=True)
+            await interaction.response.defer()
             uid = str(interaction.user.id)
             try:
                 async with get_user_lock(uid):
@@ -226,11 +226,11 @@ class TokenBundleView(discord.ui.View):
                     f"Bought **{res['tokens_gained']} token(s)** for **{res['gold_spent']:,} gold**!",
                     title="Purchase Complete",
                 )
-                await interaction.followup.send(embed=embed, ephemeral=True)
+                await interaction.followup.send(embed=embed)
             except ShopError as e:
-                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                await interaction.followup.send(embed=error_embed(str(e)))
             except Exception as e:
-                await interaction.followup.send(embed=error_embed(f"Purchase failed: {e}"), ephemeral=True)
+                await interaction.followup.send(embed=error_embed(f"Purchase failed: {e}"))
         return callback
 
 
@@ -294,11 +294,11 @@ class ShopCog(commands.Cog):
 
     @app_commands.command(name="shop", description="Open the shop — pull champions, items, and runes.")
     async def shop(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         user = await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
         embed = _shop_main_embed(user.summon_tokens, user.gold)
         view = ShopView(interaction.user.id)
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
 
 
 async def setup(bot: commands.Bot):

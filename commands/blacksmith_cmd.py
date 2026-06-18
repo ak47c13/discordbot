@@ -167,14 +167,13 @@ class BlacksmithCog(commands.Cog):
     @app_commands.command(name="reroll", description="Reroll secondary stat (full: changes type+value).")
     @app_commands.describe(number="Item list number (see /items)")
     async def reroll(self, interaction: discord.Interaction, number: int):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
 
         itm = await get_item_by_number(uid, number)
         if itm is None or itm.owner_id != uid:
             await interaction.followup.send(
                 embed=error_embed("Item not found.", "Use `/items` to find the right number."),
-                ephemeral=True,
             )
             return
         item_id = str(itm.id)
@@ -186,7 +185,7 @@ class BlacksmithCog(commands.Cog):
             try:
                 preview = await reroll_secondary_full(uid, item_id, session)
             except BlacksmithError as e:
-                await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                await interaction.followup.send(embed=error_embed(str(e)))
                 return
 
         embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
@@ -204,11 +203,11 @@ class BlacksmithCog(commands.Cog):
         embed.set_footer(text="Accept to apply and pay. Reject to keep current stat.")
 
         view = RerollPreviewView()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO), ephemeral=True)
+            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -221,10 +220,10 @@ class BlacksmithCog(commands.Cog):
                             session,
                         )
                     except BlacksmithError as e:
-                        await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
+                        await interaction.followup.send(embed=error_embed(str(e)))
                         return
 
-        await interaction.followup.send(embed=item_embed(result, "✅ Reroll Applied"), ephemeral=True)
+        await interaction.followup.send(embed=item_embed(result, "✅ Reroll Applied"))
 
     @app_commands.command(name="refine", description="Reroll secondary stat value only (keeps stat type).")
     @app_commands.describe(number="Item list number (see /items)")

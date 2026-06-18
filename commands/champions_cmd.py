@@ -24,7 +24,7 @@ class ChampionsCog(commands.Cog):
     @app_commands.command(name="champions", description="View your champion inventory.")
     @app_commands.describe(rank="Filter by rank (F/E/D/C/B/A/S)", name="Filter by champion name")
     async def champions(self, interaction: discord.Interaction, rank: str = "", name: str = ""):
-        await interaction.response.defer(ephemeral=True)
+        await interaction.response.defer()
         uid = str(interaction.user.id)
         await User.get_or_create(uid, interaction.user.display_name)
 
@@ -37,11 +37,11 @@ class ChampionsCog(commands.Cog):
             champs = [c for c in champs if name.lower() in c.name.lower()]
 
         if not champs:
-            await interaction.followup.send(embed=error_embed("No champions found."), ephemeral=True)
+            await interaction.followup.send(embed=error_embed("No champions found."))
             return
 
         view = PaginatedChampionView(champs, interaction.user.id)
-        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
+        await interaction.followup.send(embed=view.current_embed(), view=view)
 
     @app_commands.command(name="champion-info", description="View details of a specific champion.")
     @app_commands.describe(number="Champion list number (see /champions)")
