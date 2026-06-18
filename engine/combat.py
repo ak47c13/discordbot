@@ -605,6 +605,7 @@ def run_battle_with_rounds(
     player_units: list[CombatUnit],
     enemy_units: list[CombatUnit],
     seed: int | None = None,
+    max_rounds: int | None = None,
 ) -> tuple[BattleResult, list[dict]]:
     if seed is not None:
         random.seed(seed)
@@ -644,7 +645,8 @@ def run_battle_with_rounds(
             "alive_enemies": sum(1 for u in enemy_units if u.is_alive),
         })
 
-    for rnd in range(1, MAX_ROUNDS + 1):
+    _cap = (MAX_ROUNDS if max_rounds is None else max_rounds) or 10_000
+    for rnd in range(1, _cap + 1):
         rounds = rnd
         round_log_start = len(log)
         alive_players = [u for u in player_units if u.is_alive]
@@ -654,7 +656,7 @@ def run_battle_with_rounds(
             break
 
         # Detect teams that cannot damage each other (invincible heal loops)
-        if _detect_stalemate(alive_players, alive_enemies, rnd):
+        if _detect_stalemate(alive_players, alive_enemies, rnd, capped=(max_rounds is None)):
             log.append(f"[Round {rnd}] Stalemate detected — battle ends in DRAW.")
             _snapshot(rnd, round_log_start)
             return BattleResult(
@@ -926,15 +928,17 @@ def _detect_stalemate(
     players: list[CombatUnit],
     enemies: list[CombatUnit],
     current_round: int,
+    capped: bool = True,
 ) -> bool:
-    """After round 30 with no deaths possible, declare stalemate."""
-    if current_round < 30:
-        return False
-    # If all player units and enemy units have full shields and no damage skills, stalemate
-    # Simple heuristic: if both sides have max HP for 5+ rounds, it's a stalemate
-    # We track this by checking if no unit took damage in the last 5 rounds
-    # For simplicity, force stalemate after round 40 regardless
-    return current_round >= 40
+    """Detect heal-loop stalemate. Only forces a draw on round count when capped (dungeons).
+    Uncapped battles (raids) only stalemate if no side can deal damage at all."""
+    if capped:
+        return current_round >= 40
+    # For uncapped battles: stalemate only if every surviving unit has no damage skill
+    for u in players + enemies:
+        if u.is_alive and (u.basic_fn is not None or u.ultimate_fn is not None):
+            return False
+    return True
 
 
 # ---------------------------------------------------------------------------

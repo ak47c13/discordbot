@@ -15,7 +15,7 @@ from models.raid import RaidQueue
 from models.user import User
 from models.champion import ChampionInstance
 from models.item import ItemInstance
-from engine.combat import build_unit_from_champion, run_battle
+from engine.combat import build_unit_from_champion, run_battle, run_battle_with_rounds
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
@@ -266,7 +266,8 @@ async def start_raid(
     await raid.save(session=usable_session(session))
 
     boss = _build_raid_boss(difficulty, n_players, boss_name)
-    battle_result = run_battle(player_units, [boss])
+    # Raids are uncapped — fight until party wipes or boss dies (no draw on round count)
+    battle_result, _rounds = run_battle_with_rounds(player_units, [boss], max_rounds=0)
 
     # Build per-player contribution scores from unit tracking
     # score = 60% damage dealt + 40% damage taken (normalized)
