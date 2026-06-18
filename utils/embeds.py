@@ -587,8 +587,11 @@ class ConfirmView(discord.ui.View):
     @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
     async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
         self.confirmed = True
+        self.interaction = interaction
+        for child in self.children:
+            child.disabled = True
+        await interaction.response.edit_message(content="⏳ Processing…", embed=None, view=self)
         self.stop()
-        await interaction.response.defer()
 
     @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
     async def cancel(self, interaction: discord.Interaction, button: discord.ui.Button):
