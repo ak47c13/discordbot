@@ -110,6 +110,8 @@ def make_skill(
         log: list[str] = []
         dmg_targets = _resolve_targets(targeting, caster, all_enemies, all_allies)
 
+        total_damage_dealt = 0  # tracked for damage-based heals
+
         # Damage
         for t in dmg_targets:
             for _ in range(hits):
@@ -152,6 +154,7 @@ def make_skill(
 
                 if dmg > 0:
                     _apply_damage(t, dmg, damage_type)
+                    total_damage_dealt += dmg
                     crit_label = " 💥CRIT!" if is_crit else ""
                     log.append(f"  🗡️ {caster.name} hits {t.name} for {dmg:,} damage.{crit_label}")
                     if lifesteal > 0 and damage_type in ("physical", "magic"):
@@ -189,13 +192,19 @@ def make_skill(
                 }.get(status, "⚡")
                 log.append(f"  {_status_emoji} {t.name} is afflicted with {status}.")
 
-        # Heal
+        # Heal — damage skills heal based on damage dealt; pure heal skills use caster max HP
         if heal_coeff > 0:
             h_targets = _resolve_targets(heal_target, caster, all_enemies, all_allies)
             for t in h_targets:
-                amount = int(caster.hp_max * heal_coeff)
-                t.hp = min(t.hp_max, t.hp + amount)
-                log.append(f"  💚 {caster.name} heals {t.name} for {amount:,} HP.")
+                if coeff > 0 and total_damage_dealt > 0:
+                    # Damage skill with on-hit heal (e.g. Decimate, Blade Surge)
+                    amount = int(total_damage_dealt * heal_coeff)
+                else:
+                    # Pure heal skill (support heals scale off healer's max HP)
+                    amount = int(caster.hp_max * heal_coeff)
+                if amount > 0:
+                    t.hp = min(t.hp_max, t.hp + amount)
+                    log.append(f"  💚 {caster.name} heals {t.name} for {amount:,} HP.")
 
         # Shield
         if shield_coeff > 0:

@@ -48,7 +48,7 @@ CHAMPION_SKILLS = {
         "q": {"name": "Decimate", "targeting": "all", "damage_type": "physical", "coeff": 0.7, "hits": 1, "mana_gain": 25, "aoe": True, "heal_coeff": 0.1, "description": "Swings axe at all enemies for 70% ATK. Heals for 10% ATK per enemy hit."},
         "w": {"name": "Crippling Strike", "targeting": "front", "damage_type": "physical", "coeff": 1.5, "hits": 1, "mana_gain": 25, "status": "stun", "status_duration": 1, "status_chance": 0.5, "description": "Empowered strike for 150% ATK. 50% chance to stun for 1 round."},
         "e": {"name": "Apprehend", "targeting": "back", "damage_type": "physical", "coeff": 1.1, "hits": 1, "mana_gain": 28, "status": "defense_down", "status_duration": 2, "status_chance": 0.8, "description": "Pulls the back enemy for 110% ATK. 80% chance to reduce DEF for 2 rounds."},
-        "r": {"name": "Noxian Guillotine", "targeting": "weakest", "damage_type": "true", "coeff": 4.0, "hits": 1, "mana_gain": 0, "description": "Executes the weakest enemy for 400% true damage."},
+        "r": {"name": "Noxian Guillotine", "targeting": "weakest", "damage_type": "physical", "coeff": 2.0, "hits": 1, "mana_gain": 0, "status": "defense_down", "status_duration": 2, "status_chance": 0.7, "description": "Guillotines the weakest enemy for 200% ATK. 70% chance to reduce DEF for 2 rounds."},
     },
     "Draven": {
         "q": {"name": "Spinning Axe", "targeting": "front", "damage_type": "physical", "coeff": 1.5, "hits": 1, "mana_gain": 22, "description": "Hurls a spinning axe for 150% ATK."},
