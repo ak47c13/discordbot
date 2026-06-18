@@ -13,27 +13,29 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
     "noxus": [
         "Darius", "Draven", "Katarina", "Swain", "Vladimir", "Mordekaiser",
         "Urgot", "Sion", "Talon", "Cassiopeia", "Riven", "LeBlanc", "Samira",
-        "Kled", "Alistar", "Annie", "Mel",
+        "Kled", "Alistar", "Annie", "Mel", "Ambessa",
     ],
     "freljord": [
         "Ashe", "Tryndamere", "Braum", "Sejuani", "Volibear", "Lissandra",
-        "Anivia", "Nunu & Willump", "Gragas", "Trundle", "Udyr", "Olaf",
-        "Brand", "Gnar", "Ornn",
+        "Anivia", "Nunu", "Gragas", "Trundle", "Udyr", "Olaf",
+        "Brand", "Gnar", "Ornn", "Aurora",
     ],
     "piltover_zaun": [
         "Jayce", "Vi", "Caitlyn", "Jinx", "Ekko", "Heimerdinger", "Blitzcrank",
         "Ziggs", "Zac", "Warwick", "Singed", "Viktor", "Orianna", "Janna",
         "Twitch", "Renata Glasc", "Dr. Mundo", "Ezreal", "Ryze",
+        "Seraphine", "Zeri", "Rell",
     ],
     "ionia": [
         "Ahri", "Irelia", "Yasuo", "Yone", "Zed", "Kennen", "Karma",
         "Lee Sin", "Master Yi", "Shen", "Akali", "Wukong", "Syndra", "Kayn",
         "Jhin", "Xayah", "Rakan", "Varus", "Sett", "Jax", "Yunara",
+        "Hwei", "Lillia",
     ],
     "shadow_isles": [
         "Thresh", "Hecarim", "Karthus", "Yorick", "Senna", "Viego", "Gwen",
         "Maokai", "Kalista", "Elise", "Nocturne", "Evelynn", "Briar",
-        "Fiddlesticks", "Kindred", "Shaco",
+        "Fiddlesticks", "Kindred", "Shaco", "Vex",
     ],
     "bilgewater": [
         "Gangplank", "Miss Fortune", "Graves", "Twisted Fate", "Nautilus",
@@ -42,7 +44,7 @@ CHAMPION_REGIONS: dict[str, list[str]] = {
     "shurima": [
         "Azir", "Nasus", "Renekton", "Sivir", "Taliyah", "Rammus", "Amumu",
         "Xerath", "Zilean", "Akshan", "K'Sante", "Naafiri", "Skarner",
-        "Rengar", "Aatrox", "Nilah",
+        "Rengar", "Aatrox", "Nilah", "Smolder",
     ],
     "targon": [
         "Pantheon", "Leona", "Diana", "Aurelion Sol", "Taric", "Aphelios",

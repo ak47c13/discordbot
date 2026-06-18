@@ -68,8 +68,6 @@ class AutoBattlerBot(commands.Bot):
 
     async def setup_hook(self):
         await init_db()
-        from data.champion_skills import validate_champion_skills
-        validate_champion_skills()
         self.tree.interaction_check = self.require_registration
         for cog in COGS:
             try:
