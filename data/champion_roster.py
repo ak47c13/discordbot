@@ -88,7 +88,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Akali Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -103,7 +103,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Akali Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -199,7 +199,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Amumu Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.8,
             "hits": 1,
             "mana_gain": 22,
@@ -214,7 +214,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Amumu Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -828,7 +828,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Cho'Gath Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.8,
             "hits": 1,
             "mana_gain": 22,
@@ -843,7 +843,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Cho'Gath Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -939,7 +939,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Diana Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -954,7 +954,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Diana Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -1050,7 +1050,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Ekko Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -1065,7 +1065,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Ekko Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -1124,7 +1124,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Evelynn Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -1139,7 +1139,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Evelynn Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -1176,7 +1176,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Ezreal Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.0,
             "hits": 1,
             "mana_gain": 0,
@@ -1272,7 +1272,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Fizz Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -1287,7 +1287,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Fizz Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -1309,7 +1309,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Galio Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.8,
             "hits": 1,
             "mana_gain": 22,
@@ -1324,7 +1324,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Galio Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -1457,7 +1457,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Gragas Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -1472,7 +1472,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Gragas Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -1842,7 +1842,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Jarvan IV Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -2197,7 +2197,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Kassadin Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -2212,7 +2212,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Kassadin Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -2234,7 +2234,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Katarina Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -2249,7 +2249,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Katarina Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -2271,7 +2271,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Kayle Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -2286,7 +2286,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Kayle Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -2530,7 +2530,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "LeBlanc Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -2545,7 +2545,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "LeBlanc Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -2826,7 +2826,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Malphite Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.8,
             "hits": 1,
             "mana_gain": 22,
@@ -2841,7 +2841,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Malphite Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -2900,7 +2900,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Maokai Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.8,
             "hits": 1,
             "mana_gain": 22,
@@ -2915,7 +2915,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Maokai Finale",
             "targeting": "all",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.0,
             "hits": 1,
             "mana_gain": 0,
@@ -3085,7 +3085,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Mordekaiser Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -3100,7 +3100,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Mordekaiser Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -3344,7 +3344,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Nidalee Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.3,
             "hits": 1,
             "mana_gain": 30,
@@ -3359,7 +3359,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Nidalee Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -3433,7 +3433,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Nocturne Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.5,
             "hits": 1,
             "mana_gain": 0,
@@ -4047,7 +4047,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Rumble Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -4062,7 +4062,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Rumble Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -4395,7 +4395,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Shyvana Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
@@ -4898,7 +4898,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Teemo Strike",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 0.9,
             "hits": 2,
             "mana_gain": 25,
@@ -4913,7 +4913,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Teemo Finale",
             "targeting": "weakest",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 3.0,
             "hits": 1,
             "mana_gain": 0,
@@ -5601,7 +5601,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "basic": {
             "name": "Warwick Strike",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 1.1,
             "hits": 1,
             "mana_gain": 25,
@@ -5616,7 +5616,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Warwick Finale",
             "targeting": "front",
-            "damage_type": "physical",
+            "damage_type": "magic",
             "coeff": 2.8,
             "hits": 1,
             "mana_gain": 0,
