@@ -84,7 +84,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Akali",
         "title": "the Rogue Assassin",
         "source_roles": ["Assassin"],
-        "stat_weights": {"hp": 0.82, "atk": 1.42, "def": 0.72, "spd": 1.25},
+        "stat_weights": {"hp": 0.82, "atk": 1.42, "def": 0.72, "spd": 1.20},
         "basic": {
             "name": "Akali Strike",
             "targeting": "weakest",
@@ -232,7 +232,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Anivia",
         "title": "the Cryophoenix",
         "source_roles": ["Mage", "Support"],
-        "stat_weights": {"hp": 0.9, "atk": 1.18, "def": 0.78, "spd": 1.0},
+        "stat_weights": {"hp": 0.9, "atk": 1.23, "def": 0.78, "spd": 1.0},
         "basic": {
             "name": "Anivia Strike",
             "targeting": "front",
@@ -269,7 +269,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Annie",
         "title": "the Dark Child",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.82, "atk": 1.28, "def": 0.66, "spd": 1.05},
+        "stat_weights": {"hp": 0.82, "atk": 1.33, "def": 0.66, "spd": 1.05},
         "basic": {
             "name": "Annie Strike",
             "targeting": "front",
@@ -602,7 +602,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Brand",
         "title": "the Burning Vengeance",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.32, "def": 0.64, "spd": 1.05},
+        "stat_weights": {"hp": 0.8, "atk": 1.37, "def": 0.64, "spd": 1.05},
         "basic": {
             "name": "Brand Strike",
             "targeting": "front",
@@ -787,7 +787,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Cassiopeia",
         "title": "the Serpent's Embrace",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.88, "atk": 1.24, "def": 0.7, "spd": 1.08},
+        "stat_weights": {"hp": 0.88, "atk": 1.29, "def": 0.7, "spd": 1.08},
         "basic": {
             "name": "Cassiopeia Strike",
             "targeting": "front",
@@ -917,8 +917,8 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "ultimate": {
             "name": "Noxian Guillotine",
             "targeting": "weakest",
-            "damage_type": "true",
-            "coeff": 2.5,
+            "damage_type": "physical",
+            "coeff": 2.0,
             "hits": 1,
             "mana_gain": 0,
             "heal_coeff": 0.0,
@@ -1009,7 +1009,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Draven",
         "title": "the Glorious Executioner",
         "source_roles": ["Marksman"],
-        "stat_weights": {"hp": 0.76, "atk": 1.5, "def": 0.62, "spd": 1.1},
+        "stat_weights": {"hp": 0.76, "atk": 1.42, "def": 0.62, "spd": 1.1},
         "basic": {
             "name": "Draven Strike",
             "targeting": "weakest",
@@ -1120,7 +1120,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Evelynn",
         "title": "Agony's Embrace",
         "source_roles": ["Assassin", "Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.45, "def": 0.7, "spd": 1.24},
+        "stat_weights": {"hp": 0.8, "atk": 1.45, "def": 0.7, "spd": 1.20},
         "basic": {
             "name": "Evelynn Strike",
             "targeting": "weakest",
@@ -1601,7 +1601,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Heimerdinger",
         "title": "the Revered Inventor",
         "source_roles": ["Mage", "Support"],
-        "stat_weights": {"hp": 0.82, "atk": 1.24, "def": 0.72, "spd": 0.95},
+        "stat_weights": {"hp": 0.82, "atk": 1.29, "def": 0.72, "spd": 0.95},
         "basic": {
             "name": "Heimerdinger Strike",
             "targeting": "front",
@@ -2785,7 +2785,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Lux",
         "title": "the Lady of Luminosity",
         "source_roles": ["Mage", "Support"],
-        "stat_weights": {"hp": 0.8, "atk": 1.32, "def": 0.66, "spd": 1.05},
+        "stat_weights": {"hp": 0.8, "atk": 1.37, "def": 0.66, "spd": 1.05},
         "basic": {
             "name": "Light Binding",
             "targeting": "front",
@@ -2933,7 +2933,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "MasterYi",
         "title": "the Wuju Bladesman",
         "source_roles": ["Assassin", "Fighter"],
-        "stat_weights": {"hp": 0.85, "atk": 1.45, "def": 0.74, "spd": 1.24},
+        "stat_weights": {"hp": 0.85, "atk": 1.45, "def": 0.74, "spd": 1.20},
         "basic": {
             "name": "Master Yi Strike",
             "targeting": "weakest",
@@ -3525,7 +3525,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Orianna",
         "title": "the Lady of Clockwork",
         "source_roles": ["Mage", "Support"],
-        "stat_weights": {"hp": 0.84, "atk": 1.26, "def": 0.72, "spd": 1.0},
+        "stat_weights": {"hp": 0.84, "atk": 1.31, "def": 0.72, "spd": 1.0},
         "basic": {
             "name": "Orianna Strike",
             "targeting": "front",
@@ -4709,7 +4709,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Syndra",
         "title": "the Dark Sovereign",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.34, "def": 0.66, "spd": 1.0},
+        "stat_weights": {"hp": 0.8, "atk": 1.39, "def": 0.66, "spd": 1.0},
         "basic": {
             "name": "Syndra Strike",
             "targeting": "front",
@@ -4783,7 +4783,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Taliyah",
         "title": "the Stoneweaver",
         "source_roles": ["Mage", "Support"],
-        "stat_weights": {"hp": 0.84, "atk": 1.26, "def": 0.72, "spd": 1.05},
+        "stat_weights": {"hp": 0.84, "atk": 1.31, "def": 0.72, "spd": 1.05},
         "basic": {
             "name": "Taliyah Strike",
             "targeting": "front",
@@ -5079,7 +5079,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "TwistedFate",
         "title": "the Card Master",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.78, "atk": 1.25, "def": 0.62, "spd": 1.1},
+        "stat_weights": {"hp": 0.78, "atk": 1.30, "def": 0.62, "spd": 1.1},
         "basic": {
             "name": "Twisted Fate Strike",
             "targeting": "front",
@@ -5301,7 +5301,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Veigar",
         "title": "the Tiny Master of Evil",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.38, "def": 0.64, "spd": 0.92},
+        "stat_weights": {"hp": 0.8, "atk": 1.43, "def": 0.64, "spd": 0.92},
         "basic": {
             "name": "Veigar Strike",
             "targeting": "front",
@@ -5338,7 +5338,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Velkoz",
         "title": "the Eye of the Void",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.82, "atk": 1.32, "def": 0.68, "spd": 0.92},
+        "stat_weights": {"hp": 0.82, "atk": 1.37, "def": 0.68, "spd": 0.92},
         "basic": {
             "name": "Vel'Koz Strike",
             "targeting": "front",
@@ -5486,7 +5486,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Viktor",
         "title": "the Herald of the Arcane",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.84, "atk": 1.28, "def": 0.72, "spd": 0.98},
+        "stat_weights": {"hp": 0.84, "atk": 1.33, "def": 0.72, "spd": 0.98},
         "basic": {
             "name": "Viktor Strike",
             "targeting": "front",
@@ -5708,7 +5708,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Xerath",
         "title": "the Magus Ascendant",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.36, "def": 0.66, "spd": 0.9},
+        "stat_weights": {"hp": 0.8, "atk": 1.41, "def": 0.66, "spd": 0.9},
         "basic": {
             "name": "Xerath Strike",
             "targeting": "front",
@@ -6041,7 +6041,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Ziggs",
         "title": "the Hexplosives Expert",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.36, "def": 0.66, "spd": 0.95},
+        "stat_weights": {"hp": 0.8, "atk": 1.41, "def": 0.66, "spd": 0.95},
         "basic": {
             "name": "Ziggs Strike",
             "targeting": "front",
@@ -6115,7 +6115,7 @@ CHAMPION_ROSTER: dict[str, dict] = {
         "riot_id": "Zoe",
         "title": "the Aspect of Twilight",
         "source_roles": ["Mage"],
-        "stat_weights": {"hp": 0.8, "atk": 1.34, "def": 0.66, "spd": 1.05},
+        "stat_weights": {"hp": 0.8, "atk": 1.39, "def": 0.66, "spd": 1.05},
         "basic": {
             "name": "Zoe Strike",
             "targeting": "front",

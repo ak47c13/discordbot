@@ -113,7 +113,7 @@ COMPLETED_RECIPES: dict[str, dict] = {
     "Infinity Edge": {
         "components": ["B.F. Sword", "Pickaxe", "Cloak of Agility"],
         "stat_type": "atk", "passive": "crit_damage_passive", "gold_cost": 1200,
-        "description": "Crit strikes deal 235% instead of 175% damage. Massive crit power spike.",
+        "description": "Crit strikes deal 210% instead of 175% damage. Massive crit power spike.",
     },
     "Immortal Shieldbow": {
         "components": ["Noonquiver", "B.F. Sword", "Cloak of Agility"],

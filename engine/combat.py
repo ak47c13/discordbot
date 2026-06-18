@@ -265,9 +265,9 @@ def build_unit_from_champion(
     # item per passive key contributes its *passive* bonus.
     for pname, (_, itm) in passive_pool.items():
         if pname == "crit_damage_passive":
-            # Infinity Edge: crit_dmg cap raised to 235, others give crit chance
+            # Infinity Edge: crit_dmg cap raised to 210, others give crit chance
             if itm.name == "Infinity Edge":
-                passive_crit_dmg += 60.0      # 175 + 60 = 235%
+                passive_crit_dmg += 35.0      # 175 + 35 = 210%
             else:
                 passive_crit_chance += 10.0   # generic crit item
         elif pname == "attack_speed_passive":

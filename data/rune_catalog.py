@@ -41,6 +41,7 @@ RUNE_CATALOG = {
     "glyph-def-t1": {"id": "glyph-def-t1", "name": "Glyph of Warding I", "color": "blue", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 2, "description": "+2 DEF"},
     "glyph-def-t2": {"id": "glyph-def-t2", "name": "Glyph of Warding II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 5, "description": "+5 DEF"},
     "glyph-def-t3": {"id": "glyph-def-t3", "name": "Glyph of Warding III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 9, "description": "+9 DEF"},
+    "glyph-mr-t3": {"id": "glyph-mr-t3", "name": "Glyph of Magic Resist III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "magic_resist", "value": 14, "description": "+14 Magic Resist"},
     "glyph-scaleatk-t2": {"id": "glyph-scaleatk-t2", "name": "Glyph of Scaling Power II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "atk_per_10_levels", "value": 3, "description": "+3 ATK per 10 levels"},
     "glyph-scaleatk-t3": {"id": "glyph-scaleatk-t3", "name": "Glyph of Scaling Power III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "atk_per_10_levels", "value": 6, "description": "+6 ATK per 10 levels"},
     "quint-lifesteal-t1": {"id": "quint-lifesteal-t1", "name": "Quint of Vampirism I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "lifesteal", "value": 4, "description": "+4% Lifesteal"},
