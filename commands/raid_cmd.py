@@ -93,7 +93,7 @@ class RaidCog(commands.Cog):
         embed = discord.Embed(
             title=f"⚔️ Raid Rolled — {cfg['display']}",
             description=(
-                f"**Boss Champion:** a mystery [{cfg['boss_rank']}] champion\n\n"
+                f"**Boss Champion:** {raid.boss_champion_name} [{cfg['boss_rank']}]\n\n"
                 f"**Raid ID:** `{raid.id}`\n\n"
                 f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"

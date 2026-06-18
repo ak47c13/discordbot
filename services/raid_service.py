@@ -155,12 +155,18 @@ async def create_raid_queue(
     if leader_champ is None or leader_champ.owner_id != leader_id:
         raise RaidError("Active champion not found. Use /champion-select to pick one first.")
 
+    cfg = RAID_DIFFICULTIES.get(difficulty, RAID_DIFFICULTIES["F"])
+    boss_name = random.choice(list(ALL_CHAMPION_NAMES))
+    boss_rank = cfg["boss_rank"]
+
     raid = RaidQueue(
         zone=difficulty,
         leader_id=leader_id,
         player_ids=[leader_id],
         player_champions={leader_id: str(leader_champ.id)},
         status="waiting",
+        boss_champion_name=boss_name,
+        boss_rank=boss_rank,
     )
     await raid.insert(session=usable_session(session))
     return raid, difficulty
@@ -220,9 +226,9 @@ async def start_raid(
     n_players = len(raid.player_ids)
     is_solo = n_players == 1
 
-    # Pick a named champion as the raid boss
+    # Use the boss champion rolled at queue creation time
     boss_rank = cfg["boss_rank"]
-    boss_name = random.choice(list(ALL_CHAMPION_NAMES))
+    boss_name = raid.boss_champion_name or random.choice(list(ALL_CHAMPION_NAMES))
 
     # Build player team BEFORE marking in_progress so a bad state can't get stuck
     # Keep a map from unit_id -> player_id for contribution lookup
