@@ -186,7 +186,11 @@ def _mana_ready_line(rs: dict) -> str:
 def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, banner_url="") -> discord.Embed:
     rs = round_snapshot
     rounds = battle_session.simulated_rounds
-    idx = rs["round"] - 1
+    # Find position of current snapshot in stored list (rounds may be thinned)
+    try:
+        idx = next(i for i, r in enumerate(rounds) if r["round"] == rs["round"])
+    except StopIteration:
+        idx = len(rounds) - 1
 
     # Group recent events by round (last 2 rounds), with round headers.
     blocks = []
