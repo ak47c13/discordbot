@@ -609,6 +609,30 @@ class _RepeatFloorView(discord.ui.View):
         except DungeonError as e:
             await interaction.followup.send(embed=error_embed(str(e)))
 
+    @discord.ui.button(label="Farm This Floor", style=discord.ButtonStyle.primary)
+    async def farm_this_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        from utils.locks import get_user_lock
+        try:
+            async with get_user_lock(self.uid):
+                await self.cog._run_repeat_continuous(interaction, self.uid, self.slug, self.floor_num, self.champ_ids)
+        except DungeonError as e:
+            await interaction.followup.send(embed=error_embed(str(e)))
+
+    @discord.ui.button(label="Run Continuously", style=discord.ButtonStyle.success)
+    async def run_continuous_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        for c in self.children:
+            c.disabled = True
+        await interaction.response.edit_message(view=self)
+        from utils.locks import get_user_lock
+        try:
+            async with get_user_lock(self.uid):
+                await self.cog._run_continuous(interaction, self.uid, self.slug, self.floor_num, self.champ_ids)
+        except DungeonError as e:
+            await interaction.followup.send(embed=error_embed(str(e)))
+
 
 class _NextFloorView(discord.ui.View):
     def __init__(self, cog, uid, slug, current_floor, next_floor, champ_ids, user_id, timeout=120.0):
