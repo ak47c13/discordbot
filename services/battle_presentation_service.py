@@ -12,6 +12,7 @@ All state lives in MongoDB. Bot restarts resume from displayed_round_count.
 """
 from __future__ import annotations
 import asyncio
+import functools
 import random
 from datetime import datetime, timezone
 
@@ -57,7 +58,10 @@ async def simulate_and_store(
     max_rounds: int | None = None,
 ) -> BattleSession:
     seed = random.randint(0, 2 ** 31)
-    result, rounds = run_battle_with_rounds(player_units, enemy_units, seed=seed, max_rounds=max_rounds)
+    loop = asyncio.get_event_loop()
+    result, rounds = await loop.run_in_executor(
+        None, functools.partial(run_battle_with_rounds, player_units, enemy_units, seed=seed, max_rounds=max_rounds)
+    )
 
     # Thin stored rounds to at most DISPLAY_MAX_UPDATES evenly-spaced snapshots so
     # MongoDB documents stay small and advance_and_display never runs for hours.
