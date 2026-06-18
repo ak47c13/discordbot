@@ -386,16 +386,20 @@ async def grant_floor_rewards(
         "leveled": [], "bonus": None,
     }
     if won:
-        gold = DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR
-        xp = DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR
+        map_mult = _map_multiplier(dungeon_slug)
+        gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
+        xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
+        # Rune drop chance scales with map (higher maps = better drop rates)
+        rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_fragment_chance = min(0.15, DUNGEON_RUNE_FRAGMENT_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
         rng = random.Random(seed)
-        if rng.random() < DUNGEON_RUNE_SHARD_CHANCE:
+        if rng.random() < rune_shard_chance:
             user.rune_shards += 1
             rewards["rune_shards"] = 1
-        if rng.random() < DUNGEON_RUNE_FRAGMENT_CHANCE:
+        if rng.random() < rune_fragment_chance:
             user.rune_fragments += 1
             rewards["rune_fragments"] = 1
         rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
@@ -507,17 +511,20 @@ async def enter_floor(
     completion: Optional[dict] = None
 
     if won:
-        gold = DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR
-        xp = DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR
+        map_mult = _map_multiplier(dungeon_slug)
+        gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
+        xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
+        rune_shard_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_fragment_chance = min(0.15, DUNGEON_RUNE_FRAGMENT_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
 
         rng = random.Random(seed)
-        if rng.random() < DUNGEON_RUNE_SHARD_CHANCE:
+        if rng.random() < rune_shard_chance:
             user.rune_shards += 1
             rewards["rune_shards"] = 1
-        if rng.random() < DUNGEON_RUNE_FRAGMENT_CHANCE:
+        if rng.random() < rune_fragment_chance:
             user.rune_fragments += 1
             rewards["rune_fragments"] = 1
 
