@@ -10,6 +10,75 @@ from data.champion_skills import CHAMPION_SKILLS
 SKILL_LABELS = {"q": "Q", "w": "W", "e": "E", "r": "R (Ultimate)"}
 SKILL_EMOJI = {"q": "\U0001f5e1️", "w": "\U0001f6e1️", "e": "\U0001f300", "r": "\U0001f4a5"}
 
+MECHANIC_LABELS = {
+    "execute":        "Execute",
+    "stack_damage":   "Stacking damage",
+    "reset_on_kill":  "Mana reset on kill",
+    "armor_shred":    "Armor shred",
+    "drain":          "Drain (lifesteal)",
+    "mark_detonate":  "Mark & detonate",
+}
+
+
+def _build_skill_detail(s: dict, rank: str = None) -> str:
+    """Build the italic detail line shown under each skill description."""
+    coeff = s.get("coeff", 0)
+    dmg = s.get("damage_type", "none")
+    hits = s.get("hits", 1)
+    mana = s.get("mana_gain", 0)
+
+    parts = [f"{coeff*100:.0f}% ATK {dmg}"]
+    if hits > 1:
+        parts[0] += f" × {hits} hits"
+    if mana:
+        parts.append(f"+{mana} mana")
+
+    # Status effect
+    status = s.get("status")
+    if status:
+        chance = s.get("status_chance", 1.0)
+        dur = s.get("status_duration", 1)
+        parts.append(f"{status} {chance*100:.0f}% ({dur}t)")
+
+    # Mechanic
+    mechanic = s.get("mechanic")
+    if mechanic:
+        label = MECHANIC_LABELS.get(mechanic, mechanic)
+        mv = s.get("mechanic_value")
+        if mv is not None:
+            if mechanic == "execute":
+                parts.append(f"{label} <{mv*100:.0f}% HP")
+            elif mechanic == "stack_damage":
+                parts.append(f"{label} +{mv*100:.0f}%/stack")
+            elif mechanic == "armor_shred":
+                parts.append(f"{label} {mv*100:.0f}%")
+            elif mechanic == "mark_detonate":
+                parts.append(f"{label} {mv}×")
+            else:
+                parts.append(f"{label} ({mv})")
+        else:
+            parts.append(label)
+
+    # Heal / shield
+    if s.get("heal_coeff"):
+        parts.append(f"Heals {s['heal_coeff']*100:.0f}%")
+    if s.get("shield_coeff"):
+        parts.append(f"Shield {s['shield_coeff']*100:.0f}%")
+
+    # Rank tier note
+    if rank:
+        from engine.skill_factory import RANK_ORDER
+        rank_idx = RANK_ORDER.index(rank) if rank in RANK_ORDER else 0
+        tier_note = None
+        if rank_idx >= RANK_ORDER.index("A") and s.get("prestige"):
+            tier_note = "Prestige tier active"
+        elif rank_idx >= RANK_ORDER.index("C") and s.get("advanced"):
+            tier_note = "Advanced tier active"
+        if tier_note:
+            parts.append(f"*{tier_note}*")
+
+    return " • ".join(parts)
+
 
 class SkillCog(commands.Cog):
     def __init__(self, bot):
@@ -30,6 +99,7 @@ class SkillCog(commands.Cog):
             await interaction.followup.send(embed=error_embed("Active champion not found."), ephemeral=True)
             return
         skills = CHAMPION_SKILLS.get(champ.name, {})
+        rank = champ.rank
         embed = discord.Embed(title=f"⚔️ {champ.name} — Skills", color=0x5865F2)
         for key in ("q", "w", "e", "r"):
             s = skills.get(key, {})
@@ -38,16 +108,44 @@ class SkillCog(commands.Cog):
                 active_marker = " *(fires at 100 mana)*"
             name_line = f"{SKILL_EMOJI[key]} **{SKILL_LABELS[key]}: {s.get('name', '?')}**{active_marker}"
             desc = s.get("description", "No description.")
-            coeff = s.get("coeff", 0)
-            dmg = s.get("damage_type", "none")
-            hits = s.get("hits", 1)
-            detail = f"Type: {dmg} • {coeff*100:.0f}% ATK"
-            if hits > 1:
-                detail += f" × {hits} hits"
-            mana = s.get("mana_gain", 0)
-            if mana:
-                detail += f" • +{mana} mana"
-            embed.add_field(name=name_line, value=f"{desc}\n*{detail}*", inline=False)
+            detail = _build_skill_detail(s, rank)
+
+            # Tier upgrade hints
+            upgrades = []
+            from engine.skill_factory import RANK_ORDER
+            rank_idx = RANK_ORDER.index(rank) if rank in RANK_ORDER else 0
+            if rank_idx < RANK_ORDER.index("C") and s.get("advanced"):
+                adv = s["advanced"]
+                hints = []
+                if "coeff" in adv:
+                    hints.append(f"{adv['coeff']*100:.0f}% ATK")
+                if "hits" in adv:
+                    hints.append(f"×{adv['hits']} hits")
+                if "mechanic_value" in adv:
+                    hints.append("stronger mechanic")
+                if "status_chance" in adv:
+                    hints.append(f"{adv['status_chance']*100:.0f}% {s.get('status','status')}")
+                if hints:
+                    upgrades.append(f"📈 Rank C: {', '.join(hints)}")
+            if rank_idx < RANK_ORDER.index("A") and s.get("prestige"):
+                pre = s["prestige"]
+                hints = []
+                if "coeff" in pre:
+                    hints.append(f"{pre['coeff']*100:.0f}% ATK")
+                if "hits" in pre:
+                    hints.append(f"×{pre['hits']} hits")
+                if "mechanic_value" in pre:
+                    hints.append("stronger mechanic")
+                if "status_chance" in pre:
+                    hints.append(f"{pre['status_chance']*100:.0f}% {s.get('status','status')}")
+                if hints:
+                    upgrades.append(f"✨ Rank A: {', '.join(hints)}")
+
+            value = f"{desc}\n*{detail}*"
+            if upgrades:
+                value += "\n" + "\n".join(upgrades)
+            embed.add_field(name=name_line, value=value, inline=False)
+        embed.set_footer(text=f"Rank {rank} — upgrades unlock at C (Advanced) and A (Prestige)")
         await interaction.followup.send(embed=embed, ephemeral=True)
 
     @skill_group.command(name="set", description="Choose which basic skill (Q/W/E) your champion uses each round.")
@@ -91,16 +189,8 @@ class SkillCog(commands.Cog):
         )
         for key in ("q", "w", "e"):
             s = skills.get(key, {})
-            coeff = s.get("coeff", 0)
-            dmg = s.get("damage_type", "none")
-            hits = s.get("hits", 1)
-            mana = s.get("mana_gain", 0)
-            detail = f"{coeff*100:.0f}% ATK {dmg}"
-            if hits > 1:
-                detail += f" ×{hits} hits"
-            if mana:
-                detail += f" • +{mana} mana"
             active = " ← active" if key == user.active_skill else ""
+            detail = _build_skill_detail(s)
             embed.add_field(
                 name=f"**{key.upper()}: {s.get('name', '?')}**{active}",
                 value=f"{s.get('description', '')}\n*{detail}*",
