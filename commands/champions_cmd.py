@@ -54,7 +54,7 @@ class ChampionsCog(commands.Cog):
         if c is None or c.owner_id != uid:
             await interaction.followup.send(embed=error_embed("Champion not found."), ephemeral=True)
             return
-        embed = champion_embed(c, "Champion Details")
+        embed = await champion_embed(c, "Champion Details")
         riot_id = c.riot_id or _riot_id_from_name(c.name)
         embed.set_image(url=DDRAGON_LOADING.format(riot_id=riot_id))
         await interaction.followup.send(embed=embed, ephemeral=True)

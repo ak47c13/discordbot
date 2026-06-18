@@ -55,7 +55,9 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
             value="​",
             inline=False,
         )
-        add_champion_stat_fields(embed, champ, rp)
+        # Equipped items (fetch once, reuse for both stat display and list)
+        items = await ItemInstance.find(ItemInstance.equipped_to == str(champ.id)).to_list()
+        add_champion_stat_fields(embed, champ, rp, items)
 
         # Rune page slots
         if rp:
@@ -68,9 +70,6 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
                 value=f"🔴 {reds}/9　🟡 {yellows}/9　🔵 {blues}/9　⚪ {quints}/3",
                 inline=False,
             )
-
-        # Equipped items
-        items = await ItemInstance.find(ItemInstance.equipped_to == str(champ.id)).to_list()
         if items:
             item_lines = [f"Slot {itm.equipment_slot}: **{itm.name}** [{itm.rank}] +{itm.enhancement}" for itm in items]
             embed.add_field(name="Equipped Items", value="\n".join(item_lines), inline=False)

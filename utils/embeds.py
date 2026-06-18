@@ -20,28 +20,16 @@ COLOR_RANK = {
 }
 
 
-def _build_stat_unit(champ, rune_page=None):
-    """Return a CombatUnit with full stats computed (base + rune bonuses)."""
-    from config.game_config import CHAMPION_BASE_STATS, CHAMPION_GROWTH_STATS
-    from engine.combat import CombatUnit
+def _build_stat_unit(champ, rune_page=None, item_docs=None):
+    """Return a CombatUnit with full stats: base × champion weights + items + runes.
 
-    rank, lvl = champ.rank, champ.level
-    base   = CHAMPION_BASE_STATS.get(rank, {})
-    growth = CHAMPION_GROWTH_STATS.get(rank, {})
-    hp  = int(base.get("hp",  0) + growth.get("hp",  0) * (lvl - 1))
-    atk = int(base.get("atk", 0) + growth.get("atk", 0) * (lvl - 1))
-    dfn = int(base.get("def", 0) + growth.get("def", 0) * (lvl - 1))
-    spd = int(base.get("spd", 0))
-
-    unit = CombatUnit(
-        unit_id="preview", name=champ.name, rank=rank, level=lvl,
-        position=1, team=0,
-        hp=hp, hp_max=hp, atk=float(atk), def_stat=float(dfn), spd=spd,
+    Pass item_docs (list of ItemInstance) to include equipped item bonuses.
+    Omit or pass None to show base+rune stats only.
+    """
+    from engine.combat import build_unit_from_champion
+    return build_unit_from_champion(
+        champ, item_docs or [], position=1, team=0, rune_page=rune_page
     )
-    if rune_page:
-        from services.rune_service import apply_rune_bonuses
-        apply_rune_bonuses(unit, rune_page, lvl)
-    return unit
 
 
 def build_champion_stat_block(champ, rune_page=None) -> str:
@@ -55,9 +43,9 @@ def build_champion_stat_block(champ, rune_page=None) -> str:
     return "\n".join(lines)
 
 
-def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None) -> None:
+def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None, item_docs=None) -> None:
     """Add structured, grouped stat fields to an embed in-place."""
-    unit = _build_stat_unit(champ, rune_page)
+    unit = _build_stat_unit(champ, rune_page, item_docs)
 
     # Row 1: base combat stats (full width)
     embed.add_field(
@@ -96,7 +84,12 @@ def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None) -> Non
     )
 
 
-def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Embed:
+async def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Embed:
+    from models.item import ItemInstance
+    item_docs = await ItemInstance.find(
+        ItemInstance.equipped_to == str(champ.id)
+    ).to_list()
+
     rank = champ.rank
     color = AURA_COLOR_BY_RANK.get(rank, 0xFFFFFF)
     embed = discord.Embed(
@@ -104,7 +97,7 @@ def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Em
         color=color,
     )
 
-    add_champion_stat_fields(embed, champ, rune_page)
+    add_champion_stat_fields(embed, champ, rune_page, item_docs)
 
     flags = []
     if champ.locked:                        flags.append("🔒 Locked")
