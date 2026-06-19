@@ -43,6 +43,8 @@ def apply_rune_bonuses(unit, rune_page, champion_level: int):
 
         if stat == "atk":
             unit.atk += int(val)
+        elif stat == "ap":
+            unit.ap = getattr(unit, "ap", 0) + int(val)
         elif stat == "hp":
             bonus = int(val)
             unit.hp += bonus
@@ -63,8 +65,6 @@ def apply_rune_bonuses(unit, rune_page, champion_level: int):
             unit.magic_resist = getattr(unit, "magic_resist", 0.0) + val
         elif stat == "lifesteal":
             unit.lifesteal = getattr(unit, "lifesteal", 0.0) + val
-        elif stat == "dodge_chance":
-            unit.dodge_chance = getattr(unit, "dodge_chance", 0.0) + val
         elif stat == "attack_speed":
             unit.attack_speed = getattr(unit, "attack_speed", 1.0) + val
         elif stat == "hp_regen":

@@ -183,11 +183,13 @@ _RUNE_CATEGORY_POOLS: dict[str, list[str]] = {
     ],
     "resolve": [
         "seal-hp-t1", "seal-hp-t2", "seal-def-t1", "seal-def-t2",
-        "seal-dodge-t1", "glyph-def-t1", "glyph-def-t2", "seal-hpregen-t1",
+        "seal-mr-t1", "seal-mr-t2", "glyph-def-t1", "glyph-def-t2",
+        "glyph-mr-t1", "glyph-mr-t2", "seal-hpregen-t1",
     ],
     "sorcery": [
         "mark-mpen-t1", "mark-mpen-t2", "glyph-mana-t1", "glyph-mana-t2",
         "glyph-critdmg-t1", "mark-aspd-t1", "mark-atk-t1",
+        "mark-ap-t1", "mark-ap-t2", "glyph-ap-t1", "glyph-ap-t2",
     ],
 }
 
@@ -196,13 +198,9 @@ _RUNE_TIER_WEIGHTS = [0.65, 0.28, 0.07]
 
 
 def _get_weekly_rune_pool() -> list[str]:
-    """Return list of rune IDs for the current week's category."""
-    import time
-    ANCHOR_UTC = 1703959200
-    WEEK_SECS = 604800
-    week_index = int((time.time() - ANCHOR_UTC) // WEEK_SECS) + 2
-    key = RUNE_CATEGORY_ROTATION[week_index % len(RUNE_CATEGORY_ROTATION)]
-    return _RUNE_CATEGORY_POOLS.get(key, list(_RUNE_CATEGORY_POOLS["precision"]))
+    """Return all rune IDs from RUNE_CATALOG so every rune is always pullable."""
+    from data.rune_catalog import RUNE_CATALOG
+    return list(RUNE_CATALOG.keys())
 
 
 class SummonError(Exception):
