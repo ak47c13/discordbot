@@ -171,8 +171,11 @@ class ProfileCog(commands.Cog):
             str(interaction.user.id), interaction.user.display_name
         )
         now = datetime.now(timezone.utc)
-        if user.last_daily and (now - user.last_daily) < timedelta(hours=20):
-            remaining = timedelta(hours=20) - (now - user.last_daily)
+        last_daily = user.last_daily
+        if last_daily and last_daily.tzinfo is None:
+            last_daily = last_daily.replace(tzinfo=timezone.utc)
+        if last_daily and (now - last_daily) < timedelta(hours=20):
+            remaining = timedelta(hours=20) - (now - last_daily)
             h, rem = divmod(int(remaining.total_seconds()), 3600)
             m = rem // 60
             await interaction.followup.send(
