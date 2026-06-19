@@ -547,10 +547,10 @@ DUNGEON_RUNE_SHARD_CHANCE = 0.10     # 10% per floor
 
 # First-clear bonuses by dungeon length
 DUNGEON_FIRST_CLEAR = {
-    20: {"gold": 5000,  "summon_tokens": 100},
-    35: {"gold": 15000, "summon_tokens": 200},
-    40: {"gold": 25000, "summon_tokens": 300},
-    50: {"gold": 50000, "summon_tokens": 500},
+    20: {"gold": 5000,  "champion_tokens": 100},
+    35: {"gold": 15000, "champion_tokens": 200},
+    40: {"gold": 25000, "champion_tokens": 300},
+    50: {"gold": 50000, "champion_tokens": 500},
 }
 DUNGEON_DAILY_CLEAR = {
     20: {"gold": 2000},

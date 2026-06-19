@@ -261,6 +261,8 @@ def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_
         lines = []
         if rewards.get("gold"):
             lines.append(f"**{rewards['gold']:,}** Gold")
+        if rewards.get("champion_tokens"):
+            lines.append(f"**{rewards['champion_tokens']}** Champion Tokens")
         if rewards.get("summon_tokens"):
             lines.append(f"**{rewards['summon_tokens']}** Summon Tokens")
         if rewards.get("blacksmith_seals"):

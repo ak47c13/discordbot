@@ -159,6 +159,8 @@ def reward_embed(rewards: dict, title: str = "Rewards") -> discord.Embed:
         embed.add_field(name="Gold", value=str(rewards["gold"]), inline=True)
     if rewards.get("seals"):
         embed.add_field(name="Blacksmith's Seal", value=str(rewards["seals"]), inline=True)
+    if rewards.get("champion_tokens"):
+        embed.add_field(name="Champion Tokens", value=str(rewards["champion_tokens"]), inline=True)
     if rewards.get("summon_tokens"):
         embed.add_field(name="Summon Tokens", value=str(rewards["summon_tokens"]), inline=True)
     if rewards.get("champions"):

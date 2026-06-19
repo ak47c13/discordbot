@@ -20,7 +20,7 @@ async def register_user(discord_id: str, username: str) -> User:
     if not user:
         user = User(discord_id=discord_id, username=username)
     user.registered = True
-    user.summon_tokens += STARTER_SUMMON_TOKENS
+    user.champion_tokens = getattr(user, "champion_tokens", 0) + STARTER_SUMMON_TOKENS
     user.gold += STARTER_GOLD
     if user.id is None:
         await user.insert()

@@ -106,8 +106,9 @@ def _rewards_lines(rewards: dict) -> str:
         b = []
         if bonus.get("gold"):
             b.append(f"{bonus['gold']} gold")
-        if bonus.get("summon_tokens"):
-            b.append(f"{bonus['summon_tokens']} tokens")
+        _tok = bonus.get("champion_tokens", bonus.get("summon_tokens", 0))
+        if _tok:
+            b.append(f"{_tok} tokens")
         lines.append(f"{label}: {', '.join(b)}")
     return "\n".join(lines) if lines else "—"
 
