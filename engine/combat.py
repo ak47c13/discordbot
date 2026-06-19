@@ -198,6 +198,23 @@ def build_unit_from_champion(
     # Passive non-stacking: collect by passive_name, keep only best
     passive_pool: dict[str, tuple] = {}  # passive_name -> (rank_idx, enhancement, item)
 
+    # Accumulated from both passive items and substats (declared early, summed across both loops)
+    passive_crit_chance: float = 0.0
+    passive_crit_dmg: float = 0.0
+    passive_magic_resist: float = 0.0
+    passive_lifesteal: float = 0.0
+    passive_attack_speed: float = 0.0
+    passive_armor_pen: float = 0.0
+    passive_magic_pen: float = 0.0
+    has_sheen = False
+    has_guardian_angel = False
+    has_sterak = False
+    has_banshee = False
+    reflect_pct: float = 0.0
+    has_sunfire = False
+    has_liandry = False
+    has_warmog = False
+
     AP_ITEM_NAMES = {
         "Amplifying Tome", "Sapphire Crystal", "Needlessly Large Rod",
         "Fiendish Codex", "Hextech Alternator", "Rabadon's Deathcap",
@@ -222,17 +239,24 @@ def build_unit_from_champion(
         elif itm.main_stat_type == "spd":
             item_spd_bonus += eff_stat
 
-        # Secondary stat contributions
-        sec = itm.secondary_stat_type
-        sec_val = itm.secondary_stat_value / 10.0  # stored *10
-        if sec == "atk_pct":
-            item_atk_bonus += atk * (sec_val / 100)
-        elif sec == "hp_pct":
-            item_hp_bonus += hp * (sec_val / 100)
-        elif sec == "def_pct":
-            item_def_bonus += dfn * (sec_val / 100)
-        elif sec == "speed":
-            item_spd_bonus += sec_val
+        # Secondary stat contributions from substats list
+        for sub in getattr(itm, "substats", []):
+            sec = sub.get("type", "")
+            sec_val = sub.get("value", 0) / 10.0  # stored *10
+            if sec == "atk_pct":
+                item_atk_bonus += atk * (sec_val / 100)
+            elif sec == "hp_pct":
+                item_hp_bonus += hp * (sec_val / 100)
+            elif sec == "def_pct":
+                item_def_bonus += dfn * (sec_val / 100)
+            elif sec == "speed":
+                item_spd_bonus += sec_val
+            elif sec == "crit_chance":
+                passive_crit_chance += sec_val
+            elif sec == "crit_dmg":
+                passive_crit_dmg += sec_val
+            elif sec == "lifesteal":
+                passive_lifesteal += sec_val
 
         # Passive dedup — best by rank, then enhancement, then id
         pname = itm.passive_name
@@ -249,24 +273,9 @@ def build_unit_from_champion(
     # ------------------------------------------------------------------
     # Resolve passive effects from the best item of each passive type.
     # passive_pool maps passive_name -> (sort_key, item).
-    # We accumulate numeric bonuses here (before building the unit) so
-    # we can pass them as constructor arguments.
+    # passive_* accumulators were initialized above (before the item loop)
+    # so substat contributions and passive contributions both feed into them.
     # ------------------------------------------------------------------
-    passive_crit_chance: float = 0.0
-    passive_crit_dmg: float = 0.0       # bonus on top of base 175
-    passive_magic_resist: float = 0.0
-    passive_lifesteal: float = 0.0
-    passive_attack_speed: float = 0.0
-    passive_armor_pen: float = 0.0
-    passive_magic_pen: float = 0.0
-    has_sheen = False
-    has_guardian_angel = False
-    has_sterak = False
-    has_banshee = False
-    reflect_pct: float = 0.0
-    has_sunfire = False
-    has_liandry = False
-    has_warmog = False
 
     # Also scan all items (not just best-per-passive) for numeric passives
     # that stack across items — but follow the dedup rule: only the best

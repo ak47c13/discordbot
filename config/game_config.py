@@ -186,8 +186,6 @@ SECONDARY_STAT_TYPES = [
     "def_pct",
     "crit_chance",
     "crit_dmg",
-    "accuracy",
-    "dodge",
     "lifesteal",
     "boss_dmg",
     "mob_dmg",

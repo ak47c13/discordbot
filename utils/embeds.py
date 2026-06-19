@@ -135,11 +135,15 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
         inline=False,
     )
     embed.add_field(name="Passive", value=itm.passive_name, inline=True)
-    embed.add_field(
-        name="Secondary",
-        value=f"{itm.secondary_stat_type}: {itm.secondary_stat_value/10:.1f}",
-        inline=True,
-    )
+    substats = getattr(itm, "substats", [])
+    if substats:
+        sub_lines = "\n".join(
+            f"{s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}"
+            for s in substats
+        )
+    else:
+        sub_lines = "—"
+    embed.add_field(name="Substats", value=sub_lines, inline=True)
 
     flags = []
     if itm.locked:       flags.append("🔒 Locked")

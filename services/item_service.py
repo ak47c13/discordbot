@@ -91,11 +91,6 @@ async def fuse_items(
     for itm in items:
         await itm.delete(session=usable_session(session))
 
-    # New secondary stat roll
-    sec_type = random.choice(SECONDARY_STAT_TYPES)
-    lo, hi = SECONDARY_STAT_RANGE[next_rank]
-    sec_val = random.randint(lo, hi)
-
     result = ItemInstance(
         owner_id=owner_id,
         name=items[0].name,
@@ -104,8 +99,7 @@ async def fuse_items(
         main_stat_type=items[0].main_stat_type,
         main_stat_base=ITEM_BASE_MAIN_STAT[next_rank],
         passive_name=items[0].passive_name,
-        secondary_stat_type=sec_type,
-        secondary_stat_value=sec_val,
+        substats=_roll_substats(next_rank),
     )
     await result.insert(session=usable_session(session))
 
@@ -174,6 +168,22 @@ async def bulk_fuse_items(
     return created
 
 
+def _roll_substats(rank: str) -> list[dict]:
+    """Roll substats for a new item. Count: F-D=1, C-B=2, A=3, S=4."""
+    count = {"F": 1, "E": 1, "D": 1, "C": 2, "B": 2, "A": 3, "S": 4}.get(rank, 1)
+    lo, hi = SECONDARY_STAT_RANGE[rank]
+    chosen_types: list[str] = []
+    result: list[dict] = []
+    for _ in range(count):
+        available = [t for t in SECONDARY_STAT_TYPES if t not in chosen_types]
+        if not available:
+            break
+        stat_type = random.choice(available)
+        chosen_types.append(stat_type)
+        result.append({"type": stat_type, "value": random.randint(lo, hi)})
+    return result
+
+
 async def grant_item(
     owner_id: str,
     name: str,
@@ -182,10 +192,6 @@ async def grant_item(
     passive_name: str,
     session=None,
 ) -> ItemInstance:
-    lo, hi = SECONDARY_STAT_RANGE[rank]
-    sec_val = random.randint(lo, hi)
-    sec_type = random.choice(SECONDARY_STAT_TYPES)
-
     itm = ItemInstance(
         owner_id=owner_id,
         name=name,
@@ -194,8 +200,7 @@ async def grant_item(
         main_stat_type=main_stat_type,
         main_stat_base=ITEM_BASE_MAIN_STAT[rank],
         passive_name=passive_name,
-        secondary_stat_type=sec_type,
-        secondary_stat_value=sec_val,
+        substats=_roll_substats(rank),
     )
     if session:
         await itm.insert(session=usable_session(session))

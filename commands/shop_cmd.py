@@ -7,7 +7,7 @@ from models.user import User
 from services.shop_service import ShopError, buy_token_bundle, CHAMPION_TOKEN_BUNDLES, ITEM_TOKEN_BUNDLES, RUNE_TOKEN_BUNDLES, PULL_COSTS
 from services.summon_service import (
     summon_single, summon_multi, SummonError,
-    get_weekly_champion_pool, get_weekly_item_pool, get_weekly_rune_category,
+    get_weekly_champion_pool, get_weekly_rune_category, ITEM_POOL,
 )
 from utils.embeds import (
     error_embed, success_embed, build_summon_result_embed,
@@ -58,21 +58,22 @@ def _champion_panel_embed(champion_tokens: int, user_gold: int) -> discord.Embed
 
 
 def _item_panel_embed(item_tokens: int, user_gold: int) -> discord.Embed:
-    category_name, item_cat = get_weekly_item_pool()
-    all_items = item_cat.get("basic", []) + item_cat.get("advanced", []) + item_cat.get("completed", [])
-    items_list = ", ".join(name for name, _, _ in all_items)
-    from data.champion_regions import days_until_rotation
-    days_left = days_until_rotation()
+    basic_count    = len(ITEM_POOL.get("basic", []))
+    advanced_count = len(ITEM_POOL.get("advanced", []))
+    completed_count= len(ITEM_POOL.get("completed", []))
 
     embed = discord.Embed(
-        title=f"Item Summon — {category_name}",
-        description=f"This week's pool focuses on **{category_name}** — items that boost your champion's {category_name.lower()} stats.",
+        title="Item Summon",
+        description="Pull from the unified item pool. All items are always available.",
         color=0x4488FF,
     )
-    embed.add_field(name="Items in Pool", value=items_list, inline=False)
+    embed.add_field(
+        name="Pool Size",
+        value=f"Basic: {basic_count}  ·  Advanced: {advanced_count}  ·  Completed: {completed_count}",
+        inline=False,
+    )
     embed.add_field(name="Item Tokens", value=str(item_tokens), inline=True)
     embed.add_field(name="Gold",        value=f"{user_gold:,}", inline=True)
-    embed.add_field(name="Rotates in",  value=f"{days_left:.1f} days", inline=True)
     embed.add_field(name="Tiers", value="75% Basic · 20% Advanced · 5% Completed (rank floor rises with tier)", inline=False)
     embed.set_footer(text="1× pull = 1 Item Token  |  10× pull = 10 Item Tokens (+1 bonus)")
     return embed
@@ -124,7 +125,6 @@ def _token_panel_embed(champion_tokens: int, item_tokens: int, rune_tokens: int,
 
 def _shop_main_embed(champion_tokens: int, user_gold: int) -> discord.Embed:
     region_name, _ = get_weekly_champion_pool()
-    item_name, _   = get_weekly_item_pool()
     rune_name, _   = get_weekly_rune_category()
 
     embed = discord.Embed(
@@ -135,9 +135,9 @@ def _shop_main_embed(champion_tokens: int, user_gold: int) -> discord.Embed:
     embed.add_field(name="Champion Tokens", value=str(champion_tokens), inline=True)
     embed.add_field(name="Gold",            value=f"{user_gold:,}", inline=True)
     embed.add_field(name="​", value="​", inline=True)
-    embed.add_field(name="Champions", value=f"Region: **{region_name}**", inline=True)
-    embed.add_field(name="Items",     value=f"Category: **{item_name}**",  inline=True)
-    embed.add_field(name="Runes",     value=f"Path: **{rune_name}**",      inline=True)
+    embed.add_field(name="Champions", value=f"Region: **{region_name}**",   inline=True)
+    embed.add_field(name="Items",     value="Unified Pool",                  inline=True)
+    embed.add_field(name="Runes",     value=f"Path: **{rune_name}**",       inline=True)
     embed.set_footer(text="1× = 1 token  |  10× = 10 tokens (+1 bonus pull)  |  Each pull type uses its own token")
     return embed
 

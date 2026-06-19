@@ -185,26 +185,23 @@ class BlacksmithCog(commands.Cog):
                 await interaction.followup.send(embed=error_embed(str(e)))
                 return
 
+        def _fmt_substats(subs: list) -> str:
+            if not subs:
+                return "—"
+            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}" for s in subs)
+
         embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
-        embed.add_field(
-            name="Current",
-            value=f"{preview['old_type']}: {preview['old_value']/10:.1f}",
-            inline=True,
-        )
-        embed.add_field(
-            name="New Roll",
-            value=f"{preview['new_type']}: {preview['new_value']/10:.1f}",
-            inline=True,
-        )
+        embed.add_field(name="Current Substats", value=_fmt_substats(preview["old_substats"]), inline=True)
+        embed.add_field(name="New Substats",     value=_fmt_substats(preview["new_substats"]), inline=True)
         embed.add_field(name="Cost", value=f"{cost} gold", inline=False)
-        embed.set_footer(text="Accept to apply and pay. Reject to keep current stat.")
+        embed.set_footer(text="Accept to apply and pay. Reject to keep current substats.")
 
         view = RerollPreviewView()
         await interaction.followup.send(embed=embed, view=view)
         await view.wait()
 
         if not view.accepted:
-            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old stat.", color=COLOR_INFO))
+            await interaction.followup.send(embed=discord.Embed(title="Reroll cancelled — kept old substats.", color=COLOR_INFO))
             return
 
         async with get_user_lock(uid):
@@ -213,7 +210,7 @@ class BlacksmithCog(commands.Cog):
                     try:
                         result = await accept_reroll_full(
                             uid, item_id,
-                            preview["new_type"], preview["new_value"],
+                            preview["new_substats"],
                             session,
                         )
                     except BlacksmithError as e:
@@ -245,11 +242,16 @@ class BlacksmithCog(commands.Cog):
                 await interaction.followup.send(embed=error_embed(str(e)))
                 return
 
+        def _fmt_substats(subs: list) -> str:
+            if not subs:
+                return "—"
+            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}" for s in subs)
+
         embed = discord.Embed(title="🎲 Refine Preview", color=COLOR_INFO)
-        embed.add_field(name="Stat Type", value=preview["stat_type"], inline=False)
-        embed.add_field(name="Current Value", value=f"{preview['old_value']/10:.1f}", inline=True)
-        embed.add_field(name="New Value",     value=f"{preview['new_value']/10:.1f}", inline=True)
-        embed.add_field(name="Cost",          value=f"{cost} gold",  inline=False)
+        embed.add_field(name="Current Values", value=_fmt_substats(preview["old_substats"]), inline=True)
+        embed.add_field(name="New Values",     value=_fmt_substats(preview["new_substats"]), inline=True)
+        embed.add_field(name="Cost",           value=f"{cost} gold", inline=False)
+        embed.set_footer(text="Accept to apply and pay. Reject to keep current values.")
 
         view = RerollPreviewView()
         await interaction.followup.send(embed=embed, view=view)
@@ -263,7 +265,7 @@ class BlacksmithCog(commands.Cog):
             async with await client.start_session() as session:
                 async with session.start_transaction():
                     try:
-                        result = await accept_reroll_value(uid, item_id, preview["new_value"], session)
+                        result = await accept_reroll_value(uid, item_id, preview["new_substats"], session)
                     except BlacksmithError as e:
                         await interaction.followup.send(embed=error_embed(str(e)))
                         return

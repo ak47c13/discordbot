@@ -203,15 +203,13 @@ async def reroll_secondary_full(
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
-    new_type = random.choice(SECONDARY_STAT_TYPES)
-    lo, hi = SECONDARY_STAT_RANGE[itm.rank]
-    new_val = random.randint(lo, hi)
+    from services.item_service import _roll_substats
+    old_substats = list(itm.substats)
+    new_substats = _roll_substats(itm.rank)
 
     return {
-        "old_type": itm.secondary_stat_type,
-        "old_value": itm.secondary_stat_value,
-        "new_type": new_type,
-        "new_value": new_val,
+        "old_substats": old_substats,
+        "new_substats": new_substats,
         "gold_cost": gold_cost,
         "item": itm,
     }
@@ -220,8 +218,7 @@ async def reroll_secondary_full(
 async def accept_reroll_full(
     owner_id: str,
     item_id: str,
-    new_type: str,
-    new_value: int,
+    new_substats: list,
     session: AsyncIOMotorClientSession,
 ) -> ItemInstance:
     """Apply a pending full reroll result. Deducts gold."""
@@ -237,8 +234,7 @@ async def accept_reroll_full(
         raise BlacksmithError(f"Need {gold_cost} gold.")
 
     user.gold -= gold_cost
-    itm.secondary_stat_type = new_type
-    itm.secondary_stat_value = new_value
+    itm.substats = new_substats
     await user.save(session=usable_session(session))
     await itm.save(session=usable_session(session))
     return itm
@@ -264,12 +260,15 @@ async def reroll_secondary_value(
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
     lo, hi = SECONDARY_STAT_RANGE[itm.rank]
-    new_val = random.randint(lo, hi)
+    old_substats = list(itm.substats)
+    new_substats = [
+        {"type": s["type"], "value": random.randint(lo, hi)}
+        for s in old_substats
+    ]
 
     return {
-        "stat_type": itm.secondary_stat_type,
-        "old_value": itm.secondary_stat_value,
-        "new_value": new_val,
+        "old_substats": old_substats,
+        "new_substats": new_substats,
         "gold_cost": gold_cost,
         "item": itm,
     }
@@ -278,7 +277,7 @@ async def reroll_secondary_value(
 async def accept_reroll_value(
     owner_id: str,
     item_id: str,
-    new_value: int,
+    new_substats: list,
     session: AsyncIOMotorClientSession,
 ) -> ItemInstance:
     itm = await ItemInstance.get(PydanticObjectId(item_id), session=usable_session(session))
@@ -293,7 +292,7 @@ async def accept_reroll_value(
         raise BlacksmithError(f"Need {gold_cost} gold.")
 
     user.gold -= gold_cost
-    itm.secondary_stat_value = new_value
+    itm.substats = new_substats
     await user.save(session=usable_session(session))
     await itm.save(session=usable_session(session))
     return itm

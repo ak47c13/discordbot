@@ -14,8 +14,14 @@ class ItemInstance(Document):
     main_stat_type: str              # e.g. "atk"
     main_stat_base: int              # base value before enhancement
     passive_name: str                # fixed passive identifier
-    secondary_stat_type: str
-    secondary_stat_value: int        # stored as int (value * 10 for precision)
+
+    # Substat list — each entry: {"type": str, "value": int (stored *10)}
+    # Count by rank: F-D=1, C-B=2, A=3, S=4
+    substats: list[dict] = Field(default_factory=list)
+
+    # Legacy single-substat fields (kept for backward compatibility, may be empty)
+    secondary_stat_type: str = ""
+    secondary_stat_value: int = 0
 
     # State flags
     equipped_to: Optional[str] = None   # ChampionInstance id if equipped
