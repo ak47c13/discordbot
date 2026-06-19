@@ -559,8 +559,11 @@ def _apply_round_start_passives(
             alive = [u for u in player_units if u.is_alive]
             if alive:
                 target = max(alive, key=lambda u: u.atk)
-                target.status_effects.append(Stun(duration=1))
-                log.append(f"  {boss.name} freezes {target.name} solid (Permafrost)!")
+                if any(isinstance(e, StunImmunity) for e in target.status_effects):
+                    log.append(f"  {boss.name} tries to freeze {target.name} (Permafrost) — resisted!")
+                elif not any(isinstance(e, Stun) for e in target.status_effects):
+                    target.status_effects.append(Stun(duration=1))
+                    log.append(f"  {boss.name} freezes {target.name} solid (Permafrost)!")
 
 
 def _apply_round_end_passives(
