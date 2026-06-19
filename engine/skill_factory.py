@@ -266,6 +266,7 @@ def make_skill(
                         heal = int(dmg * steal_rate / 100.0)
                         if heal > 0:
                             caster.hp = min(caster.hp_max, caster.hp + heal)
+                            caster.healing_done = getattr(caster, "healing_done", 0) + heal
                             log.append(f"  🩸 {caster.name} leeches {heal} HP.")
 
                     # Execute bonus
@@ -328,7 +329,9 @@ def make_skill(
                 else:
                     amount = int(caster.hp_max * heal_coeff)
                 if amount > 0:
+                    actual_heal = min(amount, t.hp_max - t.hp)
                     t.hp = min(t.hp_max, t.hp + amount)
+                    caster.healing_done = getattr(caster, "healing_done", 0) + actual_heal
                     log.append(f"  💚 {caster.name} heals {t.name} for {amount:,} HP.")
 
         # Shield

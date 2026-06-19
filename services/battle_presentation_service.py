@@ -298,7 +298,9 @@ async def finalize(
     if reward_fn is not None:
         try:
             granted = await reward_fn()
-        except Exception:
+        except Exception as _reward_err:
+            import logging as _logging
+            _logging.getLogger(__name__).exception("reward_fn failed: %s", _reward_err)
             granted = rewards or {}
         bs.rewards_json = granted or {}
         await bs.save()

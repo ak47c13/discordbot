@@ -103,6 +103,7 @@ class CombatUnit:
     # Contribution tracking (for raid drop attribution)
     damage_dealt: int = 0
     damage_taken: int = 0
+    healing_done: int = 0
 
     # Phase 2 skill mechanic state
     skill_stacks: int = 0        # stack_damage mechanic accumulator
@@ -796,7 +797,9 @@ def run_battle_with_rounds(
 
             # Attribute contribution stats.
             for e in enemies_of_unit:
-                unit.damage_dealt += max(0, _enemy_hp_before.get(id(e), e.hp) - e.hp)
+                dealt = max(0, _enemy_hp_before.get(id(e), e.hp) - e.hp)
+                unit.damage_dealt += dealt
+                e.damage_taken += dealt  # track on the receiving unit too
             unit.damage_taken += max(0, _self_hp_before - unit.hp)
 
             # Dodge mechanic (yasuo_passive): roll per dodging unit; on success

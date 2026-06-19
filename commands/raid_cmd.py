@@ -280,19 +280,23 @@ class RaidCog(commands.Cog):
         )
         for player_id in player_ids:
             unit = next((u for u in player_units if unit_to_player.get(u.unit_id) == player_id), None)
-            dmg_dealt = int(getattr(unit, "damage_dealt", 0)) if unit else 0
-            dmg_taken = int(getattr(unit, "damage_taken", 0)) if unit else 0
+            dmg_dealt  = int(getattr(unit, "damage_dealt",  0)) if unit else 0
+            dmg_taken  = int(getattr(unit, "damage_taken",  0)) if unit else 0
+            healed     = int(getattr(unit, "healing_done",  0)) if unit else 0
             pct = contributions.get(player_id, 0.0)
             try:
                 member = interaction.guild.get_member(int(player_id)) if interaction.guild else None
                 name = member.display_name if member else f"<@{player_id}>"
             except Exception:
                 name = f"<@{player_id}>"
-            contrib_embed.add_field(
-                name=name,
-                value=f"DMG Dealt: **{dmg_dealt:,}**\nDMG Taken: **{dmg_taken:,}**\nContribution: **{pct*100:.1f}%**",
-                inline=True,
-            )
+            lines = [
+                f"DMG Dealt: **{dmg_dealt:,}**",
+                f"DMG Taken: **{dmg_taken:,}**",
+            ]
+            if healed:
+                lines.append(f"Healing: **{healed:,}**")
+            lines.append(f"Contribution: **{pct*100:.1f}%**")
+            contrib_embed.add_field(name=name, value="\n".join(lines), inline=True)
         await interaction.followup.send(embed=contrib_embed)
 
         if not won:
@@ -301,7 +305,7 @@ class RaidCog(commands.Cog):
         solo_note = " (Solo — 60% payout)" if is_solo else ""
         for player_id in player_ids:
             rewards = player_rewards.get(player_id, {})
-            if rewards.get("already_rewarded") or rewards.get("lost") or not rewards.get("gold"):
+            if rewards.get("already_rewarded") or rewards.get("lost") or not rewards:
                 continue
             try:
                 member = interaction.guild.get_member(int(player_id)) if interaction.guild else None

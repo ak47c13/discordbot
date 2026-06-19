@@ -296,7 +296,11 @@ async def finalize_raid(
     for unit in player_units:
         pid = unit_to_player.get(unit.unit_id)
         if pid:
-            raw_scores[pid] = getattr(unit, "damage_dealt", 0) * 0.6 + getattr(unit, "damage_taken", 0) * 0.4
+            raw_scores[pid] = (
+                getattr(unit, "damage_dealt", 0) * 0.5
+                + getattr(unit, "damage_taken", 0) * 0.3
+                + getattr(unit, "healing_done", 0) * 0.2
+            )
     total_score = sum(raw_scores.values()) or 1
     contributions: dict[str, float] = {pid: s / total_score for pid, s in raw_scores.items()}
 
@@ -412,7 +416,11 @@ async def start_raid(
     for unit in player_units:
         pid = unit_to_player.get(unit.unit_id)
         if pid:
-            raw_scores[pid] = unit.damage_dealt * 0.6 + unit.damage_taken * 0.4
+            raw_scores[pid] = (
+                unit.damage_dealt * 0.5
+                + unit.damage_taken * 0.3
+                + getattr(unit, "healing_done", 0) * 0.2
+            )
     total_score = sum(raw_scores.values()) or 1
     contributions: dict[str, float] = {pid: s / total_score for pid, s in raw_scores.items()}
 
