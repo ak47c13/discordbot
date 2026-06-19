@@ -204,14 +204,14 @@ async def reroll_secondary_full(
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
     from services.item_service import _roll_substats
-    from config.game_config import SECONDARY_STAT_TYPES, SECONDARY_STAT_RANGE
+    from config.game_config import SECONDARY_STAT_TYPES, SUBSTAT_STAT_RANGE
+    RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
     old_substats = list(itm.substats)
     locked_idxs = set(getattr(itm, "locked_substats", []))
     locked_types = {old_substats[i]["type"] for i in locked_idxs if i < len(old_substats)}
 
-    # Roll fresh substats for unlocked slots only
+    # Roll fresh substats for unlocked slots — any rank F-S, independent of item rank
     count = {"F": 1, "E": 1, "D": 1, "C": 2, "B": 2, "A": 3, "S": 4}.get(itm.rank, 1)
-    lo, hi = SECONDARY_STAT_RANGE[itm.rank]
     import random as _random
     new_substats = list(old_substats)
     chosen_types = list(locked_types)
@@ -223,10 +223,13 @@ async def reroll_secondary_full(
             break
         stat_type = _random.choice(available)
         chosen_types.append(stat_type)
+        sub_rank = _random.choice(RANK_ORDER)
+        lo, hi = SUBSTAT_STAT_RANGE[sub_rank]
+        entry = {"type": stat_type, "value": _random.randint(lo, hi), "rank": sub_rank}
         if i < len(new_substats):
-            new_substats[i] = {"type": stat_type, "value": _random.randint(lo, hi)}
+            new_substats[i] = entry
         else:
-            new_substats.append({"type": stat_type, "value": _random.randint(lo, hi)})
+            new_substats.append(entry)
 
     return {
         "old_substats": old_substats,
@@ -280,13 +283,18 @@ async def reroll_secondary_value(
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
-    lo, hi = SECONDARY_STAT_RANGE[itm.rank]
+    from config.game_config import SUBSTAT_STAT_RANGE
+    RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
     old_substats = list(itm.substats)
     locked_idxs = set(getattr(itm, "locked_substats", []))
-    new_substats = [
-        s if i in locked_idxs else {"type": s["type"], "value": random.randint(lo, hi)}
-        for i, s in enumerate(old_substats)
-    ]
+    new_substats = []
+    for i, s in enumerate(old_substats):
+        if i in locked_idxs:
+            new_substats.append(s)
+        else:
+            sub_rank = random.choice(RANK_ORDER)
+            lo, hi = SUBSTAT_STAT_RANGE[sub_rank]
+            new_substats.append({"type": s["type"], "value": random.randint(lo, hi), "rank": sub_rank})
 
     return {
         "old_substats": old_substats,

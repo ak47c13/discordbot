@@ -253,18 +253,26 @@ def _item_page_embed(items, page: int) -> discord.Embed:
     start = page * PAGE_SIZE
     chunk = items[start:start + PAGE_SIZE]
 
+    from config.game_config import ENHANCEMENT_MULTIPLIER
     lines = []
     for itm in chunk:
         flags = []
         if itm.locked:       flags.append("🔒")
         if getattr(itm, "favorite", False): flags.append("⭐")
-        if itm.in_market:    flags.append("Listed")
-        if itm.in_trade:     flags.append("Trade")
-        if itm.equipped_to:
-            flags.append(f"Equip/{itm.main_stat_type}")
-        suffix = ("  " + " ".join(flags)) if flags else ""
+        if itm.in_market:    flags.append("🏪")
+        if itm.in_trade:     flags.append("🔄")
+        if itm.equipped_to:  flags.append("⚔️")
+        suffix = (" " + " ".join(flags)) if flags else ""
         did = getattr(itm, "display_id", "?")
-        lines.append(f"#{did:<4} {itm.name}  [{itm.rank}] +{itm.enhancement}{suffix}")
+        mult = ENHANCEMENT_MULTIPLIER.get(itm.enhancement, 0.0)
+        eff = int(itm.main_stat_base * (1 + mult))
+        stat = itm.main_stat_type.upper()
+        substats = getattr(itm, "substats", [])
+        sub_str = "  " + "  ".join(
+            f"{s['type'].replace('_pct','%').replace('_',' ').replace(' pct','%').upper()} +{s['value']/10:.1f}%[{s.get('rank','?')}]"
+            for s in substats
+        ) if substats else ""
+        lines.append(f"`#{did}` **{itm.name}** [{itm.rank}]+{itm.enhancement}  {stat} {eff}{sub_str}{suffix}")
 
     desc = "\n".join(lines) if lines else "*No items.*"
     desc += "\n\nUse `/item-info <id>` to view details."
