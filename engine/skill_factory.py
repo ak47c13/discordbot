@@ -289,13 +289,22 @@ def make_skill(
                     else status_duration
                 )
                 if status == "stun":
-                    t.status_effects.append(Stun(duration=eff_dur))
+                    # Refresh existing stun to max duration rather than stacking
+                    existing = next((e for e in t.status_effects if isinstance(e, Stun)), None)
+                    if existing:
+                        existing.duration = max(existing.duration, eff_dur)
+                    else:
+                        t.status_effects.append(Stun(duration=eff_dur))
                 elif status == "poison":
                     t.status_effects.append(Poison(duration=eff_dur, damage_per_turn=int(caster.atk * 0.25)))
                 elif status == "burn":
                     t.status_effects.append(Burn(duration=eff_dur, damage_per_turn=int(caster.atk * 0.25)))
                 elif status == "silence":
-                    t.status_effects.append(Silence(duration=eff_dur))
+                    existing = next((e for e in t.status_effects if isinstance(e, Silence)), None)
+                    if existing:
+                        existing.duration = max(existing.duration, eff_dur)
+                    else:
+                        t.status_effects.append(Silence(duration=eff_dur))
                 elif status == "defense_down":
                     t.status_effects.append(DefenseDown(duration=eff_dur, reduction_pct=0.25))
                 _status_emoji = {
