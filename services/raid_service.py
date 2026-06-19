@@ -541,7 +541,7 @@ async def _roll_raid_drops(
 ) -> dict[str, Any]:
     cfg = RAID_DIFFICULTIES[difficulty]
     rewards: dict[str, Any] = {
-        "gold": 0, "champions": [], "items": [], "seals": 0, "summon_tokens": 0
+        "gold": 0, "champions": [], "items": [], "seals": 0, "champion_tokens": 0
     }
 
     # Solo penalty: 60% gold and tokens
@@ -556,8 +556,8 @@ async def _roll_raid_drops(
 
     # Tokens — always drops
     tokens = int(random.randint(cfg["token_min"], cfg["token_max"]) * solo_mult)
-    user.summon_tokens += tokens
-    rewards["summon_tokens"] = tokens
+    user.champion_tokens = getattr(user, "champion_tokens", 0) + tokens
+    rewards["champion_tokens"] = tokens
 
     # Boss champion drop (pre-rolled by start_raid, champ_copies already determined)
     for _ in range(champ_copies):
