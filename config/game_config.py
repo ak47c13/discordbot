@@ -323,7 +323,8 @@ BOSS_DROPS = {
     "enhance_mat":   {"min": 5, "max": 15, "chance": 0.40},
     "reroll_mat":    {"min": 2, "max": 5, "chance": 0.20},
     "seal":          {"chance": 0.01},
-    "summon_token":  {"min": 10, "max": 30, "chance": 0.60},
+    # Tokens: 60% chance to drop 1-3 of a random token type
+    "token_drop":    {"min": 1, "max": 3, "chance": 0.60},
 }
 
 

@@ -401,17 +401,15 @@ async def grant_floor_rewards(
         if rng.random() < rune_drop_chance:
             from services.rune_service import grant_rune
             from services.summon_service import _get_weekly_rune_pool
-            import random as _random
             pool = _get_weekly_rune_pool()
-            # Lower-rank runes more common in dungeons — bias toward F/E
             ranks = list(RUNE_SUMMON_RATES.keys())
             weights = list(RUNE_SUMMON_RATES.values())
-            rank_key = _random.choices(ranks, weights=weights, k=1)[0]
+            rank_key = rng.choices(ranks, weights=weights, k=1)[0]
             rank = rank_key.split("_")[1].upper()
             rank_to_tier = {"F": 1, "E": 1, "D": 2, "C": 2, "B": 3, "A": 3, "S": 3}
             tier = rank_to_tier.get(rank, 1)
             tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
-            rune_id = _random.choice(tier_pool if tier_pool else pool)
+            rune_id = rng.choice(tier_pool if tier_pool else pool)
             inst = await grant_rune(owner_id, rune_id, rank, session)
             from data.rune_catalog import RUNE_CATALOG
             rune_data = RUNE_CATALOG.get(rune_id, {})
@@ -543,16 +541,15 @@ async def enter_floor(
         if rng.random() < rune_drop_chance:
             from services.rune_service import grant_rune
             from services.summon_service import _get_weekly_rune_pool
-            import random as _random
             pool = _get_weekly_rune_pool()
             ranks = list(RUNE_SUMMON_RATES.keys())
             weights = list(RUNE_SUMMON_RATES.values())
-            rank_key = _random.choices(ranks, weights=weights, k=1)[0]
+            rank_key = rng.choices(ranks, weights=weights, k=1)[0]
             rank = rank_key.split("_")[1].upper()
             rank_to_tier = {"F": 1, "E": 1, "D": 2, "C": 2, "B": 3, "A": 3, "S": 3}
             tier = rank_to_tier.get(rank, 1)
             tier_pool = [rid for rid in pool if rid.endswith(f"-t{tier}")]
-            rune_id = _random.choice(tier_pool if tier_pool else pool)
+            rune_id = rng.choice(tier_pool if tier_pool else pool)
             inst = await grant_rune(owner_id, rune_id, rank, session)
             from data.rune_catalog import RUNE_CATALOG
             rune_data = RUNE_CATALOG.get(rune_id, {})
