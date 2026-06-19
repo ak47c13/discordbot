@@ -21,6 +21,12 @@ class StatusEffect:
 
 
 @dataclass
+class StunImmunity(StatusEffect):
+    name: str = "stun_immunity"
+    # Lasts 1 turn — guarantees at least one free action after a stun expires
+
+
+@dataclass
 class Stun(StatusEffect):
     name: str = "stun"
 

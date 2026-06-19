@@ -289,12 +289,16 @@ def make_skill(
                     else status_duration
                 )
                 if status == "stun":
-                    # Refresh existing stun to max duration rather than stacking
-                    existing = next((e for e in t.status_effects if isinstance(e, Stun)), None)
-                    if existing:
-                        existing.duration = max(existing.duration, eff_dur)
+                    from engine.status_effects import StunImmunity
+                    if any(isinstance(e, StunImmunity) for e in t.status_effects):
+                        pass  # immune — cannot be re-stunned this turn
                     else:
-                        t.status_effects.append(Stun(duration=eff_dur))
+                        # Refresh existing stun to max duration rather than stacking
+                        existing = next((e for e in t.status_effects if isinstance(e, Stun)), None)
+                        if existing:
+                            existing.duration = max(existing.duration, eff_dur)
+                        else:
+                            t.status_effects.append(Stun(duration=eff_dur))
                 elif status == "poison":
                     t.status_effects.append(Poison(duration=eff_dur, damage_per_turn=int(caster.atk * 0.25)))
                 elif status == "burn":

@@ -18,7 +18,7 @@ from config.game_config import (
     ITEM_BASE_MAIN_STAT,
 )
 from engine.status_effects import (
-    StatusEffect, Stun, Poison, Burn, Silence, DefenseDown, Shield,
+    StatusEffect, Stun, StunImmunity, Poison, Burn, Silence, DefenseDown, Shield,
 )
 from engine.skills import CHAMPION_SKILLS
 
@@ -141,6 +141,8 @@ class CombatUnit:
         for e in expired:
             self.status_effects.remove(e)
             log.append(f"  {self.name}: {e.name} fades.")
+            if isinstance(e, Stun):
+                self.status_effects.append(StunImmunity(duration=1))
         return log
 
 
