@@ -1,0 +1,81 @@
+RUNE_CATALOG = {
+    "mark-atk-t1": {"id": "mark-atk-t1", "name": "Mark of Attack I", "color": "red", "tier": 1, "rank_req": "F", "stat": "atk", "value": 4, "description": "+4 ATK"},
+    "mark-atk-t2": {"id": "mark-atk-t2", "name": "Mark of Attack II", "color": "red", "tier": 2, "rank_req": "D", "stat": "atk", "value": 8, "description": "+8 ATK"},
+    "mark-atk-t3": {"id": "mark-atk-t3", "name": "Mark of Attack III", "color": "red", "tier": 3, "rank_req": "B", "stat": "atk", "value": 14, "description": "+14 ATK"},
+    "mark-arpen-t1": {"id": "mark-arpen-t1", "name": "Mark of Armor Pen I", "color": "red", "tier": 1, "rank_req": "F", "stat": "armor_pen", "value": 8, "description": "Reduces enemy DEF by 8"},
+    "mark-arpen-t2": {"id": "mark-arpen-t2", "name": "Mark of Armor Pen II", "color": "red", "tier": 2, "rank_req": "D", "stat": "armor_pen", "value": 16, "description": "Reduces enemy DEF by 16"},
+    "mark-arpen-t3": {"id": "mark-arpen-t3", "name": "Mark of Armor Pen III", "color": "red", "tier": 3, "rank_req": "B", "stat": "armor_pen", "value": 28, "description": "Reduces enemy DEF by 28"},
+    "mark-crit-t1": {"id": "mark-crit-t1", "name": "Mark of Crit I", "color": "red", "tier": 1, "rank_req": "F", "stat": "crit_chance", "value": 1.0, "description": "+1% Crit Chance"},
+    "mark-crit-t2": {"id": "mark-crit-t2", "name": "Mark of Crit II", "color": "red", "tier": 2, "rank_req": "D", "stat": "crit_chance", "value": 2.0, "description": "+2% Crit Chance"},
+    "mark-crit-t3": {"id": "mark-crit-t3", "name": "Mark of Crit III", "color": "red", "tier": 3, "rank_req": "B", "stat": "crit_chance", "value": 3.5, "description": "+3.5% Crit Chance"},
+    "mark-mpen-t1": {"id": "mark-mpen-t1", "name": "Mark of Magic Pen I", "color": "red", "tier": 1, "rank_req": "F", "stat": "magic_pen", "value": 5, "description": "Magic damage ignores 5 MR"},
+    "mark-mpen-t2": {"id": "mark-mpen-t2", "name": "Mark of Magic Pen II", "color": "red", "tier": 2, "rank_req": "D", "stat": "magic_pen", "value": 10, "description": "Magic damage ignores 10 MR"},
+    "mark-mpen-t3": {"id": "mark-mpen-t3", "name": "Mark of Magic Pen III", "color": "red", "tier": 3, "rank_req": "B", "stat": "magic_pen", "value": 18, "description": "Magic damage ignores 18 MR"},
+    "mark-aspd-t1": {"id": "mark-aspd-t1", "name": "Mark of Attack Speed I", "color": "red", "tier": 1, "rank_req": "F", "stat": "attack_speed", "value": 0.03, "description": "+3% Attack Speed"},
+    "mark-aspd-t2": {"id": "mark-aspd-t2", "name": "Mark of Attack Speed II", "color": "red", "tier": 2, "rank_req": "D", "stat": "attack_speed", "value": 0.06, "description": "+6% Attack Speed"},
+    "mark-aspd-t3": {"id": "mark-aspd-t3", "name": "Mark of Attack Speed III", "color": "red", "tier": 3, "rank_req": "B", "stat": "attack_speed", "value": 0.10, "description": "+10% Attack Speed"},
+    "seal-hp-t1": {"id": "seal-hp-t1", "name": "Seal of Health I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "hp", "value": 60, "description": "+60 HP"},
+    "seal-hp-t2": {"id": "seal-hp-t2", "name": "Seal of Health II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "hp", "value": 140, "description": "+140 HP"},
+    "seal-hp-t3": {"id": "seal-hp-t3", "name": "Seal of Health III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "hp", "value": 260, "description": "+260 HP"},
+    "seal-def-t1": {"id": "seal-def-t1", "name": "Seal of Armor I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 3, "description": "+3 DEF"},
+    "seal-def-t2": {"id": "seal-def-t2", "name": "Seal of Armor II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 7, "description": "+7 DEF"},
+    "seal-def-t3": {"id": "seal-def-t3", "name": "Seal of Armor III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 14, "description": "+14 DEF"},
+    "seal-hpregen-t1": {"id": "seal-hpregen-t1", "name": "Seal of HP Regen I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "hp_regen", "value": 20, "description": "Regen 20 HP per round"},
+    "seal-hpregen-t2": {"id": "seal-hpregen-t2", "name": "Seal of HP Regen II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "hp_regen", "value": 50, "description": "Regen 50 HP per round"},
+    "seal-hpregen-t3": {"id": "seal-hpregen-t3", "name": "Seal of HP Regen III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "hp_regen", "value": 100, "description": "Regen 100 HP per round"},
+    "seal-dodge-t1": {"id": "seal-dodge-t1", "name": "Seal of Evasion I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "dodge_chance", "value": 0.015, "description": "+1.5% Dodge"},
+    "seal-dodge-t2": {"id": "seal-dodge-t2", "name": "Seal of Evasion II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "dodge_chance", "value": 0.03, "description": "+3% Dodge"},
+    "seal-dodge-t3": {"id": "seal-dodge-t3", "name": "Seal of Evasion III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "dodge_chance", "value": 0.05, "description": "+5% Dodge"},
+    "seal-gold-t1": {"id": "seal-gold-t1", "name": "Seal of Greed I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "gold_find", "value": 0.05, "description": "+5% gold from battles"},
+    "seal-gold-t2": {"id": "seal-gold-t2", "name": "Seal of Greed II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "gold_find", "value": 0.10, "description": "+10% gold from battles"},
+    "seal-gold-t3": {"id": "seal-gold-t3", "name": "Seal of Greed III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "gold_find", "value": 0.18, "description": "+18% gold from battles"},
+    "glyph-spd-t1": {"id": "glyph-spd-t1", "name": "Glyph of Swiftness I", "color": "blue", "tier": 1, "rank_req": "F", "stat": "spd", "value": 2, "description": "+2 SPD"},
+    "glyph-spd-t2": {"id": "glyph-spd-t2", "name": "Glyph of Swiftness II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "spd", "value": 4, "description": "+4 SPD"},
+    "glyph-spd-t3": {"id": "glyph-spd-t3", "name": "Glyph of Swiftness III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "spd", "value": 7, "description": "+7 SPD"},
+    "glyph-mana-t1": {"id": "glyph-mana-t1", "name": "Glyph of Insight I", "color": "blue", "tier": 1, "rank_req": "F", "stat": "mana_gain_bonus", "value": 2, "description": "+2 mana per skill use"},
+    "glyph-mana-t2": {"id": "glyph-mana-t2", "name": "Glyph of Insight II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "mana_gain_bonus", "value": 4, "description": "+4 mana per skill use"},
+    "glyph-mana-t3": {"id": "glyph-mana-t3", "name": "Glyph of Insight III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "mana_gain_bonus", "value": 7, "description": "+7 mana per skill use"},
+    "glyph-critdmg-t1": {"id": "glyph-critdmg-t1", "name": "Glyph of Devastation I", "color": "blue", "tier": 1, "rank_req": "F", "stat": "crit_dmg", "value": 5, "description": "+5% Crit Damage"},
+    "glyph-critdmg-t2": {"id": "glyph-critdmg-t2", "name": "Glyph of Devastation II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "crit_dmg", "value": 10, "description": "+10% Crit Damage"},
+    "glyph-critdmg-t3": {"id": "glyph-critdmg-t3", "name": "Glyph of Devastation III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "crit_dmg", "value": 18, "description": "+18% Crit Damage"},
+    "glyph-def-t1": {"id": "glyph-def-t1", "name": "Glyph of Warding I", "color": "blue", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 2, "description": "+2 DEF"},
+    "glyph-def-t2": {"id": "glyph-def-t2", "name": "Glyph of Warding II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 5, "description": "+5 DEF"},
+    "glyph-def-t3": {"id": "glyph-def-t3", "name": "Glyph of Warding III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 9, "description": "+9 DEF"},
+    "glyph-mr-t3": {"id": "glyph-mr-t3", "name": "Glyph of Magic Resist III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "magic_resist", "value": 14, "description": "+14 Magic Resist"},
+    "glyph-scaleatk-t2": {"id": "glyph-scaleatk-t2", "name": "Glyph of Scaling Power II", "color": "blue", "tier": 2, "rank_req": "D", "stat": "atk_per_10_levels", "value": 3, "description": "+3 ATK per 10 levels"},
+    "glyph-scaleatk-t3": {"id": "glyph-scaleatk-t3", "name": "Glyph of Scaling Power III", "color": "blue", "tier": 3, "rank_req": "B", "stat": "atk_per_10_levels", "value": 6, "description": "+6 ATK per 10 levels"},
+    "quint-lifesteal-t1": {"id": "quint-lifesteal-t1", "name": "Quint of Vampirism I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "lifesteal", "value": 4, "description": "+4% Lifesteal"},
+    "quint-lifesteal-t2": {"id": "quint-lifesteal-t2", "name": "Quint of Vampirism II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "lifesteal", "value": 8, "description": "+8% Lifesteal"},
+    "quint-lifesteal-t3": {"id": "quint-lifesteal-t3", "name": "Quint of Vampirism III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "lifesteal", "value": 14, "description": "+14% Lifesteal"},
+    "quint-atk-t1": {"id": "quint-atk-t1", "name": "Quint of Force I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "atk", "value": 14, "description": "+14 ATK"},
+    "quint-atk-t2": {"id": "quint-atk-t2", "name": "Quint of Force II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "atk", "value": 26, "description": "+26 ATK"},
+    "quint-atk-t3": {"id": "quint-atk-t3", "name": "Quint of Force III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "atk", "value": 44, "description": "+44 ATK"},
+    "quint-hp-t1": {"id": "quint-hp-t1", "name": "Quint of Fortitude I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "hp", "value": 200, "description": "+200 HP"},
+    "quint-hp-t2": {"id": "quint-hp-t2", "name": "Quint of Fortitude II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "hp", "value": 420, "description": "+420 HP"},
+    "quint-hp-t3": {"id": "quint-hp-t3", "name": "Quint of Fortitude III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "hp", "value": 720, "description": "+720 HP"},
+    "quint-spd-t1": {"id": "quint-spd-t1", "name": "Quint of Celerity I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "spd", "value": 6, "description": "+6 SPD"},
+    "quint-spd-t2": {"id": "quint-spd-t2", "name": "Quint of Celerity II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "spd", "value": 12, "description": "+12 SPD"},
+    "quint-spd-t3": {"id": "quint-spd-t3", "name": "Quint of Celerity III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "spd", "value": 20, "description": "+20 SPD"},
+    "quint-crit-t1": {"id": "quint-crit-t1", "name": "Quint of Havoc I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "crit_chance", "value": 4.0, "description": "+4% Crit Chance"},
+    "quint-crit-t2": {"id": "quint-crit-t2", "name": "Quint of Havoc II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "crit_chance", "value": 7.0, "description": "+7% Crit Chance"},
+    "quint-crit-t3": {"id": "quint-crit-t3", "name": "Quint of Havoc III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "crit_chance", "value": 11.0, "description": "+11% Crit Chance"},
+    "quint-arpen-t1": {"id": "quint-arpen-t1", "name": "Quint of Breaching I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "armor_pen", "value": 22, "description": "Reduces enemy DEF by 22"},
+    "quint-arpen-t2": {"id": "quint-arpen-t2", "name": "Quint of Breaching II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "armor_pen", "value": 42, "description": "Reduces enemy DEF by 42"},
+    "quint-arpen-t3": {"id": "quint-arpen-t3", "name": "Quint of Breaching III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "armor_pen", "value": 70, "description": "Reduces enemy DEF by 70"},
+    "quint-xp-t1": {"id": "quint-xp-t1", "name": "Quint of Experience I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "xp_gain", "value": 0.05, "description": "+5% XP gained"},
+    "quint-xp-t2": {"id": "quint-xp-t2", "name": "Quint of Experience II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "xp_gain", "value": 0.10, "description": "+10% XP gained"},
+    "quint-xp-t3": {"id": "quint-xp-t3", "name": "Quint of Experience III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "xp_gain", "value": 0.18, "description": "+18% XP gained"},
+}
+
+RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
+
+
+def can_equip_rune(rune_id: str, champion_rank: str) -> bool:
+    rune = RUNE_CATALOG.get(rune_id)
+    if not rune:
+        return False
+    req = rune["rank_req"]
+    try:
+        return RANK_ORDER.index(champion_rank) >= RANK_ORDER.index(req)
+    except ValueError:
+        return False

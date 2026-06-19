@@ -1,0 +1,324 @@
+"""
+Battle presentation embed builders and interactive views.
+"""
+from __future__ import annotations
+import discord
+
+from config.game_config import (
+    BOSS_PORTRAIT_RIOT_IDS,
+    RAID_BOSS_PORTRAIT_RIOT_ID,
+    HUNT_ZONES,
+)
+
+
+DIVIDER = "─────────────────────────────"
+
+# Zone display-name -> zone key (HUNT_ZONES stores display names in "name")
+_ZONE_NAME_TO_KEY = {cfg["name"]: key for key, cfg in HUNT_ZONES.items()}
+
+
+def _zone_key(battle_session) -> str:
+    zone = getattr(battle_session, "zone", "") or ""
+    if zone in HUNT_ZONES:
+        return zone
+    return _ZONE_NAME_TO_KEY.get(zone, "")
+
+
+def _zone_key_for_name(zone: str) -> str:
+    """Resolve a zone key from either a zone key or its display name."""
+    if zone in HUNT_ZONES:
+        return zone
+    return _ZONE_NAME_TO_KEY.get(zone, "")
+
+
+def _boss_portrait_url(battle_session) -> str:
+    """Riot Data Dragon loading-screen art for this battle's boss."""
+    if getattr(battle_session, "battle_type", "") == "raid":
+        riot_id = RAID_BOSS_PORTRAIT_RIOT_ID
+    else:
+        riot_id = BOSS_PORTRAIT_RIOT_IDS.get(_zone_key(battle_session), "")
+    if not riot_id:
+        return ""
+    return f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg"
+
+
+def progress_bar(current, maximum, length: int = 16) -> str:
+    if maximum <= 0:
+        return "░" * length
+    ratio = max(0.0, min(1.0, current / maximum))
+    filled = round(ratio * length)
+    return "█" * filled + "░" * (length - filled)
+
+
+def hp_display(current, maximum) -> str:
+    return f"{int(current):,} / {int(maximum):,}\n{progress_bar(current, maximum)}"
+
+
+def mana_compact(mana_states: dict) -> str:
+    lines = []
+    for name, mana in mana_states.items():
+        short = name if len(name) <= 10 else name[:9] + "…"
+        if mana >= 100:
+            lines.append(f"{short} ✨ULT")
+        else:
+            lines.append(f"{short} {mana}/100")
+    return "\n".join(lines)
+
+
+def champion_status_icon(hp, hp_max) -> str:
+    if hp <= 0:
+        return "☠️"
+    if hp_max <= 0:
+        return "🟢"
+    ratio = hp / hp_max
+    if ratio > 0.6:
+        return "🟢"
+    if ratio > 0.3:
+        return "🟡"
+    if ratio > 0.15:
+        return "🔴"
+    return "🚨"
+
+
+def _title_for(battle_type: str, zone_name: str) -> str:
+    if battle_type == "boss":
+        return "BOSS BATTLE"
+    if battle_type == "raid":
+        return "RAID"
+    return f"{zone_name} Battle"
+
+
+def build_initial_embed(zone_name, player_names, enemy_name, battle_type, banner_url="", zone_key="") -> discord.Embed:
+    embed = discord.Embed(
+        title=_title_for(battle_type, zone_name),
+        description="⚙️ Preparing for battle...",
+        color=0x5865F2,
+    )
+    roster = "\n".join(f"• {n}" for n in player_names) or "—"
+    embed.add_field(name="Your Team", value=roster, inline=True)
+    embed.add_field(name="Enemy", value=enemy_name or "—", inline=True)
+    if banner_url:
+        embed.set_image(url=banner_url)
+    # Boss portrait thumbnail from the start
+    if battle_type == "raid":
+        riot_id = RAID_BOSS_PORTRAIT_RIOT_ID
+    else:
+        riot_id = BOSS_PORTRAIT_RIOT_IDS.get(zone_key, "")
+    if riot_id:
+        embed.set_thumbnail(
+            url=f"https://ddragon.leagueoflegends.com/cdn/img/champion/loading/{riot_id}_0.jpg"
+        )
+    return embed
+
+
+def _enemy_label(battle_session) -> str:
+    """Enemy name with rank/level if available from the snapshot."""
+    snaps = getattr(battle_session, "enemy_snapshot", None) or []
+    if not snaps:
+        return "Enemy"
+    first = snaps[0]
+    name = first.get("name", "Enemy")
+    rank = first.get("rank")
+    level = first.get("level")
+    suffix = ""
+    if rank:
+        suffix += f" [{rank}]"
+    if level:
+        suffix += f" Lv.{level}"
+    return f"{name}{suffix}"
+
+
+STATUS_EMOJI = {
+    "Stun": "💫", "Poison": "☠️", "Burn": "🔥",
+    "Silence": "🔇", "Shield": "🛡️", "DefenseDown": "⬇️",
+}
+
+
+def build_unit_bar(unit: dict, is_enemy: bool = False) -> str:
+    hp = unit["hp"]
+    hp_max = unit["hp_max"]
+    mana = unit.get("mana", 0)
+    name = unit["name"]
+    rank = unit.get("rank", "?")
+    level = unit.get("level", 1)
+    statuses = unit.get("status_effects", [])
+
+    status_str = " ".join(STATUS_EMOJI.get(s, "") for s in statuses if s in STATUS_EMOJI)
+
+    if hp <= 0:
+        return f"☠️ ~~{name}~~ [{rank}] Lv.{level} — **DEFEATED**"
+
+    ult_str = " ✨" if mana >= 100 else ""
+
+    # Colored bars using Discord square emojis
+    bar_len = 12
+    hp_ratio = max(0.0, min(1.0, hp / hp_max)) if hp_max > 0 else 0.0
+    hp_filled = round(hp_ratio * bar_len)
+    mana_ratio = max(0.0, min(1.0, mana / 100))
+    mana_filled = round(mana_ratio * bar_len)
+
+    HP_FULL  = "🟥" if is_enemy else "🟩"
+    HP_EMPTY = "⬛"
+    MANA_FULL  = "🟦"
+    MANA_EMPTY = "⬛"
+
+    hp_bar   = HP_FULL * hp_filled + HP_EMPTY * (bar_len - hp_filled)
+    mana_bar = MANA_FULL * mana_filled + MANA_EMPTY * (bar_len - mana_filled)
+    hp_emoji = "❤️" if is_enemy else "💚"
+
+    lines = [
+        f"**{name}** [{rank}] Lv.{level}{ult_str}{' ' + status_str if status_str else ''}",
+        f"{hp_emoji} {hp:,} / {hp_max:,}",
+        hp_bar,
+        f"MP {mana}/100",
+        mana_bar,
+    ]
+    return "\n".join(lines)
+
+
+def _mana_ready_line(rs: dict) -> str:
+    ready = [name for name, mana in rs.get("mana_states", {}).items() if mana >= 100]
+    if not ready:
+        return ""
+    return "**Ult Ready:** " + ", ".join(ready[:6])
+
+
+def build_battle_embed(battle_session, round_snapshot, zone_name, player_names, banner_url="") -> discord.Embed:
+    rs = round_snapshot
+    rounds = battle_session.simulated_rounds
+    # Find position of current snapshot in stored list (rounds may be thinned)
+    try:
+        idx = next(i for i, r in enumerate(rounds) if r["round"] == rs["round"])
+    except StopIteration:
+        idx = len(rounds) - 1
+
+    # Group recent events by round (last 2 rounds), with round headers.
+    blocks = []
+    for r in rounds[max(0, idx - 1): idx + 1]:
+        evs = r.get("events", [])
+        if not evs:
+            continue
+        blocks.append(f"**[Round {r['round']}]**\n" + "\n".join(evs[:6]))
+    recent_text = "\n\n".join(reversed(blocks)) or "—"
+
+    enemy_units = rs.get("enemy_units")
+    player_units = rs.get("player_units")
+
+    embed = discord.Embed(
+        title=f"{zone_name} — Round {rs['round']}/{battle_session.max_rounds}",
+        color=0xE67E22,
+    )
+
+    if enemy_units or player_units:
+        # Unit bars are rendered in the generated battle image (attachment://battle.png).
+        # Only show the event log as text here.
+        embed.add_field(name="Recent Events", value=(recent_text or "—")[:1024], inline=False)
+        if enemy_units:
+            alive_e = sum(1 for u in enemy_units if u.get("hp", 0) > 0)
+            embed.add_field(name="Enemies", value=f"{alive_e}/{len(enemy_units)} alive", inline=True)
+        if player_units:
+            alive_p = sum(1 for u in player_units if u.get("hp", 0) > 0)
+            embed.add_field(name="Team", value=f"{alive_p}/{len(player_units)} alive", inline=True)
+    else:
+        # Fallback for legacy snapshots without per-unit data.
+        enemy_label = _enemy_label(battle_session)
+        mana_line = _mana_ready_line(rs)
+        desc_parts = [
+            f"**{enemy_label}**\n{hp_display(rs['enemy_hp'], rs['enemy_hp_max'])}",
+            f"**Your Team**\n{hp_display(rs['player_hp'], rs['player_hp_max'])}",
+            DIVIDER,
+            f"**Recent Events**\n{recent_text}",
+        ]
+        if mana_line:
+            desc_parts.append(DIVIDER)
+            desc_parts.append(mana_line)
+        embed.description = "\n\n".join(desc_parts)[:4000]
+
+    # Boss portrait thumbnail.
+    portrait = _boss_portrait_url(battle_session)
+    if portrait:
+        embed.set_thumbnail(url=portrait)
+    embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
+    if banner_url:
+        embed.set_image(url=banner_url)
+    return embed
+
+
+def build_final_embed(battle_session, final_snapshot, zone_name, winner, banner_url="", rewards: dict | None = None) -> discord.Embed:
+    if winner == 0:
+        title = "🏆 VICTORY"
+        color = 0x00CC44
+    else:
+        title = "💀 DEFEAT"
+        color = 0xFF3333
+
+    embed = discord.Embed(title=title, color=color)
+
+    if banner_url:
+        embed.set_image(url=banner_url)
+
+    if winner == 0 and rewards:
+        lines = []
+        if rewards.get("gold"):
+            lines.append(f"**{rewards['gold']:,}** Gold")
+        if rewards.get("summon_tokens"):
+            lines.append(f"**{rewards['summon_tokens']}** Summon Tokens")
+        if rewards.get("blacksmith_seals"):
+            lines.append(f"**{rewards['blacksmith_seals']}** Blacksmith Seals")
+        if rewards.get("rune"):
+            r = rewards["rune"]
+            lines.append(f"🧿 **{r['name']}** [{r['rank']}] Rune  #{r['display_id']}")
+        if rewards.get("champion"):
+            c = rewards["champion"]
+            lines.append(f"**{c['name']}** [{c['rank']}] summoned!")
+        if lines:
+            embed.add_field(name="Rewards", value="\n".join(lines), inline=False)
+
+    embed.set_footer(text=f"{battle_session.id} | {battle_session.status}")
+    return embed
+
+
+# ---------------------------------------------------------------------------
+# Cancel battle interactive view
+# ---------------------------------------------------------------------------
+class _ConfirmCancelView(discord.ui.View):
+    def __init__(self, battle_session_id: str, owner_id: str, timeout: float = 30.0):
+        super().__init__(timeout=timeout)
+        self.battle_session_id = battle_session_id
+        self.owner_id = owner_id
+
+    @discord.ui.button(label="Confirm Cancel", style=discord.ButtonStyle.danger)
+    async def confirm(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if str(interaction.user.id) != self.owner_id:
+            await interaction.response.send_message("Only the battle owner can cancel.", ephemeral=True)
+            return
+        from services.battle_presentation_service import cancel_battle
+        ok = await cancel_battle(self.battle_session_id, "CANCELLED_BY_USER", session=None)
+        msg = "Battle cancelled. No rewards granted." if ok else "Battle already finished."
+        self.stop()
+        await interaction.response.edit_message(content=msg, embed=None, view=None)
+
+    @discord.ui.button(label="Continue Battle", style=discord.ButtonStyle.secondary)
+    async def keep(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.stop()
+        await interaction.response.edit_message(content="Battle continues.", embed=None, view=None)
+
+
+class CancelBattleView(discord.ui.View):
+    def __init__(self, battle_session_id: str, owner_id: str = "", timeout: float | None = None):
+        super().__init__(timeout=timeout)
+        self.battle_session_id = battle_session_id
+        self.owner_id = owner_id
+
+    @discord.ui.button(label="❌ Cancel Battle", style=discord.ButtonStyle.danger)
+    async def cancel_battle_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.owner_id and str(interaction.user.id) != self.owner_id:
+            await interaction.response.send_message("Only the battle owner can cancel.", ephemeral=True)
+            return
+        embed = discord.Embed(
+            title="Cancel this battle?",
+            description="Cancel this battle? You will receive no rewards.",
+            color=0xFF0000,
+        )
+        view = _ConfirmCancelView(self.battle_session_id, self.owner_id or str(interaction.user.id))
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
