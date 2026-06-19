@@ -3,7 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
-from config.game_config import PHT
+from config.game_config import PHT, CHAMPION_MAX_LEVEL, champion_xp_threshold
 from models.champion import ChampionInstance
 from models.item import ItemInstance
 from utils.embeds import (
@@ -54,9 +54,19 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
 
         rp = getattr(profile_user, "rune_page", None)
 
+        max_lvl = CHAMPION_MAX_LEVEL.get(champ.rank, 20)
+        if champ.level >= max_lvl:
+            xp_str = "MAX LEVEL"
+        else:
+            needed = champion_xp_threshold(champ.level, champ.rank)
+            current_exp = getattr(champ, "exp", 0)
+            filled = int(10 * min(current_exp, needed) / needed)
+            bar_str = "█" * filled + "░" * (10 - filled)
+            xp_str = f"[{bar_str}] {current_exp:,} / {needed:,} XP"
+
         embed.add_field(
             name=f"{champ.name} [{champ.rank}] Lv.{champ.level}  •  #{champ.display_id}",
-            value="​",
+            value=xp_str,
             inline=False,
         )
         # Equipped items (fetch once, reuse for both stat display and list)
