@@ -254,7 +254,7 @@ def _item_page_embed(items, page: int) -> discord.Embed:
     chunk = items[start:start + PAGE_SIZE]
 
     lines = []
-    for i, itm in enumerate(chunk, start=start + 1):
+    for itm in chunk:
         flags = []
         if itm.locked:       flags.append("🔒")
         if getattr(itm, "favorite", False): flags.append("⭐")
@@ -263,10 +263,11 @@ def _item_page_embed(items, page: int) -> discord.Embed:
         if itm.equipped_to:
             flags.append(f"Equip/{itm.main_stat_type}")
         suffix = ("  " + " ".join(flags)) if flags else ""
-        lines.append(f"#{i:<3} {itm.name}  [{itm.rank}] +{itm.enhancement}{suffix}")
+        did = getattr(itm, "display_id", "?")
+        lines.append(f"#{did:<4} {itm.name}  [{itm.rank}] +{itm.enhancement}{suffix}")
 
     desc = "\n".join(lines) if lines else "*No items.*"
-    desc += "\n\nUse `/item-info <number>` to view details."
+    desc += "\n\nUse `/item-info <id>` to view details."
     embed = discord.Embed(
         title=f"Items ({total}) — Page {page + 1}/{total_pages}",
         description=desc,
