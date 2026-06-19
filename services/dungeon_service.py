@@ -251,8 +251,23 @@ async def get_floor_preview(dungeon_slug: str, floor_num: int, session=None) -> 
 # ---------------------------------------------------------------------------
 # Champion XP / leveling
 # ---------------------------------------------------------------------------
-async def _award_champion_xp(champ_ids: list[str], xp: int, session=None) -> list[dict]:
-    """Grant XP to each champion, leveling them up when thresholds are crossed."""
+def _xp_content_level(dungeon_slug: str, floor_num: int, total_floors: int) -> int:
+    """Effective content level for a given floor, used to scale XP per champion level."""
+    map_idx = _MAP_ORDER.index(dungeon_slug) if dungeon_slug in _MAP_ORDER else 0
+    return int(map_idx * 10 + (floor_num / max(1, total_floors)) * 10 * (map_idx + 1))
+
+
+def _xp_multiplier(content_level: int, champ_level: int) -> float:
+    """Scale XP by how appropriate the content is for the champion's level."""
+    if content_level == 0:
+        return 0.02
+    ratio = content_level / champ_level
+    return min(1.5, max(0.02, ratio ** 2))
+
+
+async def _award_champion_xp(champ_ids: list[str], xp: int, session=None, content_level: int = 0) -> list[dict]:
+    """Grant XP to each champion, leveling them up when thresholds are crossed.
+    XP is scaled per-champion based on content_level vs champion level."""
     leveled: list[dict] = []
     for cid in champ_ids:
         try:
@@ -264,7 +279,8 @@ async def _award_champion_xp(champ_ids: list[str], xp: int, session=None) -> lis
         max_lvl = CHAMPION_MAX_LEVEL.get(champ.rank, 20)
         if champ.level >= max_lvl:
             continue
-        champ.exp += xp
+        scaled_xp = max(1, int(xp * _xp_multiplier(content_level, champ.level)))
+        champ.exp += scaled_xp
         gained = 0
         while champ.level < max_lvl and champ.exp >= champion_xp_threshold(champ.level, champ.rank):
             champ.exp -= champion_xp_threshold(champ.level, champ.rank)
@@ -393,6 +409,7 @@ async def grant_floor_rewards(
         map_mult = _map_multiplier(dungeon_slug)
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
+        cl = _xp_content_level(dungeon_slug, floor_num, dungeon.total_floors)
         rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
@@ -419,7 +436,7 @@ async def grant_floor_rewards(
                 "rank": rank,
                 "display_id": inst.display_id,
             }
-        rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
+        rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session, content_level=cl)
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
         if floor_num > prog.checkpoint_floor:
@@ -532,6 +549,7 @@ async def enter_floor(
         map_mult = _map_multiplier(dungeon_slug)
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
+        cl = _xp_content_level(dungeon_slug, floor_num, dungeon.total_floors)
         rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
@@ -560,7 +578,7 @@ async def enter_floor(
                 "display_id": inst.display_id,
             }
 
-        rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session)
+        rewards["leveled"] = await _award_champion_xp(champion_ids, xp, session, content_level=cl)
 
         if floor_num > prog.highest_floor:
             prog.highest_floor = floor_num
