@@ -300,7 +300,7 @@ async def _roll_drops(
     gold_multiplier: float,
     session: AsyncIOMotorClientSession,
 ) -> dict[str, Any]:
-    rewards: dict[str, Any] = {"gold": 0, "champions": [], "items": [], "seals": 0, "summon_tokens": 0}
+    rewards: dict[str, Any] = {"gold": 0, "champions": [], "items": [], "seals": 0, "champion_tokens": 0}
 
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
 
@@ -346,8 +346,8 @@ async def _roll_drops(
 
         elif drop_key == "summon_token":
             amount = random.randint(cfg["min"], cfg["max"])
-            user.summon_tokens += amount
-            rewards["summon_tokens"] += amount
+            user.champion_tokens = getattr(user, "champion_tokens", 0) + amount
+            rewards["champion_tokens"] += amount
 
     await user.save(session=usable_session(session))
     return rewards

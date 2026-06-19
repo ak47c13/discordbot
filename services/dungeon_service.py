@@ -654,7 +654,7 @@ async def check_dungeon_completion(owner_id: str, dungeon_slug: str, session=Non
         bonus = DUNGEON_FIRST_CLEAR.get(dungeon.total_floors, {})
         if bonus:
             user.gold += bonus.get("gold", 0)
-            user.summon_tokens += bonus.get("summon_tokens", 0)
+            user.champion_tokens = getattr(user, "champion_tokens", 0) + bonus.get("summon_tokens", bonus.get("champion_tokens", 0))
             granted = {"type": "first_clear", **bonus}
         prog.first_clear_at = now
         prog.last_daily_at = now
