@@ -96,7 +96,7 @@ class RaidCog(commands.Cog):
             description=(
                 f"**Boss Champion:** {raid.boss_champion_name} [{cfg['boss_rank']}]\n\n"
                 f"**Raid ID:** `{raid.id}`\n\n"
-                f"Others join with:\n`/raid-join {raid.id} <champion_number>`\n\n"
+                f"Others join: use `/raid-join` and paste the Raid ID above with your champion number.\n\n"
                 f"Start when ready:\n`/raid-start {raid.id}`\n\n"
                 f"Bosses are designed for **5 fully-geared players**.\n"
                 f"Boss difficulty is the same regardless of party size.\n"
@@ -267,12 +267,37 @@ class RaidCog(commands.Cog):
         )
         outcome = await advance_and_display(str(bs.id), message, reward_fn=_reward_fn)
 
-        # Phase 4: send per-player reward embeds after battle resolves
-        if not bs.winner in (0, -1):
-            # Loss — no rewards, just inform
+        # Phase 4: send contribution summary + per-player reward embeds
+        outcome_dict = outcome if isinstance(outcome, dict) else {}
+        player_rewards = outcome_dict.get("player_rewards", {})
+        contributions = outcome_dict.get("contributions", {})
+        won = bs.winner in (0, -1)
+
+        # Build contribution summary embed (shown win or loss)
+        contrib_embed = discord.Embed(
+            title=f"{'✅ Victory' if won else '💀 Defeat'} — {diff_display}",
+            color=COLOR_SUCCESS if won else COLOR_DANGER,
+        )
+        for player_id in player_ids:
+            unit = next((u for u in player_units if unit_to_player.get(u.unit_id) == player_id), None)
+            dmg_dealt = int(getattr(unit, "damage_dealt", 0)) if unit else 0
+            dmg_taken = int(getattr(unit, "damage_taken", 0)) if unit else 0
+            pct = contributions.get(player_id, 0.0)
+            try:
+                member = interaction.guild.get_member(int(player_id)) if interaction.guild else None
+                name = member.display_name if member else f"<@{player_id}>"
+            except Exception:
+                name = f"<@{player_id}>"
+            contrib_embed.add_field(
+                name=name,
+                value=f"DMG Dealt: **{dmg_dealt:,}**\nDMG Taken: **{dmg_taken:,}**\nContribution: **{pct*100:.1f}%**",
+                inline=True,
+            )
+        await interaction.followup.send(embed=contrib_embed)
+
+        if not won:
             return
 
-        player_rewards = (outcome or {}).get("player_rewards", {}) if isinstance(outcome, dict) else {}
         solo_note = " (Solo — 60% payout)" if is_solo else ""
         for player_id in player_ids:
             rewards = player_rewards.get(player_id, {})

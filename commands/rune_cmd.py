@@ -45,6 +45,25 @@ class RuneCog(commands.Cog):
             return
 
         instances = await RuneInstance.find(RuneInstance.owner_id == uid).to_list()
+
+        # Cross-reference rune_page slots to catch orphaned equipped runes
+        rp = user.rune_page
+        all_slots = list(rp.reds) + list(rp.yellows) + list(rp.blues) + list(rp.quints)
+        equipped_instance_ids = {s.instance_id for s in all_slots if s.instance_id}
+        owned_instance_ids = {str(i.id) for i in instances}
+        missing_ids = equipped_instance_ids - owned_instance_ids
+        if missing_ids:
+            from beanie import PydanticObjectId
+            for iid in missing_ids:
+                try:
+                    orphan = await RuneInstance.get(PydanticObjectId(iid))
+                    if orphan and orphan.owner_id != uid:
+                        orphan.owner_id = uid
+                        await orphan.save()
+                        instances.append(orphan)
+                except Exception:
+                    pass
+
         if color != "all":
             instances = [i for i in instances if RUNE_CATALOG.get(i.rune_id, {}).get("color") == color]
 
