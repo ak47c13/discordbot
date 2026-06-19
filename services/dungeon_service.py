@@ -266,8 +266,8 @@ async def _award_champion_xp(champ_ids: list[str], xp: int, session=None) -> lis
             continue
         champ.exp += xp
         gained = 0
-        while champ.level < max_lvl and champ.exp >= champion_xp_threshold(champ.level):
-            champ.exp -= champion_xp_threshold(champ.level)
+        while champ.level < max_lvl and champ.exp >= champion_xp_threshold(champ.level, champ.rank):
+            champ.exp -= champion_xp_threshold(champ.level, champ.rank)
             champ.level += 1
             gained += 1
         if champ.level >= max_lvl:

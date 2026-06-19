@@ -629,8 +629,12 @@ DUNGEON_BOSS_HP_MULT = 1.5
 DUNGEON_BOSS_ATK_MULT = 1.3
 
 # Champion XP / leveling thresholds (exp needed to reach next level)
-def champion_xp_threshold(level: int) -> int:
-    return 100 + (level - 1) * 50
+_CHAMPION_XP_BASE = {"F": 50, "E": 100, "D": 200, "C": 500, "B": 1_200, "A": 2_500, "S": 5_000}
+_CHAMPION_XP_GROWTH = 1.08
+
+def champion_xp_threshold(level: int, rank: str = "F") -> int:
+    base = _CHAMPION_XP_BASE.get(rank, 50)
+    return max(1, int(base * (_CHAMPION_XP_GROWTH ** (level - 1))))
 
 # ---------------------------------------------------------------------------
 # Formation bonuses (applied to CombatUnit before battle)
