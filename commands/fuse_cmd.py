@@ -12,7 +12,7 @@ from models.rune_page import RuneSlot
 from utils.embeds import error_embed, ConfirmView, COLOR_WARNING, COLOR_SUCCESS, COLOR_INFO
 from utils.locks import get_user_lock
 from utils.db_session import get_motor_client
-from services.champion_service import fuse_champions, FusionError
+from services.champion_service import fuse_champions, FusionError, FUSE_REQUIRED
 from services.item_service import fuse_items, ItemFusionError
 from services.rune_service import grant_rune
 from data.rune_catalog import RUNE_CATALOG
@@ -24,6 +24,7 @@ async def _auto_fuse_all_champions(uid: str, session) -> dict:
     results: dict[str, int] = defaultdict(int)  # label -> count created
     for rank in RANKS[:-1]:  # F through A
         next_rank = RANKS[RANKS.index(rank) + 1]
+        required = FUSE_REQUIRED[next_rank]
         while True:
             candidates = await ChampionInstance.find(
                 ChampionInstance.owner_id == uid,
@@ -36,11 +37,11 @@ async def _auto_fuse_all_champions(uid: str, session) -> dict:
             did_any = False
             for name, pool in by_name.items():
                 pool.sort(key=lambda c: c.level)
-                while len(pool) >= 3:
-                    trio = pool[:3]
-                    pool = pool[3:]
+                while len(pool) >= required:
+                    group = pool[:required]
+                    pool = pool[required:]
                     try:
-                        await fuse_champions(uid, [str(c.id) for c in trio], session)
+                        await fuse_champions(uid, [str(c.id) for c in group], session)
                         results[f"{name} [{next_rank}]"] += 1
                         did_any = True
                     except FusionError as e:
@@ -54,11 +55,12 @@ async def _auto_fuse_all_champions(uid: str, session) -> dict:
 
 
 async def _auto_fuse_all_runes(uid: str, session) -> dict:
-    """Fuse 3 same rune_id + same rank → 1 of the next rank. Returns result summary."""
+    """Fuse same rune_id + same rank → 1 of the next rank. Returns result summary."""
     rank_order = RANKS  # F E D C B A S
     results: dict[str, int] = defaultdict(int)
     for rank in rank_order[:-1]:
         next_rank = rank_order[rank_order.index(rank) + 1]
+        required = FUSE_REQUIRED[next_rank]
         while True:
             instances = await RuneInstance.find(
                 RuneInstance.owner_id == uid,
@@ -70,10 +72,10 @@ async def _auto_fuse_all_runes(uid: str, session) -> dict:
                 by_rune[inst.rune_id].append(inst)
             did_any = False
             for rune_id, pool in by_rune.items():
-                while len(pool) >= 3:
-                    trio = pool[:3]
-                    pool = pool[3:]
-                    for consumed in trio:
+                while len(pool) >= required:
+                    group = pool[:required]
+                    pool = pool[required:]
+                    for consumed in group:
                         await consumed.delete(session=session)
                     new_inst = await grant_rune(uid, rune_id, next_rank, session)
                     rune = RUNE_CATALOG.get(rune_id, {})
@@ -90,6 +92,7 @@ async def _auto_fuse_all_items(uid: str, session) -> dict:
     results: dict[str, int] = defaultdict(int)
     for rank in RANKS[:-1]:
         next_rank = RANKS[RANKS.index(rank) + 1]
+        required = FUSE_REQUIRED[next_rank]
         while True:
             candidates = await ItemInstance.find(
                 ItemInstance.owner_id == uid,
@@ -101,11 +104,11 @@ async def _auto_fuse_all_items(uid: str, session) -> dict:
                     by_name[i.name].append(i)
             did_any = False
             for name, pool in by_name.items():
-                while len(pool) >= 3:
-                    trio = pool[:3]
-                    pool = pool[3:]
+                while len(pool) >= required:
+                    group = pool[:required]
+                    pool = pool[required:]
                     try:
-                        await fuse_items(uid, [str(i.id) for i in trio], session)
+                        await fuse_items(uid, [str(i.id) for i in group], session)
                         results[f"{name} [{next_rank}]"] += 1
                         did_any = True
                     except ItemFusionError:
@@ -154,10 +157,13 @@ class FuseCog(commands.Cog):
             for c in all_champs:
                 if c.rank != "S" and c.is_available and not getattr(c, "favorite", False):
                     fusible[(c.name, c.rank)] += 1
-            groups = [(n, r, cnt) for (n, r), cnt in fusible.items() if cnt >= 3]
+            groups = [
+                (n, r, cnt) for (n, r), cnt in fusible.items()
+                if cnt >= FUSE_REQUIRED[RANKS[RANKS.index(r) + 1]]
+            ]
             if not groups:
                 await interaction.followup.send(
-                    embed=error_embed("No fusible champions found.", "Need 3+ copies of the same champion and rank (non-favorite, unlocked)."),
+                    embed=error_embed("No fusible champions found.", "Not enough copies of any champion at the same rank (non-favorite, unlocked)."),
                 )
                 return
             user = await User.find_one(User.discord_id == uid)
@@ -167,12 +173,13 @@ class FuseCog(commands.Cog):
                 options = []
                 for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                     next_rank = RANKS[RANKS.index(rank) + 1]
-                    n = cnt // 3
+                    required = FUSE_REQUIRED[next_rank]
+                    n = cnt // required
                     cost = n * CHAMPION_FUSION_COST[next_rank]
                     options.append(discord.SelectOption(
                         label=f"{name} [{rank}] → {n}x [{next_rank}]",
                         value=f"{name}|{rank}",
-                        description=f"×{cnt // 3 * 3} consumed • {cost:,} gold",
+                        description=f"×{n * required} consumed • {cost:,} gold",
                     ))
                 pick_view = _SinglePickView(interaction.user.id, options[:25])
                 await interaction.followup.send(
@@ -185,7 +192,8 @@ class FuseCog(commands.Cog):
                 chosen_name, chosen_rank = pick_view.value.split("|", 1)
                 cnt = fusible.get((chosen_name, chosen_rank), 0)
                 next_rank = RANKS[RANKS.index(chosen_rank) + 1]
-                n = cnt // 3
+                required = FUSE_REQUIRED[next_rank]
+                n = cnt // required
                 cost = n * CHAMPION_FUSION_COST[next_rank]
                 if user.gold < cost:
                     await interaction.followup.send(embed=error_embed(f"Not enough gold. Need {cost:,}, have {user.gold:,}."))
@@ -194,7 +202,7 @@ class FuseCog(commands.Cog):
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="🔮 Confirm Single Fuse",
-                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
+                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * required} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
                         color=COLOR_WARNING,
                     ),
                     view=confirm_view,
@@ -210,9 +218,9 @@ class FuseCog(commands.Cog):
                             pool = [c for c in all_champs if c.name == chosen_name and c.rank == chosen_rank and c.is_available and not getattr(c, "favorite", False)]
                             pool.sort(key=lambda c: c.level)
                             fused = 0
-                            for i in range(0, len(pool) - 2, 3):
+                            for i in range(0, len(pool) - required + 1, required):
                                 try:
-                                    await fuse_champions(uid, [str(c.id) for c in pool[i:i+3]], session)
+                                    await fuse_champions(uid, [str(c.id) for c in pool[i:i+required]], session)
                                     fused += 1
                                 except FusionError:
                                     break
@@ -224,17 +232,18 @@ class FuseCog(commands.Cog):
                 return
 
             # Bulk mode
-            total_fusions = sum(cnt // 3 for _, _, cnt in groups)
+            total_fusions = sum(cnt // FUSE_REQUIRED[RANKS[RANKS.index(rank) + 1]] for _, rank, cnt in groups)
             total_gold_cost = sum(
-                (cnt // 3) * CHAMPION_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
+                (cnt // FUSE_REQUIRED[RANKS[RANKS.index(rank) + 1]]) * CHAMPION_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
                 for _, rank, cnt in groups
             )
             affordable = user.gold >= total_gold_cost
             preview_lines = []
             for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                 next_rank = RANKS[RANKS.index(rank) + 1]
-                n = cnt // 3
-                preview_lines.append(f"• {name} [{rank}] ×{cnt // 3 * 3} → **{n}x [{next_rank}]**")
+                required = FUSE_REQUIRED[next_rank]
+                n = cnt // required
+                preview_lines.append(f"• {name} [{rank}] ×{n * required} → **{n}x [{next_rank}]**")
             gold_line = f"💰 Total cost: **{total_gold_cost:,} gold** (you have {user.gold:,})"
             if not affordable:
                 gold_line += " ⚠️ — fusions will stop when gold runs out"
@@ -281,10 +290,13 @@ class FuseCog(commands.Cog):
             for i in all_items:
                 if i.rank != "S" and i.is_fusible and not getattr(i, "favorite", False):
                     fusible[(i.name, i.rank)] += 1
-            groups = [(n, r, cnt) for (n, r), cnt in fusible.items() if cnt >= 3]
+            groups = [
+                (n, r, cnt) for (n, r), cnt in fusible.items()
+                if cnt >= FUSE_REQUIRED[RANKS[RANKS.index(r) + 1]]
+            ]
             if not groups:
                 await interaction.followup.send(
-                    embed=error_embed("No fusible items found.", "Need 3+ copies of the same +0 item and rank (non-favorite, unlocked)."),
+                    embed=error_embed("No fusible items found.", "Not enough copies of any +0 item at the same rank (non-favorite, unlocked)."),
                 )
                 return
             user = await User.find_one(User.discord_id == uid)
@@ -293,12 +305,13 @@ class FuseCog(commands.Cog):
                 options = []
                 for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                     next_rank = RANKS[RANKS.index(rank) + 1]
-                    n = cnt // 3
+                    required = FUSE_REQUIRED[next_rank]
+                    n = cnt // required
                     cost = n * ITEM_FUSION_COST[next_rank]
                     options.append(discord.SelectOption(
                         label=f"{name} [{rank}] → {n}x [{next_rank}]",
                         value=f"{name}|{rank}",
-                        description=f"×{cnt // 3 * 3} consumed • {cost:,} gold",
+                        description=f"×{n * required} consumed • {cost:,} gold",
                     ))
                 pick_view = _SinglePickView(interaction.user.id, options[:25])
                 await interaction.followup.send(
@@ -311,7 +324,8 @@ class FuseCog(commands.Cog):
                 chosen_name, chosen_rank = pick_view.value.split("|", 1)
                 cnt = fusible.get((chosen_name, chosen_rank), 0)
                 next_rank = RANKS[RANKS.index(chosen_rank) + 1]
-                n = cnt // 3
+                required = FUSE_REQUIRED[next_rank]
+                n = cnt // required
                 cost = n * ITEM_FUSION_COST[next_rank]
                 if user.gold < cost:
                     await interaction.followup.send(embed=error_embed(f"Not enough gold. Need {cost:,}, have {user.gold:,}."))
@@ -320,7 +334,7 @@ class FuseCog(commands.Cog):
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="🔨 Confirm Single Fuse",
-                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
+                        description=f"**{chosen_name} [{chosen_rank}]** ×{n * required} → **{n}x [{next_rank}]**\n💰 Cost: {cost:,} gold",
                         color=COLOR_WARNING,
                     ),
                     view=confirm_view,
@@ -335,9 +349,9 @@ class FuseCog(commands.Cog):
                         async with session.start_transaction():
                             pool = [i for i in all_items if i.name == chosen_name and i.rank == chosen_rank and i.is_fusible and not getattr(i, "favorite", False)]
                             fused = 0
-                            for i in range(0, len(pool) - 2, 3):
+                            for i in range(0, len(pool) - required + 1, required):
                                 try:
-                                    await fuse_items(uid, [str(it.id) for it in pool[i:i+3]], session)
+                                    await fuse_items(uid, [str(it.id) for it in pool[i:i+required]], session)
                                     fused += 1
                                 except ItemFusionError:
                                     break
@@ -349,17 +363,18 @@ class FuseCog(commands.Cog):
                 return
 
             # Bulk mode
-            total_fusions = sum(cnt // 3 for _, _, cnt in groups)
+            total_fusions = sum(cnt // FUSE_REQUIRED[RANKS[RANKS.index(rank) + 1]] for _, rank, cnt in groups)
             total_gold_cost = sum(
-                (cnt // 3) * ITEM_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
+                (cnt // FUSE_REQUIRED[RANKS[RANKS.index(rank) + 1]]) * ITEM_FUSION_COST[RANKS[RANKS.index(rank) + 1]]
                 for _, rank, cnt in groups
             )
             affordable = user.gold >= total_gold_cost
             preview_lines = []
             for name, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                 next_rank = RANKS[RANKS.index(rank) + 1]
-                n = cnt // 3
-                preview_lines.append(f"• {name} [{rank}] ×{cnt // 3 * 3} → **{n}x [{next_rank}]**")
+                required = FUSE_REQUIRED[next_rank]
+                n = cnt // required
+                preview_lines.append(f"• {name} [{rank}] ×{n * required} → **{n}x [{next_rank}]**")
             gold_line = f"💰 Total cost: **{total_gold_cost:,} gold** (you have {user.gold:,})"
             if not affordable:
                 gold_line += " ⚠️ — fusions will stop when gold runs out"
@@ -405,15 +420,18 @@ class FuseCog(commands.Cog):
                 RuneInstance.owner_id == uid,
                 RuneInstance.is_equipped == False,
             ).to_list()
-            # Count fusible groups (3+ same rune_id + rank, non-S)
+            # Count fusible groups (enough same rune_id + rank, non-S)
             fusible: dict[tuple, int] = defaultdict(int)
             for inst in all_runes:
                 if inst.rank != "S":
                     fusible[(inst.rune_id, inst.rank)] += 1
-            groups = [(rid, r, cnt) for (rid, r), cnt in fusible.items() if cnt >= 3]
+            groups = [
+                (rid, r, cnt) for (rid, r), cnt in fusible.items()
+                if cnt >= FUSE_REQUIRED[RANKS[RANKS.index(r) + 1]]
+            ]
             if not groups:
                 await interaction.followup.send(
-                    embed=error_embed("No fusible runes found.", "Need 3+ copies of the same rune at the same rank (unequipped, non-S)."),
+                    embed=error_embed("No fusible runes found.", "Not enough copies of any rune at the same rank (unequipped, non-S)."),
                 )
                 return
 
@@ -421,12 +439,13 @@ class FuseCog(commands.Cog):
                 options = []
                 for rune_id, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                     next_rank = RANKS[RANKS.index(rank) + 1]
-                    n = cnt // 3
+                    required = FUSE_REQUIRED[next_rank]
+                    n = cnt // required
                     rune_name = RUNE_CATALOG.get(rune_id, {}).get("name", rune_id)
                     options.append(discord.SelectOption(
                         label=f"{rune_name} [{rank}] → {n}x [{next_rank}]",
                         value=f"{rune_id}|{rank}",
-                        description=f"×{cnt // 3 * 3} consumed (free)",
+                        description=f"×{n * required} consumed (free)",
                     ))
                 pick_view = _SinglePickView(interaction.user.id, options[:25])
                 await interaction.followup.send(
@@ -438,14 +457,15 @@ class FuseCog(commands.Cog):
                     return
                 chosen_id, chosen_rank = pick_view.value.split("|", 1)
                 next_rank = RANKS[RANKS.index(chosen_rank) + 1]
+                required = FUSE_REQUIRED[next_rank]
                 rune_name = RUNE_CATALOG.get(chosen_id, {}).get("name", chosen_id)
                 cnt = fusible.get((chosen_id, chosen_rank), 0)
-                n = cnt // 3
+                n = cnt // required
                 confirm_view = ConfirmView()
                 await interaction.followup.send(
                     embed=discord.Embed(
                         title="🧿 Confirm Single Fuse",
-                        description=f"**{rune_name} [{chosen_rank}]** ×{n * 3} → **{n}x [{next_rank}]**",
+                        description=f"**{rune_name} [{chosen_rank}]** ×{n * required} → **{n}x [{next_rank}]**",
                         color=COLOR_WARNING,
                     ),
                     view=confirm_view,
@@ -460,9 +480,9 @@ class FuseCog(commands.Cog):
                         async with session.start_transaction():
                             pool = [r for r in all_runes if r.rune_id == chosen_id and r.rank == chosen_rank]
                             fused = 0
-                            for i in range(0, len(pool) - 2, 3):
-                                trio = pool[i:i+3]
-                                for consumed in trio:
+                            for i in range(0, len(pool) - required + 1, required):
+                                group = pool[i:i+required]
+                                for consumed in group:
                                     await consumed.delete(session=session)
                                 await grant_rune(uid, chosen_id, next_rank, session)
                                 fused += 1
@@ -474,20 +494,21 @@ class FuseCog(commands.Cog):
                 return
 
             # Bulk mode
-            total_fusions = sum(cnt // 3 for _, _, cnt in groups)
+            total_fusions = sum(cnt // FUSE_REQUIRED[RANKS[RANKS.index(rank) + 1]] for _, rank, cnt in groups)
             preview_lines = []
             for rune_id, rank, cnt in sorted(groups, key=lambda x: (RANKS.index(x[1]), x[0])):
                 next_rank = RANKS[RANKS.index(rank) + 1]
-                n = cnt // 3
+                required = FUSE_REQUIRED[next_rank]
+                n = cnt // required
                 rune_name = RUNE_CATALOG.get(rune_id, {}).get("name", rune_id)
-                preview_lines.append(f"• {rune_name} [{rank}] ×{cnt // 3 * 3} → **{n}x [{next_rank}]**")
+                preview_lines.append(f"• {rune_name} [{rank}] ×{n * required} → **{n}x [{next_rank}]**")
             embed = discord.Embed(
                 title="🧿 Bulk Fuse — Runes",
                 description=(
                     "\n".join(preview_lines[:20]) +
                     (f"\n…and {len(preview_lines) - 20} more groups" if len(preview_lines) > 20 else "") +
                     f"\n\n**{total_fusions} fusion(s)** will run.\n"
-                    "⚠️ 3 same rune + rank → 1 of the next rank. Equipped runes are skipped."
+                    "⚠️ Copies required per rank: F→E: 3, E→D: 5, D→C: 8, C→B: 12, B→A: 20, A→S: 30. Equipped runes are skipped."
                 ),
                 color=COLOR_WARNING,
             )

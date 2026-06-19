@@ -21,6 +21,16 @@ from config.game_config import (
 )
 
 
+FUSE_REQUIRED: dict[str, int] = {
+    "E": 3,
+    "D": 5,
+    "C": 8,
+    "B": 12,
+    "A": 20,
+    "S": 30,
+}
+
+
 class ItemFusionError(Exception):
     pass
 
@@ -31,13 +41,11 @@ async def fuse_items(
     session: AsyncIOMotorClientSession,
 ) -> ItemInstance:
     """
-    Fuse exactly 3 identical same-rank +0 items into 1 of the next rank.
+    Fuse N identical same-rank +0 items into 1 of the next rank.
+    The required count depends on the resulting rank (see FUSE_REQUIRED).
     Must be called inside an active MongoDB transaction.
     """
-    if len(item_ids) != 3:
-        raise ItemFusionError("Exactly 3 items required for fusion.")
-
-    if len(set(item_ids)) != 3:
+    if len(set(item_ids)) != len(item_ids):
         raise ItemFusionError("Cannot use the same item twice in fusion.")
 
     items: list[ItemInstance] = []
@@ -68,6 +76,9 @@ async def fuse_items(
         raise ItemFusionError("S-rank items cannot be fused further.")
 
     next_rank = RANKS[RANK_INDEX[current_rank] + 1]
+    required = FUSE_REQUIRED[next_rank]
+    if len(item_ids) != required:
+        raise ItemFusionError(f"Exactly {required} items required to fuse into rank {next_rank}.")
 
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     cost = ITEM_FUSION_COST[next_rank]
@@ -118,18 +129,23 @@ async def bulk_fuse_items(
     session: AsyncIOMotorClientSession,
 ) -> list[ItemInstance]:
     """
-    Fuse ``count`` items of (name, rank) at +0 in groups of 3 into the next rank.
+    Fuse ``count`` items of (name, rank) at +0 in groups of FUSE_REQUIRED[next_rank]
+    into the next rank.
 
-    - ``count`` must be a positive multiple of 3.
+    - ``count`` must be a positive multiple of the required fuse count.
     - Skips locked / favorited / enhanced / unavailable items.
-    - Stops if fewer than 3 fusible candidates remain.
+    - Stops if fewer than FUSE_REQUIRED[next_rank] fusible candidates remain.
     """
-    if count <= 0 or count % 3 != 0:
-        raise ItemFusionError("Count must be a positive multiple of 3.")
     if rank == "S":
         raise ItemFusionError("S-rank items cannot be fused further.")
 
-    fusions = count // 3
+    next_rank = RANKS[RANK_INDEX[rank] + 1]
+    required = FUSE_REQUIRED[next_rank]
+
+    if count <= 0 or count % required != 0:
+        raise ItemFusionError(f"Count must be a positive multiple of {required} (copies needed for {rank}→{next_rank}).")
+
+    fusions = count // required
     created: list[ItemInstance] = []
 
     for _ in range(fusions):
@@ -143,16 +159,16 @@ async def bulk_fuse_items(
             i for i in candidates
             if i.is_fusible and not getattr(i, "favorite", False)
         ]
-        if len(usable) < 3:
+        if len(usable) < required:
             break
-        trio = usable[:3]
-        result = await fuse_items(owner_id, [str(i.id) for i in trio], session)
+        group = usable[:required]
+        result = await fuse_items(owner_id, [str(i.id) for i in group], session)
         created.append(result)
 
     if not created:
         raise ItemFusionError(
             f"Not enough fusible {item_name} ({rank}) at +0 to fuse. "
-            "Need at least 3 unlocked, non-favorite copies."
+            f"Need at least {required} unlocked, non-favorite copies."
         )
 
     return created
