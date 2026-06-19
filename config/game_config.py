@@ -456,8 +456,19 @@ TEAM_SIZE = 5
 # ---------------------------------------------------------------------------
 RAID_MAX_PLAYERS = 5
 RAID_QUEUE_TIMEOUT_SECONDS = 300   # 5 min to fill before auto-start
-RAID_DAILY_LIMIT = 5               # max raids per reset window per player
+RAID_DAILY_LIMIT = 5               # max raids spawned OR joined per reset window per player
 RAID_RESET_HOURS = 3               # raid limit resets every 3 hours
+
+# XP granted to active champion per raid rank (on win)
+RAID_XP_REWARDS = {
+    "F":  500,
+    "E":  1_200,
+    "D":  3_000,
+    "C":  7_500,
+    "B":  18_000,
+    "A":  45_000,
+    "S":  110_000,
+}
 
 # Raid difficulty weights for RNG roll (higher weight = more common)
 RAID_DIFFICULTY_WEIGHTS = {

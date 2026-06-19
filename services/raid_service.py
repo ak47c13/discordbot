@@ -19,7 +19,7 @@ from engine.combat import build_unit_from_champion, run_battle, run_battle_with_
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
-from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS, RAID_BOSS_STATS, RANKS, PHT
+from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS, RAID_BOSS_STATS, RANKS, PHT, RAID_XP_REWARDS, champion_xp_threshold, CHAMPION_MAX_LEVEL
 
 
 class RaidError(Exception):
@@ -147,6 +147,8 @@ async def create_raid_queue(
     _reset_daily_raids_if_needed(user)
     if user.daily_raids_used >= RAID_DAILY_LIMIT:
         raise RaidError(f"Raid limit reached ({RAID_DAILY_LIMIT} raids per {RAID_RESET_HOURS}h). Try again later.")
+    user.daily_raids_used += 1
+    await user.save(session=usable_session(session))
 
     existing = await RaidQueue.find_one(
         RaidQueue.leader_id == leader_id,
@@ -201,6 +203,8 @@ async def join_raid(
         _reset_daily_raids_if_needed(user)
         if user.daily_raids_used >= RAID_DAILY_LIMIT:
             raise RaidError(f"Raid limit reached ({RAID_DAILY_LIMIT} raids per {RAID_RESET_HOURS}h). Try again later.")
+        user.daily_raids_used += 1
+        await user.save(session=usable_session(session))
 
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != player_id:
@@ -329,15 +333,16 @@ async def finalize_raid(
         user = await User.find_one(User.discord_id == player_id, session=usable_session(session))
         if user:
             _reset_daily_raids_if_needed(user)
-            user.daily_raids_used += 1
             user.raids_completed += (1 if won else 0)
             await user.save(session=usable_session(session))
         if won:
             drop_copies = champ_dropped.count(player_id)
+            p_champ_id = (raid.player_champions or {}).get(player_id) if raid else None
             rewards = await _roll_raid_drops(
                 player_id, difficulty, is_solo, session,
                 boss_name=boss_name, boss_rank=boss_rank, champ_copies=drop_copies,
                 contribution=contributions.get(player_id, 0.0),
+                champ_id=p_champ_id,
             )
             if raid:
                 raid.rewarded_player_ids.append(player_id)
@@ -450,17 +455,18 @@ async def start_raid(
         user = await User.find_one(User.discord_id == player_id, session=usable_session(session))
         if user:
             _reset_daily_raids_if_needed(user)
-            user.daily_raids_used += 1
             user.raids_completed += (1 if battle_result.winner in (0, -1) else 0)
 
         if user:
             await user.save(session=usable_session(session))   # save daily count updates
         if battle_result.winner in (0, -1):
             drop_copies = champ_dropped.count(player_id)
+            p_champ_id = (raid.player_champions or {}).get(player_id)
             rewards = await _roll_raid_drops(
                 player_id, difficulty, is_solo, session,
                 boss_name=boss_name, boss_rank=boss_rank, champ_copies=drop_copies,
                 contribution=contributions.get(player_id, 0.0),
+                champ_id=p_champ_id,
             )
             raid.rewarded_player_ids.append(player_id)
             player_rewards[player_id] = rewards
@@ -537,6 +543,32 @@ RAID_COMPLETED_ITEM_POOL = [
 RAID_COMPLETED_DROP_CHANCE = 0.05  # 5% chance the item drop is a completed item
 
 
+async def _grant_raid_xp(owner_id: str, difficulty: str, champ_id: str | None, session) -> int:
+    """Grant XP to the player's active raid champion. Returns XP granted."""
+    if not champ_id:
+        return 0
+    xp = RAID_XP_REWARDS.get(difficulty, 0)
+    if not xp:
+        return 0
+    try:
+        champ = await ChampionInstance.get(PydanticObjectId(champ_id), session=usable_session(session))
+    except Exception:
+        return 0
+    if champ is None or champ.owner_id != owner_id:
+        return 0
+    max_lvl = CHAMPION_MAX_LEVEL.get(champ.rank, 20)
+    if champ.level >= max_lvl:
+        return 0
+    champ.exp += xp
+    while champ.level < max_lvl and champ.exp >= champion_xp_threshold(champ.level, champ.rank):
+        champ.exp -= champion_xp_threshold(champ.level, champ.rank)
+        champ.level += 1
+    if champ.level >= max_lvl:
+        champ.exp = 0
+    await champ.save(session=usable_session(session))
+    return xp
+
+
 async def _roll_raid_drops(
     owner_id: str,
     difficulty: str,
@@ -546,10 +578,11 @@ async def _roll_raid_drops(
     boss_rank: str = "",
     champ_copies: int = 0,
     contribution: float = 0.0,
+    champ_id: str | None = None,
 ) -> dict[str, Any]:
     cfg = RAID_DIFFICULTIES[difficulty]
     rewards: dict[str, Any] = {
-        "gold": 0, "champions": [], "items": [], "seals": 0, "champion_tokens": 0
+        "gold": 0, "champions": [], "items": [], "seals": 0, "champion_tokens": 0, "xp": 0
     }
 
     # Solo penalty: 60% gold and tokens
@@ -590,6 +623,8 @@ async def _roll_raid_drops(
         user.blacksmith_seals = getattr(user, "blacksmith_seals", 0) + 1
         rewards["seals"] = 1
 
+    xp_gained = await _grant_raid_xp(owner_id, difficulty, champ_id, session)
+    rewards["xp"] = xp_gained
     rewards["contribution_pct"] = round(contribution * 100, 1)
     await user.save(session=usable_session(session))
     return rewards
