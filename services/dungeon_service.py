@@ -379,6 +379,7 @@ async def grant_floor_rewards(
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     cost = DUNGEON_BOSS_RETRY_COST if floor.boss_floor else DUNGEON_STAMINA_COST
     user.stamina = max(0, user.stamina - cost)
+    user.last_stamina_regen = datetime.now(timezone.utc)
 
     prog = await get_or_create_progress(owner_id, dungeon_slug, session)
     prog.last_attempt_at = datetime.now(timezone.utc)
@@ -508,6 +509,7 @@ async def enter_floor(
 
     # Deduct stamina
     user.stamina -= cost
+    user.last_stamina_regen = datetime.now(timezone.utc)
 
     # Run battle
     if seed is None:
