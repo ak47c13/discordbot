@@ -3,6 +3,8 @@ from discord import app_commands
 from discord.ext import commands
 from collections import Counter
 
+RUNES_PER_INV_PAGE = 15
+
 from models.user import User
 from models.champion import ChampionInstance
 from models.rune_page import RuneSlot
@@ -19,6 +21,80 @@ RANK_COLORS = {
     "F": 0x888888, "E": 0x4fde74, "D": 0x4f9ede,
     "C": 0xb04fde, "B": 0xde9c4f, "A": 0xde4f4f, "S": 0xffd700,
 }
+
+
+def _rune_inv_embed(instances: list, page: int, total_pages: int, total: int) -> discord.Embed:
+    start = page * RUNES_PER_INV_PAGE
+    chunk = instances[start:start + RUNES_PER_INV_PAGE]
+    embed = discord.Embed(title="🧿 Rune Inventory", color=0x5865F2)
+    embed.description = f"**{total} rune(s)** owned"
+    by_color: dict[str, list] = {}
+    for inst in chunk:
+        r = RUNE_CATALOG.get(inst.rune_id, {})
+        c = r.get("color", "red")
+        by_color.setdefault(c, []).append((inst, r))
+    for c in ["red", "yellow", "blue", "quint"]:
+        if c not in by_color:
+            continue
+        lines = []
+        for inst, r in by_color[c]:
+            mult = RUNE_RANK_MULTIPLIERS.get(inst.rank, 1.0)
+            effective = r.get("value", 0) * mult
+            stat_str = f"+{effective:.0f}" if effective == int(effective) else f"+{effective:.1f}"
+            equipped_tag = " *(equipped)*" if inst.is_equipped else ""
+            lines.append(
+                f"`#{inst.display_id}` **{r.get('name', inst.rune_id)}** [{inst.rank}]{equipped_tag}\n"
+                f"  {r.get('stat','').upper()} {stat_str} — {r.get('description','')}"
+            )
+        value = "\n".join(lines)
+        if len(value) > 1024:
+            value = value[:1020] + "…"
+        embed.add_field(
+            name=f"{COLOR_EMOJI[c]} {c.title()} ({len(by_color[c])})",
+            value=value or "—",
+            inline=False,
+        )
+    embed.set_footer(text=f"Page {page + 1}/{total_pages}  ·  /runes set <color> <slot> <display_id>")
+    return embed
+
+
+class _RuneInventoryView(discord.ui.View):
+    def __init__(self, instances: list, user_id: int):
+        super().__init__(timeout=120)
+        self.instances = instances
+        self.user_id = user_id
+        self.page = 0
+        self.total_pages = max(1, (len(instances) + RUNES_PER_INV_PAGE - 1) // RUNES_PER_INV_PAGE)
+        self._refresh()
+
+    def _refresh(self):
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                if child.custom_id == "inv_prev":
+                    child.disabled = self.page == 0
+                elif child.custom_id == "inv_next":
+                    child.disabled = self.page >= self.total_pages - 1
+
+    def current_embed(self):
+        return _rune_inv_embed(self.instances, self.page, self.total_pages, len(self.instances))
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your inventory.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, custom_id="inv_prev")
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = max(0, self.page - 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="inv_next")
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = min(self.total_pages - 1, self.page + 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
 
 
 class RuneCog(commands.Cog):
@@ -76,38 +152,8 @@ class RuneCog(commands.Cog):
 
         instances.sort(key=lambda i: (RUNE_CATALOG.get(i.rune_id, {}).get("color", ""), i.rank, i.rune_id))
 
-        embed = discord.Embed(title="🧿 Rune Inventory", color=0x5865F2)
-        embed.description = f"**{len(instances)} rune(s)** owned"
-
-        by_color: dict[str, list] = {}
-        for inst in instances:
-            r = RUNE_CATALOG.get(inst.rune_id, {})
-            c = r.get("color", "red")
-            by_color.setdefault(c, []).append((inst, r))
-
-        for c in ["red", "yellow", "blue", "quint"]:
-            if c not in by_color:
-                continue
-            lines = []
-            for inst, r in by_color[c]:
-                mult = RUNE_RANK_MULTIPLIERS.get(inst.rank, 1.0)
-                effective = r.get("value", 0) * mult
-                stat_str = f"+{effective:.0f}" if effective == int(effective) else f"+{effective:.1f}"
-                equipped_tag = " *(equipped)*" if inst.is_equipped else ""
-                lines.append(
-                    f"`#{inst.display_id}` **{r.get('name', inst.rune_id)}** [{inst.rank}]{equipped_tag}\n"
-                    f"  {r.get('stat','').upper()} {stat_str} — {r.get('description','')}"
-                )
-            value = "\n".join(lines)
-            if len(value) > 1024:
-                value = value[:1020] + "…"
-            embed.add_field(
-                name=f"{COLOR_EMOJI[c]} {c.title()} ({len(by_color[c])})",
-                value=value or "—",
-                inline=False,
-            )
-        embed.set_footer(text="/runes set <color> <slot> <display_id>  ·  /runes view to see your page")
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        view = _RuneInventoryView(instances, interaction.user.id)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     @runes.command(name="view", description="Show your rune page layout and total stat bonuses.")
     async def runes_view(self, interaction: discord.Interaction):

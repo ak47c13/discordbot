@@ -20,9 +20,9 @@ RUNE_CATALOG = {
     "seal-hp-t1": {"id": "seal-hp-t1", "name": "Seal of Health I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "hp", "value": 60, "description": "+60 HP"},
     "seal-hp-t2": {"id": "seal-hp-t2", "name": "Seal of Health II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "hp", "value": 140, "description": "+140 HP"},
     "seal-hp-t3": {"id": "seal-hp-t3", "name": "Seal of Health III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "hp", "value": 260, "description": "+260 HP"},
-    "seal-def-t1": {"id": "seal-def-t1", "name": "Seal of Armor I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 3, "description": "+3 DEF"},
-    "seal-def-t2": {"id": "seal-def-t2", "name": "Seal of Armor II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 7, "description": "+7 DEF"},
-    "seal-def-t3": {"id": "seal-def-t3", "name": "Seal of Armor III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 14, "description": "+14 DEF"},
+    "seal-def-t1": {"id": "seal-def-t1", "name": "Seal of Armor I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 3, "description": "+3 Armor"},
+    "seal-def-t2": {"id": "seal-def-t2", "name": "Seal of Armor II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 7, "description": "+7 Armor"},
+    "seal-def-t3": {"id": "seal-def-t3", "name": "Seal of Armor III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 14, "description": "+14 Armor"},
     "seal-hpregen-t1": {"id": "seal-hpregen-t1", "name": "Seal of HP Regen I", "color": "yellow", "tier": 1, "rank_req": "F", "stat": "hp_regen", "value": 20, "description": "Regen 20 HP per round"},
     "seal-hpregen-t2": {"id": "seal-hpregen-t2", "name": "Seal of HP Regen II", "color": "yellow", "tier": 2, "rank_req": "D", "stat": "hp_regen", "value": 50, "description": "Regen 50 HP per round"},
     "seal-hpregen-t3": {"id": "seal-hpregen-t3", "name": "Seal of HP Regen III", "color": "yellow", "tier": 3, "rank_req": "B", "stat": "hp_regen", "value": 100, "description": "Regen 100 HP per round"},
@@ -76,6 +76,9 @@ RUNE_CATALOG = {
     "quint-ap-t1": {"id": "quint-ap-t1", "name": "Quint of Ability Power I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "ap", "value": 15, "description": "+15 AP"},
     "quint-ap-t2": {"id": "quint-ap-t2", "name": "Quint of Ability Power II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "ap", "value": 28, "description": "+28 AP"},
     "quint-ap-t3": {"id": "quint-ap-t3", "name": "Quint of Ability Power III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "ap", "value": 48, "description": "+48 AP"},
+    "quint-armor-t1": {"id": "quint-armor-t1", "name": "Quint of Resilience I", "color": "quint", "tier": 1, "rank_req": "F", "stat": "def_stat", "value": 12, "description": "+12 Armor"},
+    "quint-armor-t2": {"id": "quint-armor-t2", "name": "Quint of Resilience II", "color": "quint", "tier": 2, "rank_req": "D", "stat": "def_stat", "value": 24, "description": "+24 Armor"},
+    "quint-armor-t3": {"id": "quint-armor-t3", "name": "Quint of Resilience III", "color": "quint", "tier": 3, "rank_req": "B", "stat": "def_stat", "value": 42, "description": "+42 Armor"},
 }
 
 RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]

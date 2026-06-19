@@ -80,7 +80,7 @@ def _champion_detail_embed(name: str) -> discord.Embed | None:
     base = CHAMPION_BASE_STATS.get("F", {})
     embed.add_field(
         name="Base Stats [F]",
-        value=f"HP {base.get('hp', '?'):,}  ATK {base.get('atk', '?')}  DEF {base.get('def', '?')}  SPD {base.get('spd', '?')}",
+        value=f"HP {base.get('hp', '?'):,}  AD {base.get('atk', '?')}  Armor {base.get('def', '?')}  SPD {base.get('spd', '?')}",
         inline=False,
     )
 
@@ -93,7 +93,8 @@ def _champion_detail_embed(name: str) -> discord.Embed | None:
         hits = s.get("hits", 1)
         dmg = s.get("damage_type", "none")
         mana = s.get("mana_gain", 0)
-        detail = f"{coeff*100:.0f}% ATK {dmg}"
+        stat_label = "AP" if dmg == "magic" else "AD"
+        detail = f"{coeff*100:.0f}% {stat_label} ({dmg})"
         if hits > 1:
             detail += f" ×{hits}"
         if mana:
@@ -119,34 +120,82 @@ def _champion_detail_embed(name: str) -> discord.Embed | None:
 _COLOR_EMOJI = {"red": "🔴", "yellow": "🟡", "blue": "🔵", "quint": "💠"}
 
 
-def _rune_list_embed(color_filter: str = "all") -> discord.Embed:
-    from data.rune_catalog import RUNE_CATALOG
+RUNES_PER_PAGE = 8
+
+
+def _rune_page_embed(runes_by_color: dict, color_filter: str, page: int, total_pages: int) -> discord.Embed:
     embed = discord.Embed(
         title="Rune Glossary",
-        description="Use `/runes set <color> <slot> <display_id>` to equip (display_id is the number shown in `/runes inventory`). Higher tiers require higher champion rank.",
+        description="Use `/runes set <color> <slot> <display_id>` to equip runes from your inventory.",
         color=0xAA44FF,
     )
-    by_color: dict[str, list] = {}
-    for rid, r in RUNE_CATALOG.items():
-        c = r["color"]
-        if color_filter != "all" and c != color_filter:
-            continue
-        by_color.setdefault(c, []).append(r)
-
     for color in ["red", "yellow", "blue", "quint"]:
-        if color not in by_color:
+        if color_filter != "all" and color != color_filter:
+            continue
+        if color not in runes_by_color:
+            continue
+        all_runes = runes_by_color[color]
+        start = page * RUNES_PER_PAGE
+        chunk = all_runes[start:start + RUNES_PER_PAGE]
+        if not chunk:
             continue
         lines = []
-        for r in sorted(by_color[color], key=lambda x: x["tier"]):
+        for r in chunk:
             lines.append(
                 f"`{r['id']}` **{r['name']}** — {r['description']} *(Tier {r['tier']}, req [{r['rank_req']}])*"
             )
         embed.add_field(
-            name=f"{_COLOR_EMOJI[color]} {color.title()} ({len(lines)})",
-            value="\n".join(lines)[:1024],
+            name=f"{_COLOR_EMOJI[color]} {color.title()} ({len(all_runes)} total)",
+            value="\n".join(lines),
             inline=False,
         )
+    embed.set_footer(text=f"Page {page + 1}/{total_pages}")
     return embed
+
+
+class _RuneGlossaryView(discord.ui.View):
+    def __init__(self, runes_by_color: dict, color_filter: str, user_id: int):
+        super().__init__(timeout=120)
+        self.runes_by_color = runes_by_color
+        self.color_filter = color_filter
+        self.user_id = user_id
+        self.page = 0
+        # Total pages = max rune count across any color / per page
+        if color_filter == "all":
+            max_count = max((len(v) for v in runes_by_color.values()), default=1)
+        else:
+            max_count = len(runes_by_color.get(color_filter, []))
+        self.total_pages = max(1, (max_count + RUNES_PER_PAGE - 1) // RUNES_PER_PAGE)
+        self._refresh()
+
+    def _refresh(self):
+        for child in self.children:
+            if isinstance(child, discord.ui.Button):
+                if child.custom_id == "rune_prev":
+                    child.disabled = self.page == 0
+                elif child.custom_id == "rune_next":
+                    child.disabled = self.page >= self.total_pages - 1
+
+    def current_embed(self):
+        return _rune_page_embed(self.runes_by_color, self.color_filter, self.page, self.total_pages)
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user_id:
+            await interaction.response.send_message("Not your glossary.", ephemeral=True)
+            return False
+        return True
+
+    @discord.ui.button(label="◀ Prev", style=discord.ButtonStyle.secondary, custom_id="rune_prev")
+    async def prev_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = max(0, self.page - 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
+
+    @discord.ui.button(label="Next ▶", style=discord.ButtonStyle.secondary, custom_id="rune_next")
+    async def next_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        self.page = min(self.total_pages - 1, self.page + 1)
+        self._refresh()
+        await interaction.response.edit_message(embed=self.current_embed(), view=self)
 
 
 # ---------------------------------------------------------------------------
@@ -257,7 +306,8 @@ def _skill_embed(champion_name: str) -> discord.Embed | None:
         hits = s.get("hits", 1)
         dmg = s.get("damage_type", "none")
         mana = s.get("mana_gain", 0)
-        detail_parts = [f"{coeff*100:.0f}% ATK {dmg}"]
+        stat_label = "AP" if dmg == "magic" else "AD"
+        detail_parts = [f"{coeff*100:.0f}% {stat_label} ({dmg})"]
         if hits > 1:
             detail_parts.append(f"×{hits} hits")
         if mana:
@@ -394,8 +444,17 @@ class GlossaryCog(commands.Cog):
     ])
     async def glossary_runes(self, interaction: discord.Interaction, color: str = "all"):
         await interaction.response.defer(ephemeral=True)
-        embed = _rune_list_embed(color)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        from data.rune_catalog import RUNE_CATALOG
+        runes_by_color: dict[str, list] = {}
+        for rid, r in RUNE_CATALOG.items():
+            c = r["color"]
+            if color != "all" and c != color:
+                continue
+            runes_by_color.setdefault(c, []).append(r)
+        for c in runes_by_color:
+            runes_by_color[c].sort(key=lambda x: (x["tier"], x["id"]))
+        view = _RuneGlossaryView(runes_by_color, color, interaction.user.id)
+        await interaction.followup.send(embed=view.current_embed(), view=view, ephemeral=True)
 
     # ── Skills ─────────────────────────────────────────────────────────────
 
