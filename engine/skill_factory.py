@@ -301,10 +301,7 @@ def make_skill(
                 elif status == "burn":
                     t.status_effects.append(Burn(duration=eff_dur, damage_per_turn=int(caster.atk * 0.25)))
                 elif status == "silence":
-                    existing = next((e for e in t.status_effects if isinstance(e, Silence)), None)
-                    if existing:
-                        existing.duration = max(existing.duration, eff_dur)
-                    else:
+                    if not any(isinstance(e, Silence) for e in t.status_effects):
                         t.status_effects.append(Silence(duration=eff_dur))
                 elif status == "defense_down":
                     t.status_effects.append(DefenseDown(duration=eff_dur, reduction_pct=0.25))
