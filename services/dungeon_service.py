@@ -114,6 +114,9 @@ async def can_enter_dungeon(owner_id: str, dungeon_slug: str, session=None) -> t
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
     if user is None:
         return False, "You are not registered."
+    from utils.embeds import apply_stamina_regen
+    if apply_stamina_regen(user):
+        await user.save()
     if user.stamina < DUNGEON_STAMINA_COST:
         return False, f"Not enough stamina. Need {DUNGEON_STAMINA_COST}, have {user.stamina}."
 
