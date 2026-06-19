@@ -38,6 +38,16 @@ from config.game_config import (
 from utils.counters import next_display_id
 
 
+FUSE_REQUIRED: dict[str, int] = {
+    "E": 3,
+    "D": 5,
+    "C": 8,
+    "B": 12,
+    "A": 20,
+    "S": 30,
+}
+
+
 class FusionError(Exception):
     pass
 
@@ -48,18 +58,16 @@ async def fuse_champions(
     session: AsyncIOMotorClientSession,
 ) -> ChampionInstance:
     """
-    Fuse exactly 3 identical same-rank champions into 1 of the next rank.
+    Fuse N identical same-rank champions into 1 of the next rank.
+    The required count depends on the resulting rank (see FUSE_REQUIRED).
     Must be called inside an active MongoDB transaction.
     Raises FusionError on any rule violation.
     """
-    if len(champion_ids) != 3:
-        raise FusionError("Exactly 3 champions required for fusion.")
-
     # Deduplicate IDs (prevent using the same DB document twice)
-    if len(set(champion_ids)) != 3:
+    if len(set(champion_ids)) != len(champion_ids):
         raise FusionError("Cannot use the same champion twice in fusion.")
 
-    # Fetch all three with lock check — fetch inside session for transaction isolation
+    # Fetch all champions with lock check — fetch inside session for transaction isolation
     champs: list[ChampionInstance] = []
     for cid in champion_ids:
         c = await ChampionInstance.get(PydanticObjectId(cid), session=usable_session(session))
@@ -79,15 +87,18 @@ async def fuse_champions(
     names = {c.name for c in champs}
     ranks = {c.rank for c in champs}
     if len(names) != 1:
-        raise FusionError("All three champions must have the same name.")
+        raise FusionError("All champions must have the same name.")
     if len(ranks) != 1:
-        raise FusionError("All three champions must be the same rank.")
+        raise FusionError("All champions must be the same rank.")
 
     current_rank = champs[0].rank
     if current_rank == "S":
         raise FusionError("S-rank champions cannot be fused further.")
 
     next_rank = RANKS[RANK_INDEX[current_rank] + 1]
+    required = FUSE_REQUIRED[next_rank]
+    if len(champion_ids) != required:
+        raise FusionError(f"Exactly {required} champions required to fuse into rank {next_rank}.")
 
     # Check gold cost
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
@@ -137,20 +148,24 @@ async def bulk_fuse_champions(
     session: AsyncIOMotorClientSession,
 ) -> list[ChampionInstance]:
     """
-    Fuse ``count`` champions of (name, rank) in groups of 3 into the next rank.
+    Fuse ``count`` champions of (name, rank) in groups of FUSE_REQUIRED[next_rank]
+    into the next rank.
 
-    - ``count`` must be a positive multiple of 3.
-    - Runs ``count // 3`` sequential fusions, each consuming 3 source champions.
+    - ``count`` must be a positive multiple of the required fuse count.
     - Skips locked / favorited / unavailable champions.
-    - Stops if fewer than 3 unfused candidates remain.
+    - Stops if fewer than FUSE_REQUIRED[next_rank] unfused candidates remain.
     Returns the list of created champions.
     """
-    if count <= 0 or count % 3 != 0:
-        raise FusionError("Count must be a positive multiple of 3.")
     if rank == "S":
         raise FusionError("S-rank champions cannot be fused further.")
 
-    fusions = count // 3
+    next_rank = RANKS[RANK_INDEX[rank] + 1]
+    required = FUSE_REQUIRED[next_rank]
+
+    if count <= 0 or count % required != 0:
+        raise FusionError(f"Count must be a positive multiple of {required} (copies needed for {rank}→{next_rank}).")
+
+    fusions = count // required
     created: list[ChampionInstance] = []
 
     for _ in range(fusions):
@@ -165,16 +180,16 @@ async def bulk_fuse_champions(
             c for c in candidates
             if c.is_available and not getattr(c, "favorite", False)
         ]
-        if len(usable) < 3:
+        if len(usable) < required:
             break
-        trio = usable[:3]
-        result = await fuse_champions(owner_id, [str(c.id) for c in trio], session)
+        group = usable[:required]
+        result = await fuse_champions(owner_id, [str(c.id) for c in group], session)
         created.append(result)
 
     if not created:
         raise FusionError(
             f"Not enough available {champion_name} ({rank}) to fuse. "
-            "Need at least 3 unlocked, non-favorite copies."
+            f"Need at least {required} unlocked, non-favorite copies."
         )
 
     return created
