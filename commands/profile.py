@@ -106,7 +106,7 @@ class ProfileCog(commands.Cog):
         is_self = target.id == interaction.user.id
 
         profile_user = await User.get_or_create(str(target.id), target.display_name)
-        if is_self and apply_stamina_regen(profile_user):
+        if apply_stamina_regen(profile_user):
             await profile_user.save()
 
         embed = await _build_profile_embed(target, profile_user)
