@@ -204,13 +204,14 @@ async def reroll_secondary_full(
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
     from services.item_service import _roll_substats
-    from config.game_config import SECONDARY_STAT_TYPES, SUBSTAT_STAT_RANGE
+    from config.game_config import SECONDARY_STAT_TYPES, SUBSTAT_STAT_RANGE, SUBSTAT_RANK_RATES
     RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
+    _weights = [SUBSTAT_RANK_RATES[r] for r in RANK_ORDER]
     old_substats = list(itm.substats)
     locked_idxs = set(getattr(itm, "locked_substats", []))
     locked_types = {old_substats[i]["type"] for i in locked_idxs if i < len(old_substats)}
 
-    # Roll fresh substats for unlocked slots — any rank F-S, independent of item rank
+    # Roll fresh substats for unlocked slots — weighted F-S, independent of item rank
     count = {"F": 1, "E": 1, "D": 1, "C": 2, "B": 2, "A": 3, "S": 4}.get(itm.rank, 1)
     import random as _random
     new_substats = list(old_substats)
@@ -223,7 +224,7 @@ async def reroll_secondary_full(
             break
         stat_type = _random.choice(available)
         chosen_types.append(stat_type)
-        sub_rank = _random.choice(RANK_ORDER)
+        sub_rank = _random.choices(RANK_ORDER, weights=_weights, k=1)[0]
         lo, hi = SUBSTAT_STAT_RANGE[sub_rank]
         entry = {"type": stat_type, "value": _random.randint(lo, hi), "rank": sub_rank}
         if i < len(new_substats):
@@ -283,8 +284,9 @@ async def reroll_secondary_value(
     if user.gold < gold_cost:
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
-    from config.game_config import SUBSTAT_STAT_RANGE
+    from config.game_config import SUBSTAT_STAT_RANGE, SUBSTAT_RANK_RATES
     RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
+    _weights = [SUBSTAT_RANK_RATES[r] for r in RANK_ORDER]
     old_substats = list(itm.substats)
     locked_idxs = set(getattr(itm, "locked_substats", []))
     new_substats = []
@@ -292,7 +294,7 @@ async def reroll_secondary_value(
         if i in locked_idxs:
             new_substats.append(s)
         else:
-            sub_rank = random.choice(RANK_ORDER)
+            sub_rank = random.choices(RANK_ORDER, weights=_weights, k=1)[0]
             lo, hi = SUBSTAT_STAT_RANGE[sub_rank]
             new_substats.append({"type": s["type"], "value": random.randint(lo, hi), "rank": sub_rank})
 

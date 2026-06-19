@@ -135,11 +135,15 @@ class FuseCog(commands.Cog):
         await User.get_or_create(uid, interaction.user.display_name)
 
         # Ask bulk vs single first
+        _FUSE_TIP = (
+            "\n\n**Pieces required to fuse:**\n"
+            "`F→E` 3  •  `E→D` 5  •  `D→C` 8  •  `C→B` 12  •  `B→A` 20  •  `A→S` 30"
+        )
         mode_view = _ModeSelectView(interaction.user.id)
         await interaction.followup.send(
             embed=discord.Embed(
                 title=f"🔮 Fuse — {type.capitalize()}",
-                description="**Bulk** — fuse all eligible groups at once.\n**Single** — pick one champion/rank group to fuse.",
+                description="**Bulk** — fuse all eligible groups at once.\n**Single** — pick one champion/rank group to fuse." + _FUSE_TIP,
                 color=COLOR_INFO,
             ),
             view=mode_view,

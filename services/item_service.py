@@ -172,9 +172,10 @@ async def bulk_fuse_items(
 
 
 def _roll_substats(rank: str) -> list[dict]:
-    """Roll substats for a new item. Count: F-D=1, C-B=2, A=3, S=4. Substat rank is free F-S."""
-    from config.game_config import SUBSTAT_STAT_RANGE, SECONDARY_STAT_TYPES
+    """Roll substats for a new item. Count: F-D=1, C-B=2, A=3, S=4. Substat rank weighted F-S."""
+    from config.game_config import SUBSTAT_STAT_RANGE, SUBSTAT_RANK_RATES, SECONDARY_STAT_TYPES
     _RANK_ORDER = ["F", "E", "D", "C", "B", "A", "S"]
+    _weights = [SUBSTAT_RANK_RATES[r] for r in _RANK_ORDER]
     count = {"F": 1, "E": 1, "D": 1, "C": 2, "B": 2, "A": 3, "S": 4}.get(rank, 1)
     chosen_types: list[str] = []
     result: list[dict] = []
@@ -184,7 +185,7 @@ def _roll_substats(rank: str) -> list[dict]:
             break
         stat_type = random.choice(available)
         chosen_types.append(stat_type)
-        sub_rank = random.choice(_RANK_ORDER)
+        sub_rank = random.choices(_RANK_ORDER, weights=_weights, k=1)[0]
         lo, hi = SUBSTAT_STAT_RANGE[sub_rank]
         result.append({"type": stat_type, "value": random.randint(lo, hi), "rank": sub_rank})
     return result

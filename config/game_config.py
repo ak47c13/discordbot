@@ -169,6 +169,17 @@ ITEM_BASE_MAIN_STAT = {
     "S": 240,
 }
 
+# Weighted pull rates for substat ranks (mirrors item pull curve — higher ranks rarer)
+SUBSTAT_RANK_RATES = {
+    "F": 0.350,
+    "E": 0.250,
+    "D": 0.180,
+    "C": 0.120,
+    "B": 0.060,
+    "A": 0.030,
+    "S": 0.010,
+}
+
 # Value range per SUBSTAT rank (stored value is int, divide by 10 for %)
 SUBSTAT_STAT_RANGE = {
     "F": (5,   15),
