@@ -19,7 +19,7 @@ from engine.combat import build_unit_from_champion, run_battle, run_battle_with_
 from engine.skills import ALL_CHAMPION_NAMES
 from services.champion_service import grant_champion
 from services.item_service import grant_item
-from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS, RAID_BOSS_STATS, RANKS
+from config.game_config import RAID_MAX_PLAYERS, RAID_DAILY_LIMIT, RAID_RESET_HOURS, RAID_DIFFICULTIES, RAID_DIFFICULTY_WEIGHTS, CHAMPION_BASE_STATS, RAID_BOSS_STATS, RANKS, PHT
 
 
 class RaidError(Exception):
@@ -30,8 +30,8 @@ class RaidError(Exception):
 # Daily limit helpers
 # ---------------------------------------------------------------------------
 
-def _today_utc() -> date:
-    return datetime.now(timezone.utc).date()
+def _today_pht() -> date:
+    return datetime.now(PHT).date()
 
 
 def _reset_daily_raids_if_needed(user: User) -> None:

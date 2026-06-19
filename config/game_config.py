@@ -2,6 +2,10 @@
 Central configuration for all game rates, costs, drop tables, and multipliers.
 Nothing numeric lives in business logic — change values here only.
 """
+from datetime import timezone, timedelta
+
+# Philippines Standard Time (UTC+8) — used for all user-facing time display
+PHT = timezone(timedelta(hours=8))
 
 # ---------------------------------------------------------------------------
 # Rank ordering

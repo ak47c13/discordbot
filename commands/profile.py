@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from models.user import User
+from config.game_config import PHT
 from models.champion import ChampionInstance
 from models.item import ItemInstance
 from utils.embeds import (
@@ -85,7 +86,7 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
     # ── Footer ─────────────────────────────────────────────────────
     champ_count = await ChampionInstance.find(ChampionInstance.owner_id == str(target.id)).count()
     embed.set_footer(
-        text=f"{champ_count} champions  •  {getattr(profile_user, 'raids_completed', 0)} raids  •  Joined {profile_user.created_at.strftime('%Y-%m-%d')}"
+        text=f"{champ_count} champions  •  {getattr(profile_user, 'raids_completed', 0)} raids  •  Joined {profile_user.created_at.astimezone(PHT).strftime('%Y-%m-%d')}"
     )
     return embed
 

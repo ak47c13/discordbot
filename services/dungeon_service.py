@@ -39,6 +39,7 @@ from config.game_config import (
     DUNGEON_STAMINA_COST,
     DUNGEON_BOSS_RETRY_COST,
     champion_xp_threshold,
+    PHT,
 )
 from utils.db_session import usable_session
 
@@ -662,7 +663,7 @@ async def check_dungeon_completion(owner_id: str, dungeon_slug: str, session=Non
         last = prog.last_daily_at
         if last and last.tzinfo is None:
             last = last.replace(tzinfo=timezone.utc)
-        eligible = (last is None) or (last.date() < now.date())
+        eligible = (last is None) or (last.astimezone(PHT).date() < now.astimezone(PHT).date())
         if eligible:
             bonus = DUNGEON_DAILY_CLEAR.get(dungeon.total_floors, {})
             if bonus:
