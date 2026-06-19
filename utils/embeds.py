@@ -3,7 +3,7 @@ Centralised Discord embed builders.
 """
 from __future__ import annotations
 import discord
-from config.game_config import AURA_COLOR_BY_RANK, get_aura, ENHANCEMENT_MULTIPLIER
+from config.game_config import AURA_COLOR_BY_RANK, get_aura, ENHANCEMENT_MULTIPLIER, CHAMPION_MAX_LEVEL, champion_xp_threshold
 
 
 # ---------------------------------------------------------------------------
@@ -90,6 +90,17 @@ def add_champion_stat_fields(embed: discord.Embed, champ, rune_page=None, item_d
     )
 
 
+def _xp_bar(champ, bar_len: int = 10) -> str:
+    max_lvl = CHAMPION_MAX_LEVEL.get(champ.rank, 20)
+    if champ.level >= max_lvl:
+        return "MAX LEVEL"
+    needed = champion_xp_threshold(champ.level, champ.rank)
+    current = getattr(champ, "exp", 0)
+    filled = int(bar_len * min(current, needed) / needed)
+    bar = "█" * filled + "░" * (bar_len - filled)
+    return f"[{bar}] {current:,} / {needed:,} XP"
+
+
 async def champion_embed(champ, title: str = "Champion", rune_page=None) -> discord.Embed:
     from models.item import ItemInstance
     item_docs = await ItemInstance.find(
@@ -104,6 +115,8 @@ async def champion_embed(champ, title: str = "Champion", rune_page=None) -> disc
     )
 
     add_champion_stat_fields(embed, champ, rune_page, item_docs)
+
+    embed.add_field(name="XP", value=_xp_bar(champ), inline=False)
 
     flags = []
     if champ.locked:                        flags.append("🔒 Locked")
