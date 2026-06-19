@@ -719,6 +719,11 @@ def run_battle_with_rounds(
             if unit.has_effect(Stun):
                 log.append(f"  ⚡ {unit.name} is stunned — skipping turn.")
                 unit.tick_effects_end()
+                # Don't tick StunImmunity on skipped turns — immunity only counts
+                # down on turns the unit actually acts, so they always get a free turn.
+                for eff in unit.status_effects:
+                    if isinstance(eff, StunImmunity):
+                        eff.duration += 1  # restore the tick that tick_effects_end consumed
                 continue
 
             # Snapshot enemy HP for reflect mechanic and contribution tracking.
