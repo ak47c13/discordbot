@@ -105,10 +105,10 @@ ITEM_CATEGORIES: dict[str, dict] = {
         "advanced": [
             ("Giant's Belt",       "hp",  "fortify_passive"),
             ("Kindlegem",          "hp",  "fortify_passive"),
-            ("Sheen",              "atk", "sheen_passive"),
             ("Tear of the Goddess","atk", "atk_passive"),
         ],
         "completed": [
+            ("Sheen",              "atk", "sheen_passive"),
             ("Warmog's Armor",     "hp",  "fortify_passive"),
             ("Sterak's Gage",      "hp",  "fortify_passive"),
             ("Heartsteel",         "hp",  "fortify_passive"),
@@ -126,10 +126,10 @@ ITEM_CATEGORIES: dict[str, dict] = {
             ("Needlessly Large Rod",   "atk", "crit_damage_passive"),
             ("Lost Chapter",           "atk", "atk_passive"),
             ("Fiendish Codex",         "atk", "attack_speed_passive"),
-            ("Shadowflame",            "atk", "magic_pen_passive"),
-            ("Cryptbloom",             "atk", "magic_pen_passive"),
         ],
         "completed": [
+            ("Shadowflame",            "atk", "magic_pen_passive"),
+            ("Cryptbloom",             "atk", "magic_pen_passive"),
             ("Rabadon's Deathcap",    "atk", "crit_damage_passive"),
             ("Void Staff",             "atk", "magic_pen_passive"),
             ("Luden's Companion",      "atk", "magic_pen_passive"),
