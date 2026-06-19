@@ -9,7 +9,9 @@ class User(Document):
     discord_id: str
     username: str
     gold: int = 0
-    summon_tokens: int = 0
+    champion_tokens: int = 0
+    item_tokens: int = 0
+    rune_tokens: int = 0
     blacksmith_seals: int = 0
     registered: bool = False
     stamina: int = 100

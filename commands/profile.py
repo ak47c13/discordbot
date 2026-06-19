@@ -32,9 +32,12 @@ async def _build_profile_embed(target: discord.User | discord.Member, profile_us
 
     # ── Economy row ────────────────────────────────────────────────
     seals = getattr(profile_user, "blacksmith_seals", 0)
-    embed.add_field(name="Gold",             value=f"{profile_user.gold:,}",        inline=True)
-    embed.add_field(name="Summon Tokens",    value=str(profile_user.summon_tokens), inline=True)
-    embed.add_field(name="Blacksmith Seals", value=str(seals),                      inline=True)
+    embed.add_field(name="Gold",             value=f"{profile_user.gold:,}",                      inline=True)
+    embed.add_field(name="Blacksmith Seals", value=str(seals),                                    inline=True)
+    embed.add_field(name="​",                value="​",                                            inline=True)
+    embed.add_field(name="Champion Tokens",  value=str(getattr(profile_user, "champion_tokens", 0)), inline=True)
+    embed.add_field(name="Item Tokens",      value=str(getattr(profile_user, "item_tokens", 0)),     inline=True)
+    embed.add_field(name="Rune Tokens",      value=str(getattr(profile_user, "rune_tokens", 0)),     inline=True)
 
     # ── Stamina ────────────────────────────────────────────────────
     bar = progress_bar(profile_user.stamina, profile_user.max_stamina)
@@ -184,12 +187,12 @@ class ProfileCog(commands.Cog):
             )
             return
         from config.game_config import DAILY_SUMMON_TOKENS
-        user.summon_tokens += DAILY_SUMMON_TOKENS
+        user.champion_tokens = getattr(user, "champion_tokens", 0) + DAILY_SUMMON_TOKENS
         user.last_daily = now
         await user.save()
         embed = discord.Embed(
             title="Daily Reward",
-            description=f"+{DAILY_SUMMON_TOKENS} Summon Tokens",
+            description=f"+{DAILY_SUMMON_TOKENS} Champion Tokens",
             color=COLOR_GOLD,
         )
         await interaction.followup.send(embed=embed)

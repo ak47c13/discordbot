@@ -42,71 +42,124 @@ def get_weekly_champion_pool() -> tuple[str, list[str]]:
 
 
 # ---------------------------------------------------------------------------
-# Weekly item category pools
+# Weekly item category pools — three tiers: basic (75%), advanced (20%), completed (5%)
 # ---------------------------------------------------------------------------
-# Shop item pools — basics are most common, advanced components appear too.
-# Completed items are not in these pools; craft them at /build.
-ITEM_CATEGORIES: dict[str, list[tuple[str, str, str]]] = {
-    "weapons": [
-        # Basic
-        ("Long Sword",         "atk", "atk_passive"),
-        ("Pickaxe",            "atk", "atk_passive"),
-        ("Dagger",             "atk", "attack_speed_passive"),
-        ("Vampiric Scepter",   "atk", "lifesteal_passive"),
-        # Advanced
-        ("B.F. Sword",         "atk", "atk_passive"),
-        ("Recurve Bow",        "atk", "attack_speed_passive"),
-        ("Cloak of Agility",   "atk", "crit_damage_passive"),
-        ("Zeal",               "atk", "attack_speed_passive"),
-        ("Phage",              "atk", "atk_passive"),
-    ],
-    "armor": [
-        # Basic
-        ("Cloth Armor",        "def", "armor_passive"),
-        ("Null-Magic Mantle",  "def", "magic_resist_passive"),
-        # Advanced
-        ("Chain Vest",         "def", "armor_passive"),
-        ("Negatron Cloak",     "def", "magic_resist_passive"),
-        ("Warden's Mail",      "def", "armor_passive"),
-        ("Bramble Vest",       "def", "armor_passive"),
-        ("Hexdrinker",         "def", "magic_resist_passive"),
-        ("Spectre's Cowl",     "def", "magic_resist_passive"),
-    ],
-    "accessories": [
-        # Basic
-        ("Ruby Crystal",       "hp",  "fortify_passive"),
-        ("Faerie Charm",       "hp",  "fortify_passive"),
-        # Advanced
-        ("Giant's Belt",       "hp",  "fortify_passive"),
-        ("Kindlegem",          "hp",  "fortify_passive"),
-        ("Sheen",              "atk", "sheen_passive"),
-        ("Tear of the Goddess","atk", "atk_passive"),
-    ],
-    "magic": [
-        # Basic
-        ("Amplifying Tome",    "atk", "atk_passive"),
-        ("Sapphire Crystal",   "atk", "atk_passive"),
-        ("Aether Wisp",        "atk", "magic_pen_passive"),
-        # Advanced
-        ("Blasting Wand",      "atk", "atk_passive"),
-        ("Needlessly Large Rod","atk", "crit_damage_passive"),
-        ("Lost Chapter",       "atk", "atk_passive"),
-        ("Fiendish Codex",     "atk", "attack_speed_passive"),
-        ("Cryptbloom",         "atk", "magic_pen_passive"),
-        ("Shadowflame",        "atk", "magic_pen_passive"),
-    ],
-    "assassin": [
-        # Basic
-        ("Serrated Dirk",      "atk", "armor_pen_passive"),
-        ("Long Sword",         "atk", "atk_passive"),
-        ("Dagger",             "atk", "attack_speed_passive"),
-        # Advanced
-        ("Cauterize",          "atk", "armor_pen_passive"),
-        ("Serpent's Fang",     "atk", "armor_pen_passive"),
-        ("Umbral Glaive",      "atk", "armor_pen_passive"),
-        ("Prowler's Claw",     "atk", "armor_pen_passive"),
-        ("Axiom Arc",          "atk", "armor_pen_passive"),
-    ],
+ITEM_CATEGORIES: dict[str, dict] = {
+    "weapons": {
+        "basic": [
+            ("Long Sword",         "atk", "atk_passive"),
+            ("Pickaxe",            "atk", "atk_passive"),
+            ("Dagger",             "atk", "attack_speed_passive"),
+            ("Vampiric Scepter",   "atk", "lifesteal_passive"),
+        ],
+        "advanced": [
+            ("B.F. Sword",         "atk", "atk_passive"),
+            ("Recurve Bow",        "atk", "attack_speed_passive"),
+            ("Cloak of Agility",   "atk", "crit_damage_passive"),
+            ("Zeal",               "atk", "attack_speed_passive"),
+            ("Phage",              "atk", "atk_passive"),
+        ],
+        "completed": [
+            ("Infinity Edge",              "atk", "crit_damage_passive"),
+            ("Phantom Dancer",             "atk", "attack_speed_passive"),
+            ("Trinity Force",              "atk", "atk_passive"),
+            ("Kraken Slayer",              "atk", "atk_passive"),
+            ("Runaan's Hurricane",         "atk", "attack_speed_passive"),
+            ("Blade of the Ruined King",   "atk", "lifesteal_passive"),
+            ("Ravenous Hydra",             "atk", "lifesteal_passive"),
+            ("Death's Dance",              "atk", "lifesteal_passive"),
+            ("Immortal Shieldbow",         "atk", "lifesteal_passive"),
+        ],
+    },
+    "armor": {
+        "basic": [
+            ("Cloth Armor",        "def", "armor_passive"),
+            ("Null-Magic Mantle",  "def", "magic_resist_passive"),
+        ],
+        "advanced": [
+            ("Chain Vest",         "def", "armor_passive"),
+            ("Negatron Cloak",     "def", "magic_resist_passive"),
+            ("Warden's Mail",      "def", "armor_passive"),
+            ("Bramble Vest",       "def", "armor_passive"),
+            ("Hexdrinker",         "def", "magic_resist_passive"),
+            ("Spectre's Cowl",     "def", "magic_resist_passive"),
+        ],
+        "completed": [
+            ("Thornmail",          "def", "armor_passive"),
+            ("Frozen Heart",       "def", "armor_passive"),
+            ("Gargoyle Stoneplate","def", "armor_passive"),
+            ("Randuin's Omen",     "def", "armor_passive"),
+            ("Dead Man's Plate",   "def", "armor_passive"),
+            ("Guardian Angel",     "def", "armor_passive"),
+            ("Spirit Visage",      "def", "magic_resist_passive"),
+            ("Force of Nature",    "def", "magic_resist_passive"),
+            ("Abyssal Mask",       "def", "magic_resist_passive"),
+            ("Jak'Sho the Protean","def", "armor_passive"),
+        ],
+    },
+    "accessories": {
+        "basic": [
+            ("Ruby Crystal",       "hp",  "fortify_passive"),
+            ("Faerie Charm",       "hp",  "fortify_passive"),
+        ],
+        "advanced": [
+            ("Giant's Belt",       "hp",  "fortify_passive"),
+            ("Kindlegem",          "hp",  "fortify_passive"),
+            ("Sheen",              "atk", "sheen_passive"),
+            ("Tear of the Goddess","atk", "atk_passive"),
+        ],
+        "completed": [
+            ("Warmog's Armor",     "hp",  "fortify_passive"),
+            ("Sterak's Gage",      "hp",  "fortify_passive"),
+            ("Heartsteel",         "hp",  "fortify_passive"),
+            ("Sunfire Aegis",      "hp",  "fortify_passive"),
+        ],
+    },
+    "magic": {
+        "basic": [
+            ("Amplifying Tome",    "atk", "atk_passive"),
+            ("Sapphire Crystal",   "atk", "atk_passive"),
+            ("Aether Wisp",        "atk", "magic_pen_passive"),
+        ],
+        "advanced": [
+            ("Blasting Wand",          "atk", "atk_passive"),
+            ("Needlessly Large Rod",   "atk", "crit_damage_passive"),
+            ("Lost Chapter",           "atk", "atk_passive"),
+            ("Fiendish Codex",         "atk", "attack_speed_passive"),
+            ("Shadowflame",            "atk", "magic_pen_passive"),
+            ("Cryptbloom",             "atk", "magic_pen_passive"),
+        ],
+        "completed": [
+            ("Rabadon's Deathcap",    "atk", "crit_damage_passive"),
+            ("Void Staff",             "atk", "magic_pen_passive"),
+            ("Luden's Companion",      "atk", "magic_pen_passive"),
+            ("Nashor's Tooth",         "atk", "attack_speed_passive"),
+            ("Liandry's Anguish",      "atk", "magic_pen_passive"),
+            ("Morellonomicon",         "atk", "magic_pen_passive"),
+            ("Archangel's Staff",      "atk", "atk_passive"),
+            ("Zhonya's Hourglass",     "atk", "armor_passive"),
+            ("Banshee's Veil",         "atk", "magic_resist_passive"),
+        ],
+    },
+    "assassin": {
+        "basic": [
+            ("Serrated Dirk",      "atk", "armor_pen_passive"),
+            ("Long Sword",         "atk", "atk_passive"),
+            ("Dagger",             "atk", "attack_speed_passive"),
+        ],
+        "advanced": [
+            ("Cauterize",          "atk", "armor_pen_passive"),
+            ("Serpent's Fang",     "atk", "armor_pen_passive"),
+            ("Umbral Glaive",      "atk", "armor_pen_passive"),
+            ("Prowler's Claw",     "atk", "armor_pen_passive"),
+            ("Axiom Arc",          "atk", "armor_pen_passive"),
+        ],
+        "completed": [
+            ("Duskblade of Draktharr", "atk", "armor_pen_passive"),
+            ("Black Cleaver",          "atk", "armor_pen_passive"),
+            ("Manamune",               "atk", "atk_passive"),
+        ],
+    },
 }
 ITEM_CATEGORY_ROTATION = ["weapons", "armor", "accessories", "magic", "assassin"]
 ITEM_CATEGORY_DISPLAY = {
@@ -146,8 +199,12 @@ RUNE_CATEGORY_ROTATION = ["precision", "domination", "resolve", "sorcery"]
 RUNE_CATEGORY_DISPLAY = {k: v["display"] for k, v in RUNE_CATEGORIES.items()}
 
 
-def get_weekly_item_pool() -> tuple[str, list[tuple[str, str, str]]]:
-    """Return (category_display_name, item_pool) for the current week."""
+def get_weekly_item_pool() -> tuple[str, dict]:
+    """Return (category_display_name, category_dict) for the current week.
+
+    The category_dict has keys 'basic', 'advanced', 'completed', each mapping
+    to a list of (name, stat_type, passive) tuples.
+    """
     import time
     ANCHOR_UTC = 1703959200
     WEEK_SECS = 604800
@@ -205,6 +262,16 @@ class SummonError(Exception):
     pass
 
 
+
+def _token_field_for_pool(pool_type: str) -> str:
+    """Return the User attribute name for the token type matching pool_type."""
+    return {
+        "champion": "champion_tokens",
+        "item": "item_tokens",
+        "rune": "rune_tokens",
+    }.get(pool_type, "champion_tokens")
+
+
 async def summon_single(
     owner_id: str,
     session: AsyncIOMotorClientSession,
@@ -221,11 +288,13 @@ async def summon_single(
                          table which may yield champions, items, gold, or mats.
     """
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
-    if user.summon_tokens < SUMMON_TOKEN_COST:
+    _token_field = _token_field_for_pool(pool_type)
+    _token_count = getattr(user, _token_field, 0)
+    if _token_count < SUMMON_TOKEN_COST:
         raise SummonError(
-            f"Need {SUMMON_TOKEN_COST} summon tokens. Have {user.summon_tokens}."
+            f"Need {SUMMON_TOKEN_COST} {pool_type} tokens. Have {_token_count}."
         )
-    user.summon_tokens -= SUMMON_TOKEN_COST
+    setattr(user, _token_field, _token_count - SUMMON_TOKEN_COST)
     await user.save(session=usable_session(session))
     result = await _roll_summon(owner_id, session, pool_type=pool_type)
     return result
@@ -244,11 +313,13 @@ async def summon_multi(
         Same semantics as :func:`summon_single`.
     """
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
-    if user.summon_tokens < SUMMON_MULTI_COST:
+    _token_field = _token_field_for_pool(pool_type)
+    _token_count = getattr(user, _token_field, 0)
+    if _token_count < SUMMON_MULTI_COST:
         raise SummonError(
-            f"Need {SUMMON_MULTI_COST} summon tokens for 10x. Have {user.summon_tokens}."
+            f"Need {SUMMON_MULTI_COST} {pool_type} tokens for 10x. Have {_token_count}."
         )
-    user.summon_tokens -= SUMMON_MULTI_COST
+    setattr(user, _token_field, _token_count - SUMMON_MULTI_COST)
     await user.save(session=usable_session(session))
     results = []
     for _ in range(11):  # 10 paid + 1 bonus
@@ -326,9 +397,27 @@ async def _apply_summon_result(
         }
 
     elif key.startswith("item_"):
-        rank = key.split("_")[1].upper()
-        _, item_pool = get_weekly_item_pool()
-        name, stat_type, passive = random.choice(item_pool)
+        _, item_cat = get_weekly_item_pool()
+        # Roll tier: 75% basic, 20% advanced, 5% completed
+        tier_name = random.choices(["basic", "advanced", "completed"], weights=[75, 20, 5], k=1)[0]
+        tier_pool = item_cat.get(tier_name, item_cat.get("basic", []))
+        if not tier_pool:
+            tier_name = "basic"
+            tier_pool = item_cat.get("basic", [])
+        name, stat_type, passive = random.choice(tier_pool)
+        # Set rank floor per tier; roll final rank clamped to floor
+        rank_order = ["F", "E", "D", "C", "B", "A", "S"]
+        if tier_name == "completed":
+            floor = "A"
+        elif tier_name == "advanced":
+            floor = "C"
+        else:
+            floor = "F"
+        # Use the rank rolled from the key (SUMMON_RATES) but clamp to floor
+        rolled_rank = key.split("_")[1].upper() if "_" in key and key.split("_")[1].upper() in rank_order else "F"
+        floor_idx = rank_order.index(floor)
+        rolled_idx = rank_order.index(rolled_rank) if rolled_rank in rank_order else 0
+        rank = rank_order[max(floor_idx, rolled_idx)]
         itm = await grant_item(owner_id, name, rank, stat_type, passive, session)
         return {
             "type": "item",
@@ -339,6 +428,7 @@ async def _apply_summon_result(
             "passive": passive,
             "secondary_stat": itm.secondary_stat_type,
             "secondary_val": itm.secondary_stat_value,
+            "tier": tier_name,
         }
 
     elif key == "gold_small":

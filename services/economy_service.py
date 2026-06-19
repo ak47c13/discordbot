@@ -8,8 +8,10 @@ async def deduct_gold(user: User, amount: int, session=None) -> bool:
     return True
 
 async def deduct_tokens(user: User, amount: int, session=None) -> bool:
-    if user.summon_tokens < amount:
+    # deduct from champion_tokens by default (legacy function)
+    tok = getattr(user, "champion_tokens", 0)
+    if tok < amount:
         return False
-    user.summon_tokens -= amount
+    user.champion_tokens = tok - amount
     await user.save()
     return True
