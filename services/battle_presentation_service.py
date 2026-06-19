@@ -187,7 +187,7 @@ async def advance_and_display(
     discord_bot,
     until_round: int | None = None,
     reward_fn=None,
-) -> None:
+) -> dict | None:
     """Edit the Discord message round-by-round, then finalize.
 
     discord_bot may be a discord.Client (to resolve the channel/message) or a
@@ -256,7 +256,7 @@ async def advance_and_display(
     if bs.displayed_round_count < bs.simulated_round_count:
         bs.displayed_round_count = bs.simulated_round_count
         await bs.save()
-    await finalize(bs, message, bs.rewards_json, session=None, reward_fn=reward_fn)
+    return await finalize(bs, message, bs.rewards_json, session=None, reward_fn=reward_fn)
 
 
 async def _resolve_message(bs: BattleSession, discord_bot):
@@ -280,7 +280,7 @@ async def finalize(
     rewards: dict,
     session,
     reward_fn=None,
-) -> None:
+) -> dict | None:
     # Reload to ensure not cancelled in the meantime
     bs = await BattleSession.get(battle_session.id)
     if bs is None or bs.status != "ACTIVE":
@@ -295,7 +295,7 @@ async def finalize(
     await bs.save()
 
     granted = rewards or {}
-    if player_won and reward_fn is not None:
+    if reward_fn is not None:
         try:
             granted = await reward_fn()
         except Exception:
@@ -314,6 +314,8 @@ async def finalize(
             await edit_target.edit(embed=final_embed, attachments=[], view=None)
     except Exception:
         pass
+
+    return granted
 
 
 async def cancel_battle(battle_session_id: str, reason: str, session) -> bool:
