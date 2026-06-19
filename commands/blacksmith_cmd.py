@@ -189,7 +189,7 @@ class BlacksmithCog(commands.Cog):
         def _fmt_substats(subs: list) -> str:
             if not subs:
                 return "—"
-            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}" for s in subs)
+            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}% [{s.get('rank','?')}]" for s in subs)
 
         embed = discord.Embed(title="🎲 Reroll Preview", color=COLOR_INFO)
         embed.add_field(name="Current Substats", value=_fmt_substats(preview["old_substats"]), inline=True)
@@ -246,7 +246,7 @@ class BlacksmithCog(commands.Cog):
         def _fmt_substats(subs: list) -> str:
             if not subs:
                 return "—"
-            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}" for s in subs)
+            return "\n".join(f"{s['type'].replace('_',' ').title()}: +{s['value']/10:.1f}% [{s.get('rank','?')}]" for s in subs)
 
         embed = discord.Embed(title="🎲 Refine Preview", color=COLOR_INFO)
         embed.add_field(name="Current Values", value=_fmt_substats(preview["old_substats"]), inline=True)

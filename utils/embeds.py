@@ -141,7 +141,7 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
     locked_idxs = set(getattr(itm, "locked_substats", []))
     if substats:
         sub_lines = "\n".join(
-            f"{'🔒 ' if i in locked_idxs else ''}{s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}"
+            f"{'🔒 ' if i in locked_idxs else ''}{s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}% [{s.get('rank', '?')}]"
             for i, s in enumerate(substats)
         )
     else:
@@ -385,15 +385,21 @@ def build_summon_result_embed(r: dict, footer: str = "") -> discord.Embed:
         name = r["name"]
         stat_type = r.get("stat_type", "atk")
         passive = r.get("passive", "")
-        secondary = r.get("secondary_stat", "")
-        secondary_val = r.get("secondary_val", 0)
+        substats = r.get("substats", [])
+        if substats:
+            sub_lines = "\n".join(
+                f"• {s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}% [{s.get('rank', '?')}]"
+                for s in substats
+            )
+        else:
+            sub_lines = "—"
         embed = discord.Embed(
             title=f"{title_prefix}{name}",
             description=(
                 f"**{_SUMMON_RANK_LABEL.get(rank, rank)} [{rank}] Item**\n\n"
                 f"Main Stat: **{stat_type.upper()}**\n"
                 f"Passive: **{passive.replace('_passive', '').replace('_', ' ').title()}**\n"
-                f"Secondary: **{secondary.replace('_', ' ').title()} +{secondary_val/10:.1f}%**"
+                f"Substats:\n{sub_lines}"
             ),
             color=color,
         )

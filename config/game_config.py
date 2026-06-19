@@ -169,17 +169,30 @@ ITEM_BASE_MAIN_STAT = {
     "S": 240,
 }
 
-# Secondary stat roll ranges [min, max] by rank (stored *10, so 100 = 10.0%)
-# F feels like noise; S visibly changes combat outcomes.
-SECONDARY_STAT_RANGE = {
-    "F": (5,   15),    # 0.5% - 1.5%
-    "E": (10,  25),    # 1.0% - 2.5%
-    "D": (20,  40),    # 2.0% - 4.0%
-    "C": (35,  65),    # 3.5% - 6.5%
-    "B": (55,  95),    # 5.5% - 9.5%
-    "A": (80,  140),   # 8.0% - 14.0%
-    "S": (120, 200),   # 12.0% - 20.0%
+# Value range per SUBSTAT rank (stored value is int, divide by 10 for %)
+SUBSTAT_STAT_RANGE = {
+    "F": (5,   15),
+    "E": (16,  30),
+    "D": (31,  55),
+    "C": (56,  90),
+    "B": (91,  135),
+    "A": (136, 190),
+    "S": (191, 250),
 }
+
+# Which substat ranks can roll on a given item rank (min, max substat rank)
+ITEM_RANK_TO_SUBSTAT_RANKS = {
+    "F": ["F"],
+    "E": ["F", "E"],
+    "D": ["E", "D"],
+    "C": ["D", "C"],
+    "B": ["C", "B"],
+    "A": ["B", "A"],
+    "S": ["A", "S"],
+}
+
+# Alias for backwards compatibility
+SECONDARY_STAT_RANGE = SUBSTAT_STAT_RANGE
 
 SECONDARY_STAT_TYPES = [
     "atk_pct",
