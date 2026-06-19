@@ -14,6 +14,7 @@ that override base fields at higher ranks:
     base     — F, E, D  (default, backward-compatible with old flat dicts)
     advanced — C, B     (overrides base fields)
     prestige — A, S     (overrides advanced fields; feel the difference)
+    legendary— S only   (overrides prestige fields; peak power)
 
 MECHANICS
 ---------
@@ -53,11 +54,13 @@ def _resolve_tier(d: dict, rank: str) -> dict:
     """Merge base skill dict with tier overrides based on rank."""
     idx = _rank_index(rank)
     # Build from base (strip tier sub-dicts)
-    resolved = {k: v for k, v in d.items() if k not in ("advanced", "prestige")}
+    resolved = {k: v for k, v in d.items() if k not in ("advanced", "prestige", "legendary")}
     if idx >= 3:  # C or higher → apply advanced
         resolved.update(d.get("advanced", {}))
     if idx >= 5:  # A or higher → apply prestige
         resolved.update(d.get("prestige", {}))
+    if idx >= 6:  # S only → apply legendary
+        resolved.update(d.get("legendary", {}))
     return resolved
 
 
