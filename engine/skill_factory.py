@@ -291,7 +291,7 @@ def make_skill(
                 if status == "stun":
                     from engine.status_effects import StunImmunity
                     if any(isinstance(e, StunImmunity) for e in t.status_effects):
-                        pass  # immune — cannot be re-stunned this turn
+                        log.append(f"  🛡️ {t.name} is stun-immune — resists the stun!")
                     else:
                         # Refresh existing stun to max duration rather than stacking
                         existing = next((e for e in t.status_effects if isinstance(e, Stun)), None)
