@@ -124,9 +124,11 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
     color = AURA_COLOR_BY_RANK.get(rank, 0xFFFFFF)
     mult = ENHANCEMENT_MULTIPLIER.get(enh, 0.0)
     eff_stat = int(itm.main_stat_base * (1 + mult))
+    did = getattr(itm, "display_id", None)
+    id_str = f"  •  #{did}" if did else ""
 
     embed = discord.Embed(
-        title=f"{title}: {aura}{itm.name} [{rank}] +{enh}",
+        title=f"{title}: {aura}{itm.name} [{rank}] +{enh}{id_str}",
         color=color,
     )
     embed.add_field(
@@ -136,10 +138,11 @@ def item_embed(itm, title: str = "Item") -> discord.Embed:
     )
     embed.add_field(name="Passive", value=itm.passive_name, inline=True)
     substats = getattr(itm, "substats", [])
+    locked_idxs = set(getattr(itm, "locked_substats", []))
     if substats:
         sub_lines = "\n".join(
-            f"{s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}"
-            for s in substats
+            f"{'🔒 ' if i in locked_idxs else ''}{s['type'].replace('_', ' ').title()}: +{s['value']/10:.1f}"
+            for i, s in enumerate(substats)
         )
     else:
         sub_lines = "—"
@@ -200,13 +203,12 @@ async def get_champion_by_number(owner_id: str, number: int):
 
 
 async def get_item_by_number(owner_id: str, number: int):
-    """Get an item by its 1-based position in the sorted list."""
+    """Get an item by its stable display_id."""
     from models.item import ItemInstance
-    all_items = await ItemInstance.find(ItemInstance.owner_id == owner_id).to_list()
-    sorted_items = sort_items(all_items)
-    if 1 <= number <= len(sorted_items):
-        return sorted_items[number - 1]
-    return None
+    return await ItemInstance.find_one(
+        ItemInstance.owner_id == owner_id,
+        ItemInstance.display_id == number,
+    )
 
 
 PAGE_SIZE = 10

@@ -6,6 +6,7 @@ from pydantic import Field
 
 class ItemInstance(Document):
     owner_id: str                    # discord_id of owner
+    display_id: int = 0              # stable sequential ID (like champion #123)
     name: str                        # e.g. "Infinity Edge"
     rank: str                        # F E D C B A S
     enhancement: int = 0             # 0-15
@@ -18,6 +19,8 @@ class ItemInstance(Document):
     # Substat list — each entry: {"type": str, "value": int (stored *10)}
     # Count by rank: F-D=1, C-B=2, A=3, S=4
     substats: list[dict] = Field(default_factory=list)
+    # Indices into substats that are locked (preserved on reroll/refine)
+    locked_substats: list[int] = Field(default_factory=list)
 
     # Legacy single-substat fields (kept for backward compatibility, may be empty)
     secondary_stat_type: str = ""
@@ -37,6 +40,7 @@ class ItemInstance(Document):
         name = "items"
         indexes = [
             "owner_id",
+            "display_id",
             [("owner_id", 1), ("name", 1), ("rank", 1), ("enhancement", 1)],
         ]
 

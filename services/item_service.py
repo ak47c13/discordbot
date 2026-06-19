@@ -91,8 +91,11 @@ async def fuse_items(
     for itm in items:
         await itm.delete(session=usable_session(session))
 
+    from utils.counters import next_display_id
+    did = await next_display_id("item_display_id")
     result = ItemInstance(
         owner_id=owner_id,
+        display_id=did,
         name=items[0].name,
         rank=next_rank,
         enhancement=0,
@@ -192,8 +195,11 @@ async def grant_item(
     passive_name: str,
     session=None,
 ) -> ItemInstance:
+    from utils.counters import next_display_id
+    did = await next_display_id("item_display_id")
     itm = ItemInstance(
         owner_id=owner_id,
+        display_id=did,
         name=name,
         rank=rank,
         enhancement=0,

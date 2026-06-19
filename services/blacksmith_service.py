@@ -204,8 +204,29 @@ async def reroll_secondary_full(
         raise BlacksmithError(f"Need {gold_cost} gold. Have {user.gold}.")
 
     from services.item_service import _roll_substats
+    from config.game_config import SECONDARY_STAT_TYPES, SECONDARY_STAT_RANGE
     old_substats = list(itm.substats)
-    new_substats = _roll_substats(itm.rank)
+    locked_idxs = set(getattr(itm, "locked_substats", []))
+    locked_types = {old_substats[i]["type"] for i in locked_idxs if i < len(old_substats)}
+
+    # Roll fresh substats for unlocked slots only
+    count = {"F": 1, "E": 1, "D": 1, "C": 2, "B": 2, "A": 3, "S": 4}.get(itm.rank, 1)
+    lo, hi = SECONDARY_STAT_RANGE[itm.rank]
+    import random as _random
+    new_substats = list(old_substats)
+    chosen_types = list(locked_types)
+    for i in range(count):
+        if i in locked_idxs:
+            continue
+        available = [t for t in SECONDARY_STAT_TYPES if t not in chosen_types]
+        if not available:
+            break
+        stat_type = _random.choice(available)
+        chosen_types.append(stat_type)
+        if i < len(new_substats):
+            new_substats[i] = {"type": stat_type, "value": _random.randint(lo, hi)}
+        else:
+            new_substats.append({"type": stat_type, "value": _random.randint(lo, hi)})
 
     return {
         "old_substats": old_substats,
@@ -261,9 +282,10 @@ async def reroll_secondary_value(
 
     lo, hi = SECONDARY_STAT_RANGE[itm.rank]
     old_substats = list(itm.substats)
+    locked_idxs = set(getattr(itm, "locked_substats", []))
     new_substats = [
-        {"type": s["type"], "value": random.randint(lo, hi)}
-        for s in old_substats
+        s if i in locked_idxs else {"type": s["type"], "value": random.randint(lo, hi)}
+        for i, s in enumerate(old_substats)
     ]
 
     return {

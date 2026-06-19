@@ -297,7 +297,8 @@ async def _roll_summon(
     if pool_type == "champion":
         filtered = {k: v for k, v in SUMMON_RATES.items() if k.startswith("champion_")}
     elif pool_type == "item":
-        filtered = {k: v for k, v in SUMMON_RATES.items() if k.startswith("item_")}
+        from config.game_config import ITEM_SUMMON_RATES
+        filtered = ITEM_SUMMON_RATES
     else:
         filtered = SUMMON_RATES
 
@@ -344,26 +345,28 @@ async def _apply_summon_result(
         }
 
     elif key.startswith("item_"):
-        # Roll tier: 75% basic, 20% advanced, 5% completed
-        tier_name = random.choices(["basic", "advanced", "completed"], weights=[75, 20, 5], k=1)[0]
-        tier_pool = ITEM_POOL.get(tier_name, ITEM_POOL["basic"])
-        if not tier_pool:
-            tier_name = "basic"
-            tier_pool = ITEM_POOL["basic"]
-        name, stat_type, passive = random.choice(tier_pool)
-        # Set rank floor per tier; roll final rank clamped to floor
+        from config.game_config import ITEM_TIER_UPGRADE_RATES
         rank_order = ["F", "E", "D", "C", "B", "A", "S"]
-        if tier_name == "completed":
-            floor = "A"
-        elif tier_name == "advanced":
-            floor = "C"
-        else:
-            floor = "F"
-        # Use the rank rolled from the key (SUMMON_RATES) but clamp to floor
         rolled_rank = key.split("_")[1].upper() if "_" in key and key.split("_")[1].upper() in rank_order else "F"
-        floor_idx = rank_order.index(floor)
-        rolled_idx = rank_order.index(rolled_rank) if rolled_rank in rank_order else 0
-        rank = rank_order[max(floor_idx, rolled_idx)]
+
+        # Single flat roll: common / advanced / completed based on rank
+        rates = ITEM_TIER_UPGRADE_RATES.get(rolled_rank, {"common": 1.0, "advanced": 0.0, "completed": 0.0})
+        tier_name = random.choices(
+            ["common", "advanced", "completed"],
+            weights=[rates["common"], rates["advanced"], rates["completed"]],
+            k=1,
+        )[0]
+        # Map to pool tier key; floor: advanced>=C, completed>=B
+        if tier_name == "completed":
+            pool_key = "completed"
+        elif tier_name == "advanced":
+            pool_key = "advanced"
+        else:
+            pool_key = "basic"
+
+        tier_pool = ITEM_POOL.get(pool_key, ITEM_POOL["basic"]) or ITEM_POOL["basic"]
+        name, stat_type, passive = random.choice(tier_pool)
+        rank = rolled_rank
         itm = await grant_item(owner_id, name, rank, stat_type, passive, session)
         return {
             "type": "item",

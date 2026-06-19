@@ -25,6 +25,7 @@ from config.game_config import (
     clearing_gold_cost,
     REROLL_FULL_COST,
     REROLL_VALUE_COST,
+    SUBSTAT_LOCK_COST,
 )
 
 
@@ -273,6 +274,23 @@ class BlacksmithCog(commands.Cog):
         await interaction.followup.send(embed=item_embed(result, "✅ Refine Applied"))
 
 
+    @app_commands.command(name="lock-substat", description="Lock a substat so it's preserved during rerolls.")
+    @app_commands.describe(number="Item display ID (see /items)")
+    async def lock_substat(self, interaction: discord.Interaction, number: int):
+        await interaction.response.defer(ephemeral=True)
+        uid = str(interaction.user.id)
+
+        itm = await get_item_by_number(uid, number)
+        if itm is None or itm.owner_id != uid:
+            await interaction.followup.send(embed=error_embed("Item not found. Use `/items` to find the right ID."), ephemeral=True)
+            return
+        if not itm.substats:
+            await interaction.followup.send(embed=error_embed("This item has no substats to lock."), ephemeral=True)
+            return
+
+        view = _SubstatLockView(itm, uid)
+        await interaction.followup.send(embed=view._build_embed(), view=view, ephemeral=True)
+
     @app_commands.command(name="build", description="Craft an item from its components. Browse with the menu or type a name directly.")
     @app_commands.describe(item_name="Optional: type item name directly (e.g. Infinity Edge). Leave blank to browse.")
     async def build(self, interaction: discord.Interaction, item_name: str = ""):
@@ -380,6 +398,79 @@ class BlacksmithCog(commands.Cog):
             await interaction.followup.send(embed=embed)
 
 
+class _SubstatLockView(discord.ui.View):
+    def __init__(self, itm, uid: str):
+        super().__init__(timeout=120)
+        self.itm = itm
+        self.uid = uid
+        self._rebuild_buttons()
+
+    def _rebuild_buttons(self):
+        self.clear_items()
+        locked_idxs = set(getattr(self.itm, "locked_substats", []))
+        cost = SUBSTAT_LOCK_COST.get(self.itm.rank, 0)
+        for i, sub in enumerate(self.itm.substats):
+            is_locked = i in locked_idxs
+            label = f"{'🔒 Unlock' if is_locked else '🔓 Lock'} #{i+1}: {sub['type'].replace('_',' ').title()} +{sub['value']/10:.1f}"
+            btn = discord.ui.Button(
+                label=label[:80],
+                style=discord.ButtonStyle.danger if is_locked else discord.ButtonStyle.primary,
+                custom_id=f"substat_lock_{i}",
+            )
+            btn.callback = self._make_callback(i, cost)
+            self.add_item(btn)
+
+    def _make_callback(self, idx: int, cost: int):
+        async def callback(interaction: discord.Interaction):
+            if str(interaction.user.id) != self.uid:
+                await interaction.response.send_message("Not your item.", ephemeral=True)
+                return
+
+            locked_idxs = set(getattr(self.itm, "locked_substats", []))
+            unlocking = idx in locked_idxs
+
+            user = await User.find_one(User.discord_id == self.uid)
+            if not unlocking and user.gold < cost:
+                await interaction.response.send_message(
+                    f"Not enough gold. Need {cost:,} to lock this substat.", ephemeral=True
+                )
+                return
+
+            if unlocking:
+                locked_idxs.discard(idx)
+            else:
+                user.gold -= cost
+                await user.save()
+                locked_idxs.add(idx)
+
+            self.itm.locked_substats = list(locked_idxs)
+            await self.itm.save()
+            self._rebuild_buttons()
+            action = "unlocked" if unlocking else f"locked (−{cost:,} gold)"
+            await interaction.response.edit_message(
+                embed=self._build_embed(f"Substat #{idx+1} {action}."),
+                view=self,
+            )
+        return callback
+
+    def _build_embed(self, status: str = "") -> discord.Embed:
+        locked_idxs = set(getattr(self.itm, "locked_substats", []))
+        cost = SUBSTAT_LOCK_COST.get(self.itm.rank, 0)
+        embed = discord.Embed(
+            title=f"🔒 Substat Lock — {self.itm.name} [{self.itm.rank}] #{getattr(self.itm, 'display_id', '?')}",
+            description=f"Lock cost per substat: **{cost:,} gold**\nLocked substats survive rerolls and refines.",
+            color=COLOR_INFO,
+        )
+        lines = []
+        for i, sub in enumerate(self.itm.substats):
+            lock_icon = "🔒" if i in locked_idxs else "🔓"
+            lines.append(f"{lock_icon} **#{i+1}** {sub['type'].replace('_',' ').title()}: +{sub['value']/10:.1f}")
+        embed.add_field(name="Substats", value="\n".join(lines), inline=False)
+        if status:
+            embed.set_footer(text=status)
+        return embed
+
+
 async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, msg=None):
     """Shared craft logic used by both the UI flow and direct name input."""
     from data.item_recipes import ITEM_RECIPES
@@ -446,6 +537,17 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
                 await interaction.followup.send(embed=embed)
             return
 
+        # Warn if any component has locked substats (they'll be destroyed)
+        locked_warning = ""
+        for comp in items_to_consume:
+            locked_idxs = getattr(comp, "locked_substats", [])
+            if locked_idxs:
+                locked_warning = (
+                    "\n\n⚠️ **WARNING:** One or more components have **locked substats**. "
+                    "These locks will be **permanently lost** when the components are consumed."
+                )
+                break
+
         comp_list = "\n".join(f"• {itm.name} [{itm.rank}]" for itm in items_to_consume)
         confirm_embed = discord.Embed(
             title=f"Craft: {matched} [{output_rank}]",
@@ -453,9 +555,9 @@ async def _do_build(interaction: discord.Interaction, uid: str, item_name: str, 
                 f"**Components consumed:**\n{comp_list}\n\n"
                 f"**Gold cost:** {gold_cost:,}\n"
                 f"**Output rank:** [{output_rank}] (lowest component rank)\n\n"
-                "This cannot be undone."
+                f"This cannot be undone.{locked_warning}"
             ),
-            color=0xFFAA00,
+            color=0xFF4400 if locked_warning else 0xFFAA00,
         )
         view = ConfirmView()
         if msg:

@@ -74,7 +74,7 @@ def _item_panel_embed(item_tokens: int, user_gold: int) -> discord.Embed:
     )
     embed.add_field(name="Item Tokens", value=str(item_tokens), inline=True)
     embed.add_field(name="Gold",        value=f"{user_gold:,}", inline=True)
-    embed.add_field(name="Tiers", value="75% Basic · 20% Advanced · 5% Completed (rank floor rises with tier)", inline=False)
+    embed.add_field(name="Tiers", value="Tier upgrades by rank: C→7% Adv · B→15% Adv/5% Comp · A→25%/10% · S→35%/20%", inline=False)
     embed.set_footer(text="1× pull = 1 Item Token  |  10× pull = 10 Item Tokens (+1 bonus)")
     return embed
 
@@ -123,7 +123,7 @@ def _token_panel_embed(champion_tokens: int, item_tokens: int, rune_tokens: int,
     return embed
 
 
-def _shop_main_embed(champion_tokens: int, user_gold: int) -> discord.Embed:
+def _shop_main_embed(champion_tokens: int, item_tokens: int, rune_tokens: int, user_gold: int) -> discord.Embed:
     region_name, _ = get_weekly_champion_pool()
     rune_name, _   = get_weekly_rune_category()
 
@@ -133,11 +133,14 @@ def _shop_main_embed(champion_tokens: int, user_gold: int) -> discord.Embed:
         color=COLOR_GOLD,
     )
     embed.add_field(name="Champion Tokens", value=str(champion_tokens), inline=True)
-    embed.add_field(name="Gold",            value=f"{user_gold:,}", inline=True)
+    embed.add_field(name="Item Tokens",     value=str(item_tokens),     inline=True)
+    embed.add_field(name="Rune Tokens",     value=str(rune_tokens),     inline=True)
+    embed.add_field(name="Gold",            value=f"{user_gold:,}",     inline=True)
     embed.add_field(name="​", value="​", inline=True)
-    embed.add_field(name="Champions", value=f"Region: **{region_name}**",   inline=True)
-    embed.add_field(name="Items",     value="Unified Pool",                  inline=True)
-    embed.add_field(name="Runes",     value=f"Path: **{rune_name}**",       inline=True)
+    embed.add_field(name="​", value="​", inline=True)
+    embed.add_field(name="Champions", value=f"Region: **{region_name}**", inline=True)
+    embed.add_field(name="Items",     value="Unified Pool",               inline=True)
+    embed.add_field(name="Runes",     value=f"Path: **{rune_name}**",    inline=True)
     embed.set_footer(text="1× = 1 token  |  10× = 10 tokens (+1 bonus pull)  |  Each pull type uses its own token")
     return embed
 
@@ -187,7 +190,7 @@ class PullView(discord.ui.View):
     @discord.ui.button(label="Back to Shop", style=discord.ButtonStyle.secondary)
     async def back_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
         user = await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
-        embed = _shop_main_embed(user.champion_tokens, user.gold)
+        embed = _shop_main_embed(user.champion_tokens, user.item_tokens, user.rune_tokens, user.gold)
         view = ShopView(interaction.user.id)
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -219,7 +222,7 @@ class TokenBundleView(discord.ui.View):
         async def _back(interaction: discord.Interaction):
             user = await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
             await interaction.response.edit_message(
-                embed=_shop_main_embed(user.champion_tokens, user.gold),
+                embed=_shop_main_embed(user.champion_tokens, user.item_tokens, user.rune_tokens, user.gold),
                 view=ShopView(interaction.user.id),
             )
         back.callback = _back
@@ -309,7 +312,7 @@ class ShopCog(commands.Cog):
     async def shop(self, interaction: discord.Interaction):
         await interaction.response.defer()
         user = await User.get_or_create(str(interaction.user.id), interaction.user.display_name)
-        embed = _shop_main_embed(user.champion_tokens, user.gold)
+        embed = _shop_main_embed(user.champion_tokens, user.item_tokens, user.rune_tokens, user.gold)
         view = ShopView(interaction.user.id)
         await interaction.followup.send(embed=embed, view=view)
 

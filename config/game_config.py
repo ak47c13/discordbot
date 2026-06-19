@@ -169,15 +169,16 @@ ITEM_BASE_MAIN_STAT = {
     "S": 240,
 }
 
-# Secondary stat roll ranges [min, max] by rank (percentage values * 10 for int storage)
+# Secondary stat roll ranges [min, max] by rank (stored *10, so 100 = 10.0%)
+# F feels like noise; S visibly changes combat outcomes.
 SECONDARY_STAT_RANGE = {
-    "F": (10, 30),    # 1.0% - 3.0%
-    "E": (20, 50),
-    "D": (35, 75),
-    "C": (50, 100),
-    "B": (70, 140),
-    "A": (100, 200),
-    "S": (150, 300),
+    "F": (5,   15),    # 0.5% - 1.5%
+    "E": (10,  25),    # 1.0% - 2.5%
+    "D": (20,  40),    # 2.0% - 4.0%
+    "C": (35,  65),    # 3.5% - 6.5%
+    "B": (55,  95),    # 5.5% - 9.5%
+    "A": (80,  140),   # 8.0% - 14.0%
+    "S": (120, 200),   # 12.0% - 20.0%
 }
 
 SECONDARY_STAT_TYPES = [
@@ -226,6 +227,40 @@ SUMMON_RATES = {
     "reroll_mat": 0.015,
     "seal":       0.001,
     "rune":       0.040,   # rune instance (rank rolled from RUNE_SUMMON_RATES)
+}
+
+# Item pull rank rates — used when pool_type="item"
+ITEM_SUMMON_RATES = {
+    "item_F": 0.400,
+    "item_E": 0.250,
+    "item_D": 0.180,
+    "item_C": 0.100,
+    "item_B": 0.050,
+    "item_A": 0.015,
+    "item_S": 0.005,
+}
+
+# Within a confirmed rank, single flat roll for item tier.
+# Floors enforced: advanced >= C, completed >= B.
+ITEM_TIER_UPGRADE_RATES = {
+    "F": {"common": 1.00, "advanced": 0.00, "completed": 0.00},
+    "E": {"common": 1.00, "advanced": 0.00, "completed": 0.00},
+    "D": {"common": 1.00, "advanced": 0.00, "completed": 0.00},
+    "C": {"common": 0.93, "advanced": 0.07, "completed": 0.00},
+    "B": {"common": 0.80, "advanced": 0.15, "completed": 0.05},
+    "A": {"common": 0.65, "advanced": 0.25, "completed": 0.10},
+    "S": {"common": 0.45, "advanced": 0.35, "completed": 0.20},
+}
+
+# Gold cost to lock a single substat slot (per item rank)
+SUBSTAT_LOCK_COST = {
+    "F":   500,
+    "E":  1_000,
+    "D":  3_000,
+    "C":  8_000,
+    "B": 20_000,
+    "A": 50_000,
+    "S": 120_000,
 }
 
 # Rune pull rank rates — used when pool_type="rune"
