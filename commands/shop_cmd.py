@@ -237,7 +237,10 @@ class TokenBundleView(discord.ui.View):
             uid = str(interaction.user.id)
             try:
                 async with get_user_lock(uid):
-                    res = await buy_token_bundle(uid, index, token_type=token_type)
+                    client = get_motor_client()
+                    async with await client.start_session() as session:
+                        async with session.start_transaction():
+                            res = await buy_token_bundle(uid, index, token_type=token_type, session=session)
                 embed = success_embed(
                     f"Bought **{res['tokens_gained']} {token_type} token(s)** for **{res['gold_spent']:,} gold**!",
                     title="Purchase Complete",

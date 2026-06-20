@@ -36,6 +36,7 @@ PULL_COSTS = {
 
 async def buy_token_bundle(owner_id: str, bundle_index: int, token_type: str = "champion", session=None) -> dict:
     """Buy a gold→token bundle. token_type: 'champion'/'item'/'rune'. bundle_index 0-1."""
+    from utils.db_session import usable_session as _usable
     bundle_map = {
         "champion": CHAMPION_TOKEN_BUNDLES,
         "item": ITEM_TOKEN_BUNDLES,
@@ -45,7 +46,7 @@ async def buy_token_bundle(owner_id: str, bundle_index: int, token_type: str = "
     if bundle_index < 0 or bundle_index >= len(bundles):
         raise ShopError("Invalid bundle.")
     bundle = bundles[bundle_index]
-    user = await User.find_one(User.discord_id == owner_id)
+    user = await User.find_one(User.discord_id == owner_id, session=_usable(session))
     if user is None:
         raise ShopError("User not found. Use /start to register.")
     if user.gold < bundle["gold"]:
@@ -53,5 +54,5 @@ async def buy_token_bundle(owner_id: str, bundle_index: int, token_type: str = "
     user.gold -= bundle["gold"]
     token_field = f"{token_type}_tokens"
     setattr(user, token_field, getattr(user, token_field, 0) + bundle["tokens"])
-    await user.save()
+    await user.save(session=_usable(session))
     return {"tokens_gained": bundle["tokens"], "gold_spent": bundle["gold"], "token_type": token_type}

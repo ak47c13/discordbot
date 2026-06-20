@@ -154,9 +154,6 @@ class MarketCog(commands.Cog):
         uid = str(interaction.user.id)
 
         iid = str(interaction.id)
-        if await is_already_processed(iid):
-            await interaction.followup.send(embed=error_embed("Already processed."), ephemeral=True)
-            return
 
         listing = await MarketListing.get(listing_id)
         if listing is None or listing.status != "active":
@@ -184,13 +181,15 @@ class MarketCog(commands.Cog):
             client = get_motor_client()
             async with await client.start_session() as session:
                 async with session.start_transaction():
+                    if await is_already_processed(iid):
+                        await interaction.followup.send(embed=error_embed("Already processed."), ephemeral=True)
+                        return
                     try:
                         result = await buy_listing(uid, listing_id, session)
                     except MarketError as e:
                         await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
                         return
-
-        await mark_processed(iid, f"market_buy:{listing_id}")
+                    await mark_processed(iid, f"market_buy:{listing_id}")
         await interaction.followup.send(
             embed=success_embed(f"Purchase complete! Paid {listing.price} gold."),
             ephemeral=True,

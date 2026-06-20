@@ -90,10 +90,18 @@ class TradeOfferView(discord.ui.View):
 
         await interaction.response.defer(ephemeral=True)
         uid = str(interaction.user.id)
+        initiator_id = str(self.initiator_id)
 
+        # Acquire both locks in consistent order to prevent deadlock
+        first_id, second_id = sorted([uid, initiator_id])
         try:
-            async with get_user_lock(uid):
-                trade = await accept_trade(self.trade_id, uid, None)
+            async with get_user_lock(first_id):
+                async with get_user_lock(second_id):
+                    from utils.db_session import get_motor_client
+                    client = get_motor_client()
+                    async with await client.start_session() as session:
+                        async with session.start_transaction():
+                            trade = await accept_trade(self.trade_id, uid, session)
         except TradeError as e:
             await interaction.followup.send(embed=error_embed(str(e)), ephemeral=True)
             return
