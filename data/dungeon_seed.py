@@ -91,9 +91,12 @@ def _checkpoints_for(total_floors: int) -> set[int]:
     return {f for f in range(10, total_floors, 10)}
 
 
-def _hazard_for_floor(rng: random.Random, floor_num: int, boss_floor: bool, map_index: int) -> str:
+def _hazard_for_floor(rng: random.Random, floor_num: int, boss_floor: bool, map_index: int, total_floors: int) -> str:
     if boss_floor:
         return ""
+    # Final 5 floors before the boss always have heavy hazards
+    if floor_num >= total_floors - 5:
+        return rng.choice(HAZARDS)
     # Hazard frequency increases slightly on later maps
     chance = 0.25 + map_index * 0.03
     if rng.random() < chance:
@@ -111,7 +114,7 @@ def build_floors(slug: str, region: str, total_floors: int,
     for floor_num in range(1, total_floors + 1):
         boss_floor = floor_num == total_floors
         rank = _rank_for_floor(map_index, total_floors, floor_num)
-        hazard = _hazard_for_floor(rng, floor_num, boss_floor, map_index)
+        hazard = _hazard_for_floor(rng, floor_num, boss_floor, map_index, total_floors)
 
         # Boss stats scale with map depth
         boss_hp_mult = 1.2 + map_index * 0.15
@@ -161,15 +164,16 @@ def build_floors(slug: str, region: str, total_floors: int,
     return floors
 
 
-async def seed_dungeons() -> bool:
+async def seed_dungeons(force: bool = False) -> bool:
     """Create all Dungeon and DungeonFloor documents. Idempotent.
 
     If old-style dungeons exist (pre-linear-chain), wipes them and reseeds.
+    Pass force=True to wipe and reseed even if already seeded.
     Returns True if seeding ran, False if already up to date.
     """
     # Check if new-style linear maps already exist
     existing_new = await Dungeon.find_one(Dungeon.slug == "map-1-demacia")
-    if existing_new is not None:
+    if existing_new is not None and not force:
         return False
 
     # Wipe any legacy dungeons so old/new don't coexist

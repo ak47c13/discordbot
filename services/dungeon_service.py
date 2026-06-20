@@ -254,7 +254,7 @@ async def get_floor_preview(dungeon_slug: str, floor_num: int, session=None) -> 
 def _xp_content_level(dungeon_slug: str, floor_num: int, total_floors: int) -> int:
     """Effective content level for a given floor, used to scale XP per champion level."""
     map_idx = _MAP_ORDER.index(dungeon_slug) if dungeon_slug in _MAP_ORDER else 0
-    return int(map_idx * 10 + (floor_num / max(1, total_floors)) * 10 * (map_idx + 1))
+    return int(map_idx * 15 + (floor_num / max(1, total_floors)) * 15 * (map_idx + 1))
 
 
 def _xp_multiplier(content_level: int, champ_level: int) -> float:
@@ -412,7 +412,7 @@ async def grant_floor_rewards(
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
         cl = _xp_content_level(dungeon_slug, floor_num, dungeon.total_floors)
-        rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_drop_chance = min(0.15, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold
@@ -552,7 +552,7 @@ async def enter_floor(
         gold = int((DUNGEON_FLOOR_GOLD_BASE + floor_num * DUNGEON_FLOOR_GOLD_PER_FLOOR) * map_mult)
         xp = int((DUNGEON_FLOOR_XP_BASE + floor_num * DUNGEON_FLOOR_XP_PER_FLOOR) * map_mult)
         cl = _xp_content_level(dungeon_slug, floor_num, dungeon.total_floors)
-        rune_drop_chance = min(0.40, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
+        rune_drop_chance = min(0.15, DUNGEON_RUNE_SHARD_CHANCE * map_mult)
         rewards["gold"] = gold
         rewards["xp"] = xp
         user.gold += gold

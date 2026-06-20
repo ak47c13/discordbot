@@ -608,11 +608,11 @@ BOSS_MECHANICS = {
 # ---------------------------------------------------------------------------
 # Dungeon rewards
 # ---------------------------------------------------------------------------
-DUNGEON_FLOOR_GOLD_BASE = 200
+DUNGEON_FLOOR_GOLD_BASE = 350
 DUNGEON_FLOOR_GOLD_PER_FLOOR = 50
 DUNGEON_FLOOR_XP_BASE = 20
 DUNGEON_FLOOR_XP_PER_FLOOR = 8
-DUNGEON_RUNE_SHARD_CHANCE = 0.10     # 10% per floor
+DUNGEON_RUNE_SHARD_CHANCE = 0.05     # 5% base per floor (capped at 15%)
 
 # First-clear bonuses by dungeon length
 DUNGEON_FIRST_CLEAR = {
