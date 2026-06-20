@@ -496,7 +496,7 @@ RAID_DIFFICULTIES = {
     "F": {
         "display": "F — Skirmish",
         "boss_rank": "F",
-        "gold_min":   400,   "gold_max":   900,
+        "gold_min":   3_000,  "gold_max":   6_000,
         "token_min":    5,   "token_max":    8,
         "champ_chance": 0.10, "champ_ranks": ["F", "E"],
         "item_chance":  0.15, "item_ranks":  ["F", "E"],
@@ -505,7 +505,7 @@ RAID_DIFFICULTIES = {
     "E": {
         "display": "E — Skirmish+",
         "boss_rank": "E",
-        "gold_min": 1_000,   "gold_max":  2_500,
+        "gold_min":   8_000,  "gold_max":  15_000,
         "token_min":    9,   "token_max":    15,
         "champ_chance": 0.12, "champ_ranks": ["E", "D"],
         "item_chance":  0.18, "item_ranks":  ["E", "D"],
@@ -514,7 +514,7 @@ RAID_DIFFICULTIES = {
     "D": {
         "display": "D — Incursion",
         "boss_rank": "D",
-        "gold_min": 3_000,   "gold_max":  6_000,
+        "gold_min":  20_000,  "gold_max":  40_000,
         "token_min":   15,   "token_max":    25,
         "champ_chance": 0.15, "champ_ranks": ["D", "C"],
         "item_chance":  0.20, "item_ranks":  ["D", "C"],
@@ -523,7 +523,7 @@ RAID_DIFFICULTIES = {
     "C": {
         "display": "C — Siege",
         "boss_rank": "C",
-        "gold_min": 6_000,   "gold_max": 12_000,
+        "gold_min":  50_000,  "gold_max": 100_000,
         "token_min":   25,   "token_max":    40,
         "champ_chance": 0.18, "champ_ranks": ["C", "B"],
         "item_chance":  0.22, "item_ranks":  ["C", "B"],
@@ -532,7 +532,7 @@ RAID_DIFFICULTIES = {
     "B": {
         "display": "B — Assault",
         "boss_rank": "B",
-        "gold_min": 15_000,  "gold_max": 30_000,
+        "gold_min": 120_000,  "gold_max": 240_000,
         "token_min":   35,   "token_max":    60,
         "champ_chance": 0.20, "champ_ranks": ["B", "A"],
         "item_chance":  0.25, "item_ranks":  ["B", "A"],
@@ -541,7 +541,7 @@ RAID_DIFFICULTIES = {
     "A": {
         "display": "A — Conquest",
         "boss_rank": "A",
-        "gold_min": 40_000,  "gold_max": 80_000,
+        "gold_min": 300_000,  "gold_max": 600_000,
         "token_min":   60,   "token_max":   100,
         "champ_chance": 0.22, "champ_ranks": ["A", "S"],
         "item_chance":  0.28, "item_ranks":  ["A", "S"],
@@ -550,7 +550,7 @@ RAID_DIFFICULTIES = {
     "S": {
         "display": "S — Annihilation",
         "boss_rank": "S",
-        "gold_min": 100_000, "gold_max": 200_000,
+        "gold_min": 750_000,  "gold_max": 1_500_000,
         "token_min":  100,   "token_max":   160,
         "champ_chance": 0.25, "champ_ranks": ["A", "S"],
         "item_chance":  0.30, "item_ranks":  ["A", "S"],

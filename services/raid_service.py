@@ -289,8 +289,11 @@ async def finalize_raid(
         if is_solo:
             drop_chance *= 0.5
         if random.random() < drop_chance:
-            player_list = list(contributions.keys())
-            weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
+            eligible = {p: c for p, c in contributions.items() if c >= 0.10}
+            if not eligible:
+                eligible = contributions
+            player_list = list(eligible.keys())
+            weights = [eligible[p] for p in player_list]
             winner_pid = random.choices(player_list, weights=weights, k=1)[0]
             champ_dropped.append(winner_pid)
 
@@ -406,8 +409,11 @@ async def start_raid(
         if is_solo:
             drop_chance *= 0.5   # solo penalty
         if random.random() < drop_chance:
-            player_list = list(contributions.keys())
-            weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
+            eligible = {p: c for p, c in contributions.items() if c >= 0.10}
+            if not eligible:
+                eligible = contributions  # fallback: solo or all below threshold
+            player_list = list(eligible.keys())
+            weights = [eligible[p] for p in player_list]
             winner_pid = random.choices(player_list, weights=weights, k=1)[0]
             champ_dropped.append(winner_pid)
 
