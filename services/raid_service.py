@@ -561,6 +561,8 @@ async def _roll_raid_drops(
     solo_mult = 0.60 if is_solo else 1.0
 
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
+    if user is None:
+        return rewards
 
     # Gold — always drops
     gold = int(random.randint(cfg["gold_min"], cfg["gold_max"]) * solo_mult)
