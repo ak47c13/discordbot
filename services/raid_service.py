@@ -70,24 +70,6 @@ CHAMP_DROP_CHANCE: dict[str, float] = {
     "F": 0.15, "E": 0.12, "D": 0.10, "C": 0.07, "B": 0.05, "A": 0.03, "S": 0.015,
 }
 
-# Possible drop counts and their probabilities per rank
-CHAMP_DROP_COUNTS: dict[str, list[tuple[int, float]]] = {
-    "S": [(1, 1.00)],
-    "A": [(1, 0.97), (2, 0.03)],
-    "B": [(1, 0.90), (2, 0.10)],
-    "C": [(1, 0.80), (2, 0.20)],
-    "D": [(1, 0.70), (2, 0.25), (3, 0.05)],
-    "E": [(1, 0.60), (2, 0.30), (3, 0.10)],
-    "F": [(1, 0.50), (2, 0.35), (3, 0.15)],
-}
-
-
-def _pick_drop_count(rank: str) -> int:
-    options = CHAMP_DROP_COUNTS.get(rank, [(1, 1.0)])
-    counts = [o[0] for o in options]
-    weights = [o[1] for o in options]
-    return random.choices(counts, weights=weights, k=1)[0]
-
 
 def _build_raid_boss(difficulty: str, n_players: int, boss_name: str):
     """Build a boss CombatUnit scaled for a full 5-player team, reduced for smaller parties.
@@ -198,14 +180,6 @@ async def join_raid(
     if len(raid.player_ids) >= RAID_MAX_PLAYERS:
         raise RaidError("Raid is full (5 players max).")
 
-    user = await User.find_one(User.discord_id == player_id, session=usable_session(session))
-    if user:
-        _reset_daily_raids_if_needed(user)
-        if user.daily_raids_used >= RAID_DAILY_LIMIT:
-            raise RaidError(f"Raid limit reached ({RAID_DAILY_LIMIT} raids per {RAID_RESET_HOURS}h). Try again later.")
-        user.daily_raids_used += 1
-        await user.save(session=usable_session(session))
-
     c = await ChampionInstance.get(PydanticObjectId(champion_id), session=usable_session(session))
     if c is None or c.owner_id != player_id:
         raise RaidError("Champion not found or not owned by you.")
@@ -315,14 +289,10 @@ async def finalize_raid(
         if is_solo:
             drop_chance *= 0.5
         if random.random() < drop_chance:
-            count = _pick_drop_count(boss_rank)
             player_list = list(contributions.keys())
             weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
-            for _ in range(count):
-                if not player_list:
-                    break
-                winner_pid = random.choices(player_list, weights=weights, k=1)[0]
-                champ_dropped.append(winner_pid)
+            winner_pid = random.choices(player_list, weights=weights, k=1)[0]
+            champ_dropped.append(winner_pid)
 
     player_rewards: dict[str, Any] = {}
     rewarded = set(raid.rewarded_player_ids) if raid else set()
@@ -436,14 +406,10 @@ async def start_raid(
         if is_solo:
             drop_chance *= 0.5   # solo penalty
         if random.random() < drop_chance:
-            count = _pick_drop_count(boss_rank)
             player_list = list(contributions.keys())
             weights = [contributions.get(p, 1.0 / len(player_list)) for p in player_list]
-            for _ in range(count):
-                if not player_list:
-                    break
-                winner_pid = random.choices(player_list, weights=weights, k=1)[0]
-                champ_dropped.append(winner_pid)
+            winner_pid = random.choices(player_list, weights=weights, k=1)[0]
+            champ_dropped.append(winner_pid)
 
     # Spend daily raid slots and distribute loot
     player_rewards = {}
