@@ -394,6 +394,8 @@ async def grant_floor_rewards(
         session=usable_session(session),
     )
     user = await User.find_one(User.discord_id == owner_id, session=usable_session(session))
+    if floor is None or user is None:
+        return {"gold": 0, "xp": 0, "rune": None, "leveled": [], "bonus": None}
     cost = DUNGEON_BOSS_RETRY_COST if floor.boss_floor else DUNGEON_STAMINA_COST
     user.stamina = max(0, user.stamina - cost)
     user.last_stamina_regen = datetime.now(timezone.utc)

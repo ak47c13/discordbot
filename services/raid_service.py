@@ -269,6 +269,8 @@ async def finalize_raid(
 ) -> dict[str, Any]:
     """Calculate contributions and distribute rewards after combat resolves."""
     raid = await RaidQueue.get(PydanticObjectId(raid_id), session=usable_session(session))
+    if raid is None:
+        raise RaidError("Raid session not found — rewards could not be distributed.")
 
     raw_scores: dict[str, float] = {}
     for unit in player_units:
